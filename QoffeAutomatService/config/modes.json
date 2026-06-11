@@ -1,0 +1,50 @@
+{
+  "Modes": [
+    {
+      "Name": "Normal-Mode",
+      "DisplayConfig": "Normal-Mode",
+      "Programs": []
+    },
+    {
+      "Name": "Study-Mode",
+      "DisplayConfig": "Study-Mode",
+      "Programs": []
+    },
+    {
+      "Name": "TV-Gaming-Mode",
+      "DisplayConfig": "TV-Mode",
+      "Programs": [
+        {
+          "Command": "C:\\Program Files (x86)\\Steam\\steam.exe",
+          "Arguments": "-start steam://open/bigpicture -fulldesktopres"
+        }
+      ]
+    },
+    {
+      "Name": "TV-Entertainment-Mode",
+      "DisplayConfig": "TV-Mode",
+      "Programs": []
+    },
+    {
+      "Name": "TV-Rennsport-Mode",
+      "DisplayConfig": "TV-Mode",
+      "Programs": [
+        {
+          "Command": "C:\\Program Files (x86)\\MOZA Pit House\\MOZA Pit House.exe",
+          "Arguments": null
+        },
+        {
+          "Command": "C:\\Program Files (x86)\\SimHub\\SimHubWPF.exe",
+          "Arguments": null
+        },
+        {
+          "Sleep": 10
+        },
+        {
+          "Command": "C:\\Program Files (x86)\\Steam\\steam.exe",
+          "Arguments": "-start steam://open/bigpicture -fulldesktopres"
+        }
+      ]
+    }
+  ]
+}
