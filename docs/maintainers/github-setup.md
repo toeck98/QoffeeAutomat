@@ -103,7 +103,7 @@ a test with a fake `gh`: `bash tests/scripts/test_setup_repo.sh` (also run by `c
 | Discussion categories | Discussions, Categories | The API cannot create them. Q&A, Ideas and Show and tell (shared commands) are expected; the script warns when one is missing. |
 | Project board | Your profile, Projects, New project | Create one project (v2). Then set the repository **variable** `PLAN_PROJECT_NUMBER` (Settings, Secrets and variables, Actions, Variables) to its number and the repository **secret** `PLAN_PROJECT_TOKEN` to a token that has the `project` scope. The workflow token cannot reach user-owned projects. Without both, `plan-sync.yml` still syncs the issues and skips the board. |
 | Code scanning default setup | Settings, Advanced Security | Must stay **off**: `codeql.yml` is the advanced setup and GitHub does not allow both. |
-| Dependency graph | Settings, Advanced Security | On by default for public repositories; `dependency-review.yml` needs it. |
+| Dependency graph | Settings, Advanced Security | On by default for public repositories. While it is off, `dependency-review.yml` skips the review with a warning annotation; once on, the review runs strictly. |
 | Social preview image | Settings, General | Optional; use `assets/brand/logo.png`. |
 | Code signing | SignPath Foundation | Open item O-02: submit the application yourself. |
 | HACS default store | HACS repository | Open item O-04: submit after 1.0. |
@@ -115,6 +115,8 @@ a test with a fake `gh`: `bash tests/scripts/test_setup_repo.sh` (also run by `c
   The first run can be started by hand (Actions, plan-sync, Run workflow; the default is
   a dry run that only prints the planned changes). Run it once without the dry-run
   option to create all issues.
-- If `hacs validation` complains about `description` or `topics`, the `metadata` step has
-  not run yet. The `brands` check is ignored on purpose until the brand images are
-  added to the integration (task T507).
+- `hacs validation` ignores `brands`, `description`, `topics` and `license` on purpose
+  (see the comment in `ci-integration.yml`): `brands` until the brand images are added to
+  the integration (task T507), `description` and `topics` until the `metadata` step of
+  `setup-repo.sh` has run, and `license` until `LICENSE` is on `main`. Remove the last
+  three from `ignore` once the repository settings are applied and the license is merged.

@@ -141,16 +141,18 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Ignored HACS check: "brands" accepts only brand images that are published in
-      # home-assistant/brands or shipped in custom_components/qoffeeautomat/brand/. The
-      # brand folder is added by task T507 once the artwork exists (open item O-05).
-      # All other checks run; "description" and "topics" need the repository settings
-      # that scripts/github/setup-repo.sh applies (docs/maintainers/github-setup.md).
+      # Ignored HACS checks (all others run):
+      # - brands: accepts only brand images published in home-assistant/brands or shipped in
+      #   custom_components/qoffeeautomat/brand/; the folder is added by task T507 (O-05).
+      # - description, topics: need repository settings that scripts/github/setup-repo.sh
+      #   applies (open item O-01, docs/maintainers/github-setup.md).
+      # - license: the GitHub API reports a license only once LICENSE is on the default
+      #   branch, which happens when the milestone M0 pull request is merged into main.
       - name: Run HACS validation
         uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
         with:
           category: integration
-          ignore: brands
+          ignore: brands,description,topics,license
           comment: "false"
 
   result:

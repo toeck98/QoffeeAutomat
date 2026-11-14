@@ -2,6 +2,7 @@ version: 2
 
 # Weekly dependency updates with grouped minor and patch updates (PLAN.md S12, task T008).
 # Pull request titles follow Conventional Commits: "chore(deps): bump ...".
+# Every ecosystem waits 7 days after a release before proposing it (cooldown).
 
 updates:
   - package-ecosystem: nuget
@@ -9,6 +10,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
@@ -26,6 +29,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
@@ -41,6 +46,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
@@ -56,6 +63,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
