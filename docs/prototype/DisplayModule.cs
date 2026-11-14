@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 
-namespace QoffeAutomatService.Services
+namespace QoffeeAutomat.Prototype.Services
 {
     public class DisplayModule : IServiceModule
     {

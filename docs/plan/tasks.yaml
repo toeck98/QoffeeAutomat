@@ -1,0 +1,3011 @@
+# QoffeeAutomat work breakdown. Specification: PLAN.md (same directory).
+# Validate with: python scripts/plan/validate.py   (created by T005)
+schema_version: 1
+project: QoffeeAutomat
+spec_file: PLAN.md
+
+# Field reference for every entry in `tasks`:
+#   id            T<3 digits>; the first digit is the milestone number
+#   title         imperative summary
+#   milestone     M0..M9 (see `milestones`)
+#   area          list of: repo, ci, github, protocol, contracts, core, agent, api,
+#                 windows, sessionhost, ui, integration, packaging, docs, security,
+#                 linux, hub
+#   size          S (under half a day), M (about a day), L (several days) of agent work
+#   actor         agent | human | agent+human
+#   platform      any | windows | linux   (where the result must be verified)
+#   depends_on    task ids that must be `done` first
+#   requirements  requirement ids from PLAN.md S02
+#   spec          section ids from PLAN.md that must be read first
+#   description   what to build
+#   deliverables  paths that must exist afterwards (directories end with /)
+#   acceptance    conditions that must all hold
+#   verify        shell commands that must succeed (in addition to PLAN.md S14)
+#   status        todo | in_progress | blocked | done
+# Optional fields:
+#   human_verify  true when a check on a real Windows desktop is required
+#   detail        epic = placeholder that must first be refined into tasks
+#   blocked_reason  text, only with status blocked
+
+status_values: [todo, in_progress, blocked, done]
+
+milestones:
+  - id: M0
+    title: Foundation
+    goal: Clean repository with tooling, CI, agent instructions and GitHub configuration.
+    exit_criteria:
+      - "All CI workflows run green on an empty skeleton."
+      - "AGENTS.md, PLAN.md and tasks.yaml are in the repository and the plan validator passes."
+  - id: M1
+    title: Protocol and contracts
+    goal: QoffeeLink v1 and the config document formats are specified as schemas with fixtures and implemented as C# and Python models.
+    exit_criteria:
+      - "Every message type has a schema and a fixture; .NET and Python conformance tests pass."
+  - id: M2
+    title: Agent core
+    goal: Cross-platform agent running with the simulated platform; link server, management API and auth work.
+    exit_criteria:
+      - "A WebSocket client can pair, read the manifest, subscribe to metrics and run a command with variables against the agent on Linux."
+  - id: M3
+    title: Windows platform
+    goal: Windows service, SessionHost, real metrics, built-in commands, prototype features as templates.
+    exit_criteria:
+      - "The installed service reports the v1 metric set and runs system and user commands on a real Windows PC."
+  - id: M4
+    title: Web UI
+    goal: Blazor UI to monitor the PC, manage and author commands and sensors, pair Home Assistant.
+    exit_criteria:
+      - "A user can create a PowerShell command with variables, test it and enable it without editing files."
+  - id: M5
+    title: Home Assistant integration
+    goal: Custom integration with config flow, dynamic entities, actions and diagnostics.
+    exit_criteria:
+      - "The nightly end-to-end test pairs Home Assistant with the agent, sees entities and runs a command with variables."
+  - id: M6
+    title: Release 1.0
+    goal: Installer, release automation, documentation, HACS readiness, security review.
+    exit_criteria:
+      - "Version 1.0.0 is published with installer, integration zip, checksums, SBOM and attestations."
+  - id: M7
+    title: Quality of life (1.x)
+    goal: Templates, notifications, Wake-on-LAN, updates and other comfort features.
+    exit_criteria:
+      - "Each feature ships in a minor release with documentation."
+  - id: M8
+    title: Linux support
+    goal: Linux platform, systemd integration and packaging.
+    exit_criteria:
+      - "The agent installs as a systemd service on Debian or Ubuntu and passes the end-to-end test with real providers."
+  - id: M9
+    title: Central hub
+    goal: Hub with enrollment, configuration roll-out, metric store, management tunnel and fleet link for Home Assistant, shipped as container image and Home Assistant app.
+    exit_criteria:
+      - "The hub end-to-end test passes: two agents enroll, receive a published profile, report metrics, and Home Assistant controls both through the fleet link."
+      - "The hub is released as container image and Home Assistant app with documentation."
+
+tasks:
+  # ───────────────────────────── M0 Foundation ─────────────────────────────
+  - id: T001
+    title: Archive the prototype and reset the repository
+    milestone: M0
+    area: [repo]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: []
+    requirements: [R-10]
+    spec: [S02, S05]
+    description: >-
+      Tag the current commit as prototype-v0 so the old service stays reachable, then remove
+      QoffeAutomatService/ from main (the folder keeps the prototype's old spelling; everything
+      new is spelled QoffeeAutomat, and no other occurrence of the old spelling may remain). Copy the prototype's modes.json and the display logic of
+      DisplayModule.cs into docs/prototype/ as reference material for T309. Replace README.md
+      with a short stub that states the project is being rebuilt and links to docs/plan/.
+      Add PLAN.md and tasks.yaml under docs/plan/ and the placeholder brand files delivered
+      with the plan (icon, logo, dark logo, app.ico, README) under assets/brand/. Add the two
+      files for the repository setup that were delivered with the plan unchanged:
+      scripts/github/setup-repo.sh (executable bit set) and .github/labels.yml.
+    deliverables: [docs/plan/PLAN.md, docs/plan/tasks.yaml, docs/prototype/, assets/brand/, scripts/github/setup-repo.sh, .github/labels.yml, README.md]
+    acceptance:
+      - "Tag prototype-v0 points at the last prototype commit."
+      - "No file of the old service remains outside docs/prototype/."
+      - "assets/brand/ contains icon.svg, icon.png, icon@2x.png, logo.png, logo@2x.png, dark_logo.png, dark_logo@2x.png and app.ico."
+    verify:
+      - "git tag --list prototype-v0 | grep -q prototype-v0"
+      - "test ! -d QoffeAutomatService"
+    status: done
+
+  - id: T002
+    title: Create the .NET solution skeleton
+    milestone: M0
+    area: [repo]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T001]
+    requirements: [R-09]
+    spec: [S03, S04, S05, S14]
+    description: >-
+      Create QoffeeAutomat.slnx with all projects from PLAN.md S04 except Platform.Linux and Hub,
+      plus the test projects from S05. Add global.json (latest .NET 10 SDK, rollForward
+      latestFeature), Directory.Build.props (net10.0, nullable, implicit usings, warnings as
+      errors, analyzers, deterministic builds, Version 0.1.0, MIT metadata),
+      Directory.Packages.props (central package management), .editorconfig, .gitattributes and
+      a .NET .gitignore. Platform.Windows and SessionHost target net10.0-windows and are
+      excluded from the build on non-Windows hosts by a condition so that dotnet build works on
+      Linux. Each project contains a placeholder type and each test project one passing test.
+    deliverables: [QoffeeAutomat.slnx, global.json, Directory.Build.props, Directory.Packages.props, .editorconfig, src/, tests/]
+    acceptance:
+      - "dotnet build and dotnet test succeed on Linux and on Windows."
+      - "Project references follow S04: Contracts has no project references; Core references Contracts only; Ui.Components does not reference Agent or Core."
+    verify:
+      - "dotnet build -warnaserror"
+      - "dotnet test"
+      - "dotnet format --verify-no-changes"
+    status: todo
+
+  - id: T003
+    title: Create the Home Assistant integration skeleton
+    milestone: M0
+    area: [integration, repo]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T001]
+    requirements: [R-07]
+    spec: [S03, S05, S10]
+    description: >-
+      Create custom_components/qoffeeautomat/ with manifest.json (domain, name, codeowners
+      @toeck98, config_flow true, documentation, issue_tracker, integration_type device,
+      iot_class local_push, version 0.1.0, zeroconf type, empty requirements), __init__.py,
+      const.py, a config_flow.py stub, strings.json and translations/en.json. Add hacs.json at
+      the repository root (name, zip_release true, filename qoffeeautomat.zip, homeassistant
+      minimum version per D-022 after checking the current stable release). Add pyproject.toml
+      with ruff, mypy and pytest configuration, requirements-dev.txt with
+      pytest-homeassistant-custom-component, and tests_integration/ with one test that loads
+      the manifest.
+    deliverables: [custom_components/qoffeeautomat/manifest.json, hacs.json, pyproject.toml, requirements-dev.txt, tests_integration/]
+    acceptance:
+      - "ruff, mypy and pytest pass."
+      - "manifest.json contains every key required by HACS: domain, documentation, issue_tracker, codeowners, name, version."
+    verify:
+      - "ruff check . && ruff format --check ."
+      - "mypy custom_components/qoffeeautomat"
+      - "pytest tests_integration"
+    status: todo
+
+  - id: T004
+    title: Add license, community health files and issue forms
+    milestone: M0
+    area: [github, docs]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T001]
+    requirements: [R-08]
+    spec: [S12]
+    description: >-
+      Add LICENSE (MIT, copyright toeck98), CONTRIBUTING.md (workflow from PLAN.md S01,
+      Conventional Commits, how to run checks), CODE_OF_CONDUCT.md (Contributor Covenant),
+      SECURITY.md (private vulnerability reporting, supported versions), .github/CODEOWNERS,
+      .github/pull_request_template.md (task id, checklist), issue forms bug_report.yml,
+      feature_request.yml, template_request.yml and ISSUE_TEMPLATE/config.yml (blank issues
+      off, links to Discussions and the security policy).
+    deliverables: [LICENSE, CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md, .github/CODEOWNERS, .github/pull_request_template.md, .github/ISSUE_TEMPLATE/]
+    acceptance:
+      - "GitHub's community standards checklist has no open item except those that need repository settings."
+      - "All issue forms are valid YAML with required fields for version, OS and Home Assistant version where relevant."
+    verify:
+      - "python -c \"import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/ISSUE_TEMPLATE/*.yml')]\""
+    status: todo
+
+  - id: T005
+    title: Add agent instructions and plan tooling
+    milestone: M0
+    area: [repo, docs]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T001]
+    requirements: [R-13]
+    spec: [S01, S14]
+    description: >-
+      Write AGENTS.md: project summary, repository map, the workflow from PLAN.md S01, build
+      and test commands, conventions from S14, the rule that Windows-only code is verified in
+      CI, and a list of things agents must not do (change decisions silently, add network
+      calls to external hosts, embed secrets, bypass parameter binding). Add CLAUDE.md that
+      imports AGENTS.md and .github/copilot-instructions.md that points to it. Write
+      scripts/plan/validate.py (checks schema of tasks.yaml, unique ids, existing
+      dependencies, acyclic graph, milestone and section references against PLAN.md, allowed
+      status values, that done tasks only depend on done tasks) and scripts/plan/next_task.py
+      (prints the next eligible task as YAML; option --all lists every eligible task for
+      parallel work). Both scripts use only PyYAML.
+    deliverables: [AGENTS.md, CLAUDE.md, .github/copilot-instructions.md, scripts/plan/validate.py, scripts/plan/next_task.py]
+    acceptance:
+      - "validate.py exits 0 on the committed plan and non-zero when a dependency id is misspelled (covered by a test)."
+      - "next_task.py returns T002 or another dependency-free task while only T001 is done."
+    verify:
+      - "python scripts/plan/validate.py"
+      - "python scripts/plan/next_task.py --all"
+    status: todo
+
+  - id: T006
+    title: Add the .NET CI workflow
+    milestone: M0
+    area: [ci]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T002]
+    requirements: [R-08]
+    spec: [S12, S14]
+    description: >-
+      Create .github/workflows/ci-dotnet.yml as specified in S12: matrix ubuntu-latest and
+      windows-latest, NuGet cache, format check, build with warnings as errors, tests with
+      coverage (coverage summary in the job summary, results uploaded as artifact), path
+      filters for src/, tests/, protocol/ and build files. Pin all actions by commit SHA with
+      the version in a comment. Set least-privilege permissions and a concurrency group that
+      cancels superseded runs on pull requests.
+    deliverables: [.github/workflows/ci-dotnet.yml]
+    acceptance:
+      - "The workflow passes on a pull request on both operating systems."
+      - "The Windows job builds Platform.Windows and SessionHost and runs Platform.Windows.Tests."
+    verify:
+      - "actionlint .github/workflows/ci-dotnet.yml"
+    status: todo
+
+  - id: T007
+    title: Add the integration CI workflow
+    milestone: M0
+    area: [ci, integration]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T003]
+    requirements: [R-08]
+    spec: [S12, S14]
+    description: >-
+      Create .github/workflows/ci-integration.yml: ruff, mypy, pytest with coverage on the
+      Python version required by the current Home Assistant release, the hassfest action and
+      the HACS validation action (category integration). Path filters for custom_components/,
+      tests_integration/, protocol/, hacs.json and Python config files.
+    deliverables: [.github/workflows/ci-integration.yml]
+    acceptance:
+      - "hassfest and HACS validation pass, or the only ignored HACS checks are those that need a published release or repository settings and are listed with a comment."
+    verify:
+      - "actionlint .github/workflows/ci-integration.yml"
+    status: todo
+
+  - id: T008
+    title: Add security and hygiene workflows
+    milestone: M0
+    area: [ci, security]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T006, T007, T005]
+    requirements: [R-08]
+    spec: [S12]
+    description: >-
+      Add codeql.yml (csharp, python, actions), dependency-review.yml, scorecard.yml,
+      pr-title.yml (Conventional Commit check with the allowed scopes agent, core, contracts,
+      protocol, ui, integration, windows, linux, hub, ci, docs, deps, repo), labeler.yml with
+      .github/labeler.yml, ci-meta.yml (plan validation, actionlint, workflow security lint,
+      markdown link check) and .github/dependabot.yml (nuget, pip, github-actions,
+      devcontainers; weekly; grouped minor and patch updates; commit prefix chore(deps)).
+    deliverables: [.github/workflows/codeql.yml, .github/workflows/dependency-review.yml, .github/workflows/scorecard.yml, .github/workflows/pr-title.yml, .github/workflows/labeler.yml, .github/workflows/ci-meta.yml, .github/dependabot.yml, .github/labeler.yml]
+    acceptance:
+      - "All workflows are valid and run on a test pull request."
+      - "Every workflow declares explicit permissions and pins actions by SHA."
+    verify:
+      - "actionlint"
+    status: todo
+
+  - id: T009
+    title: Review the repository setup script and add the required status checks
+    milestone: M0
+    area: [github]
+    size: S
+    actor: agent+human
+    platform: any
+    depends_on: [T004, T008]
+    requirements: [R-08]
+    spec: [S12, S18]
+    description: >-
+      scripts/github/setup-repo.sh and .github/labels.yml already exist (added by T001; the
+      owner may already have run the script). Do not rewrite the script. Review it against
+      the current GitHub REST documentation and correct only what is wrong, in particular:
+      the ruleset payloads, the repository role id used by --admin-bypass, the endpoint for
+      immutable releases, the environment and deployment policy calls, and the Pages call.
+      The script was tested against a simulated gh only, so treat every failure the owner
+      reports from a real run as a defect to fix here. Keep the label parser's restricted
+      file format and the option interface. Add tests/scripts/test_setup_repo.sh that runs
+      the script against a fake gh executable (dry run changes nothing, second run creates
+      nothing, required checks are kept when the option is omitted, cleared with
+      --clear-required-checks). Determine the exact names of the status checks that the CI
+      workflows report on a pull request and write docs/maintainers/github-setup.md with the
+      ready-to-copy command including one --required-check option per check, the meaning of
+      every step, and the settings that stay manual (discussion categories, project board).
+      The owner runs the command (open item O-01) and confirms in the pull request.
+    deliverables: [scripts/github/setup-repo.sh, .github/labels.yml, tests/scripts/test_setup_repo.sh, docs/maintainers/github-setup.md]
+    acceptance:
+      - "shellcheck reports nothing for the script and the fake-gh test passes in ci-meta.yml."
+      - "The check names in docs/maintainers/github-setup.md equal the job names that appear on a pull request."
+      - "Every area value used in tasks.yaml has a matching area label in .github/labels.yml (checked by scripts/plan/validate.py)."
+      - "The owner has confirmed that the script ran against the repository with the required checks."
+    verify:
+      - "bash -n scripts/github/setup-repo.sh"
+      - "shellcheck scripts/github/setup-repo.sh"
+      - "bash tests/scripts/test_setup_repo.sh"
+    status: todo
+
+  - id: T010
+    title: Sync plan tasks to GitHub issues and a project board
+    milestone: M0
+    area: [github, ci]
+    size: M
+    actor: agent+human
+    platform: any
+    depends_on: [T005, T009]
+    requirements: [R-08, R-13]
+    spec: [S01, S12]
+    description: >-
+      Write scripts/plan/sync_issues.py and .github/workflows/plan-sync.yml. For every task
+      the script creates or updates one issue titled with the task id and title, with the
+      description, acceptance list as checkboxes, dependencies as issue links, labels task,
+      area labels and human where applicable, and the matching milestone (GitHub milestone
+      titles have the form id, space, title, for example M0 Foundation). Issues of tasks
+      with status done are closed. tasks.yaml stays the source of truth; the script never
+      writes to it. Add the issues to a GitHub project whose number is read from a
+      repository variable (the owner creates the project once).
+    deliverables: [scripts/plan/sync_issues.py, .github/workflows/plan-sync.yml]
+    acceptance:
+      - "A dry run prints the planned changes without calling the write API."
+      - "Running the sync twice creates no duplicate issues (matching by task id in the title)."
+    verify:
+      - "python scripts/plan/sync_issues.py --dry-run"
+    status: todo
+
+  - id: T011
+    title: Add the devcontainer and coding-agent setup
+    milestone: M0
+    area: [repo, ci]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T002, T003]
+    requirements: [R-08, R-13]
+    spec: [S12]
+    description: >-
+      Add .devcontainer/devcontainer.json with the .NET 10 SDK, the Python version used by
+      Home Assistant, PowerShell 7, actionlint, shellcheck and a post-create step that
+      restores NuGet packages and installs requirements-dev.txt. Add
+      scripts/dev/run-agent.sh (starts the agent with Platform.Simulated and a temporary data
+      directory) and scripts/dev/run-ha.sh (starts a Home Assistant development container
+      with custom_components mounted). Add .github/workflows/copilot-setup-steps.yml with the
+      same tool installation.
+    deliverables: [.devcontainer/devcontainer.json, scripts/dev/run-agent.sh, scripts/dev/run-ha.sh, .github/workflows/copilot-setup-steps.yml]
+    acceptance:
+      - "Inside the devcontainer all global checks from PLAN.md S14 can be run without further installation."
+    verify:
+      - "python -c \"import json; json.load(open('.devcontainer/devcontainer.json'))\""
+    status: todo
+
+  # ─────────────────────── M1 Protocol and contracts ───────────────────────
+  - id: T101
+    title: Specify QoffeeLink v1 as JSON Schema with fixtures
+    milestone: M1
+    area: [protocol]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T005]
+    requirements: [R-06, R-07]
+    spec: [S06, S07]
+    description: >-
+      Create protocol/schema/ with one JSON Schema (draft 2020-12) per message type from
+      S07, the manifest, the pairing request and response, and a top-level message schema that
+      dispatches on the field t. Create protocol/fixtures/ with at least one valid example per
+      message type, the full manifest example, and a folder invalid/ with examples that must
+      fail validation. Include the optional features arrays of hello and client_hello and the
+      optional intervals object of subscribe. Write protocol/README.md with the handshake
+      sequence, the state delivery rules, error codes, close codes and the compatibility rules. Add
+      scripts/dev/validate_protocol.py and the workflow ci-protocol.yml.
+    deliverables: [protocol/schema/, protocol/fixtures/, protocol/README.md, scripts/dev/validate_protocol.py, .github/workflows/ci-protocol.yml]
+    acceptance:
+      - "Every message type listed in S07 has a schema and at least one valid fixture."
+      - "All valid fixtures validate; all fixtures under invalid/ are rejected."
+      - "Schemas allow unknown additional properties (forward compatibility) but require the documented mandatory fields."
+    verify:
+      - "python scripts/dev/validate_protocol.py"
+    status: todo
+
+  - id: T102
+    title: Implement protocol contracts in C#
+    milestone: M1
+    area: [contracts]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T002, T101]
+    requirements: [R-06, R-07]
+    spec: [S07, S14]
+    description: >-
+      In QoffeeAutomat.Contracts implement immutable record types for every QoffeeLink message,
+      the manifest and the pairing payloads, a polymorphic envelope keyed on t, error code
+      constants, and a System.Text.Json source-generation context (snake_case, unknown members
+      ignored, unknown message types deserialized to an UnknownMessage type). Add a
+      ManifestRevision helper that computes rev as defined in S07 using canonical JSON
+      (sorted keys, no insignificant whitespace). Tests load every fixture from protocol/,
+      deserialize, serialize and compare semantically, and validate serialized output against
+      the schemas.
+    deliverables: [src/QoffeeAutomat.Contracts/Link/, tests/QoffeeAutomat.Contracts.Tests/]
+    acceptance:
+      - "Round trip of every valid fixture is lossless."
+      - "No reflection-based serialization is used (trim and AOT analyzers report no warnings for Contracts)."
+      - "The rev of the fixture manifest equals the value stored in the fixture."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Contracts.Tests"
+    status: todo
+
+  - id: T103
+    title: Implement config document models and validation
+    milestone: M1
+    area: [contracts, core]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T002]
+    requirements: [R-03, R-04, R-12]
+    spec: [S06]
+    description: >-
+      In Contracts implement the command document, parameter definition, action variants,
+      haControl, custom sensor document, metric override document and agent settings document
+      with the common header fields (schemaVersion, revision, updatedAt, origin). runAs has
+      the three values system, user and user_elevated. Publish JSON
+      Schemas for them under protocol/schema/config/. In Core implement DocumentValidator
+      (ids, names, type-specific parameter rules, haControl requirements from the table in
+      S06, sequence cycle detection hook) and VariableBinder (validates a variable dictionary
+      against the parameter list, applies defaults, converts types, rejects unknown names,
+      enforces pattern with match timeout). Both return structured error lists with JSON
+      pointer paths.
+    deliverables: [src/QoffeeAutomat.Contracts/Config/, src/QoffeeAutomat.Core/Validation/, protocol/schema/config/, tests/QoffeeAutomat.Core.Tests/Validation/]
+    acceptance:
+      - "The example command document from S06 validates."
+      - "Tests cover every row of the parameter table and of the haControl table, including each rejection case."
+      - "VariableBinder rejects unknown variables, out-of-range numbers, values not in options and strings over maxLength."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Validation"
+    status: todo
+
+  - id: T104
+    title: Implement protocol models in Python
+    milestone: M1
+    area: [integration, protocol]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T003, T101]
+    requirements: [R-07]
+    spec: [S07, S10]
+    description: >-
+      Add custom_components/qoffeeautomat/protocol.py with typed models (dataclasses or
+      TypedDicts) for hello, manifest, metric and command descriptors, state, event, bye,
+      result and error, plus parse functions that tolerate unknown fields and unknown message
+      types. No Home Assistant imports in this module. Tests parse every fixture from
+      protocol/fixtures/ and check the invalid ones raise a ProtocolError.
+    deliverables: [custom_components/qoffeeautomat/protocol.py, tests_integration/test_protocol.py]
+    acceptance:
+      - "All valid fixtures parse into typed objects; mypy passes in strict mode for the module."
+    verify:
+      - "pytest tests_integration/test_protocol.py"
+      - "mypy custom_components/qoffeeautomat"
+    status: todo
+
+  # ───────────────────────────── M2 Agent core ─────────────────────────────
+  - id: T201
+    title: Bootstrap the agent host
+    milestone: M2
+    area: [agent]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T102, T103]
+    requirements: [R-01, R-09]
+    spec: [S03, S04, S05, S08]
+    description: >-
+      Build the Agent executable on the ASP.NET Core minimal host. Implement IAppPaths with
+      per-OS defaults from S05 and overrides through the option --data-dir and the environment
+      variable QOFFEEAUTOMAT_DATA_DIR. Configure the two Kestrel listeners from D-018 (the
+      HTTPS listener starts once the certificate from T211 exists; until then only loopback).
+      Add structured logging to console and rolling files, the endpoint /healthz, graceful
+      shutdown, and a command-line interface with the verbs run (default), version and
+      service (stub for T301). Select the platform implementation at start-up: Windows,
+      Simulated (option --platform simulated or on unsupported systems), later Linux.
+    deliverables: [src/QoffeeAutomat.Agent/Program.cs, src/QoffeeAutomat.Agent/Hosting/, tests/QoffeeAutomat.Agent.Tests/]
+    acceptance:
+      - "The agent starts on Linux with --platform simulated and answers GET /healthz with 200."
+      - "The loopback listener binds to 127.0.0.1 only."
+      - "An integration test starts the host through WebApplicationFactory with a temporary data directory."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Hosting"
+    status: todo
+
+  - id: T202
+    title: Implement the file-based config store
+    milestone: M2
+    area: [core]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T103]
+    requirements: [R-02, R-03, R-11, R-12]
+    spec: [S03, S05, S06, S20]
+    description: >-
+      Implement IConfigStore in Core for the document kinds command, sensor, metric overrides
+      and settings. Features: load and validate all documents at start (invalid files are
+      skipped, reported and never deleted), atomic writes (temporary file plus rename),
+      revision increment with optimistic concurrency, the last ten revisions of each document
+      kept under config/.history/ with a restore operation, a change event stream, a file
+      watcher that picks up external edits with debounce, and forward migration by
+      schemaVersion. Script files are managed through the same store (name validation, no
+      path traversal). Design the store as an ordered list of layers with an effective view
+      (only the local layer exists now) so the hub layer of S20 can be added without changing
+      consumers.
+    deliverables: [src/QoffeeAutomat.Core/Config/, tests/QoffeeAutomat.Core.Tests/Config/]
+    acceptance:
+      - "Saving with a stale revision fails with a conflict result."
+      - "A crash between write and rename never leaves a truncated document (test with fault injection)."
+      - "Script names containing path separators or .. are rejected."
+      - "An externally edited file raises exactly one change event."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Config"
+    status: todo
+
+  - id: T203
+    title: Implement the secrets store
+    milestone: M2
+    area: [core, security]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T201]
+    requirements: [R-01]
+    spec: [S09]
+    description: >-
+      Define ISecretProtector and ISecretStore in Core. Provide a file-key implementation
+      (random AES-256-GCM key in a file with owner-only permissions) used on non-Windows
+      systems and by the simulated platform; the DPAPI implementation follows in T301. The
+      store holds the password hash, link token hashes, the TLS certificate with private key
+      and later script secrets in secrets/secrets.json.
+    deliverables: [src/QoffeeAutomat.Core/Secrets/, tests/QoffeeAutomat.Core.Tests/Secrets/]
+    acceptance:
+      - "Secrets are not readable in plain text in the file."
+      - "On Unix the key file is created with mode 0600 and the store refuses to load a key file with wider permissions."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Secrets"
+    status: todo
+
+  - id: T204
+    title: Define platform interfaces and the simulated platform
+    milestone: M2
+    area: [core]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T103]
+    requirements: [R-09]
+    spec: [S03, S04, S06, S11]
+    description: >-
+      In Core define IMetricProvider (describes its metrics and samples the requested ids),
+      IBuiltinActionProvider (lists and executes built-in actions), ISessionBridge (runs user
+      context commands, reports session state and user metrics), IPowerEvents, IServiceAdvertiser,
+      IElevatedLauncher (starts a process for runAs user_elevated; the simulated one can be
+      switched to report elevation_unavailable) and IPlatformInfo (agent id persistence,
+      hostname, MAC addresses, OS data, and the boot id that changes with every operating
+      system start but not with an agent restart). Implement
+      Platform.Simulated with deterministic metrics (a sine wave CPU value, a counter, a
+      toggling binary sensor, an enum sensor), two built-in actions (sim.echo returns its
+      variables, sim.fail exits non-zero), an in-process session bridge, and switches to make
+      the session bridge unavailable. A test clock abstraction (TimeProvider) drives all
+      timing.
+    deliverables: [src/QoffeeAutomat.Core/Platform/, src/QoffeeAutomat.Platform.Simulated/]
+    acceptance:
+      - "No type in Core references a Windows or Linux API."
+      - "Simulated metric values are reproducible for a given fake time."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Platform"
+    status: todo
+
+  - id: T205
+    title: Implement the metric engine
+    milestone: M2
+    area: [core]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T202, T204]
+    requirements: [R-05, R-06]
+    spec: [S03, S06, S07, S14]
+    description: >-
+      Implement the metric catalog (provider descriptors merged with overrides and custom
+      sensors), a scheduler that samples each metric at its interval only while it has at
+      least one subscriber (D-007), precision rounding and deadband filtering, a per-subscriber
+      change feed that coalesces changes and flushes at most once per second, optional
+      per-metric minimum intervals per subscriber (subscribe.intervals in S07; the scheduler
+      samples at the shortest interval any subscriber needs), an initial snapshot on
+      subscription, the value null for unavailable metrics, and an in-memory ring
+      buffer (default one hour per metric) for charts. Providers are sampled in batches so one
+      provider call serves several metrics. A provider that throws is logged, its metrics
+      become unavailable and it is retried with backoff.
+    deliverables: [src/QoffeeAutomat.Core/Metrics/, tests/QoffeeAutomat.Core.Tests/Metrics/]
+    acceptance:
+      - "With zero subscribers no provider is sampled (asserted with the simulated provider's call counter)."
+      - "A metric that does not change produces no update after the snapshot."
+      - "Two subscribers with different metric sets each receive only their metrics."
+      - "A subscriber with an interval of 30 seconds for a metric receives at most one value per 30 seconds for it while another subscriber receives every change."
+      - "Changing an override (interval, enabled) takes effect without restart."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Metrics"
+    status: todo
+
+  - id: T206
+    title: Implement the process runner
+    milestone: M2
+    area: [core]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T204]
+    requirements: [R-03]
+    spec: [S03, S06, S09]
+    description: >-
+      Implement IProcessRunner: start an executable with an argument list (never through a
+      shell), working directory and environment, capture stdout and stderr as streams with a
+      cap of 64 KiB each (excess is dropped and flagged), enforce a timeout, and kill the
+      whole process tree on timeout or cancellation (Windows job object in the Windows
+      platform, process group on Unix). Report exit code, duration, timed-out flag and
+      truncated flag. Expose live output through an async stream for the UI.
+    deliverables: [src/QoffeeAutomat.Core/Execution/ProcessRunner.cs, tests/QoffeeAutomat.Core.Tests/Execution/]
+    acceptance:
+      - "A child that spawns a grandchild and sleeps is fully terminated on timeout on Linux and Windows."
+      - "Arguments containing spaces, quotes and shell metacharacters arrive unchanged in the child process."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=ProcessRunner"
+    status: todo
+
+  - id: T207
+    title: Implement the command engine
+    milestone: M2
+    area: [core]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T202, T206]
+    requirements: [R-02, R-03, R-04]
+    spec: [S03, S06, S07, S09]
+    description: >-
+      Implement the command registry (built from the config store, updated on change events)
+      and the run pipeline: lookup, enabled check, global pause check, cooldown, variable
+      binding with VariableBinder, concurrency mode handling (single, queue, parallel,
+      restart), dispatch by action type (process and builtin here, powershell in T208),
+      routing by runAs (system in the agent process, user through ISessionBridge,
+      user_elevated through IElevatedLauncher, errors no_session and elevation_unavailable
+      when unavailable), sequence execution with onError and cycle rejection,
+      timeout, result object, and mapping of failures to the error codes of S07. Persist every
+      run in SQLite (table runs: id, command, source, client, user id, variables with secret
+      values redacted, start, duration, exit code, error code, truncated output) with
+      retention by age and count. Publish run started and finished on the event bus.
+    deliverables: [src/QoffeeAutomat.Core/Commands/, src/QoffeeAutomat.Core/History/, tests/QoffeeAutomat.Core.Tests/Commands/]
+    acceptance:
+      - "Disabled commands are rejected with command_disabled from every entry point."
+      - "Each concurrency mode behaves like the Home Assistant script mode of the same name (one test per mode)."
+      - "A sequence with a failing step stops or continues according to onError."
+      - "process actions replace placeholders inside single arguments and never split an argument."
+      - "Runs are queryable from the history store after completion."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Commands"
+    status: todo
+
+  - id: T208
+    title: Implement the PowerShell action
+    milestone: M2
+    area: [core]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T207]
+    requirements: [R-03, R-04]
+    spec: [S03, S06, S09]
+    description: >-
+      Implement engine detection (auto prefers pwsh, falls back to powershell.exe on Windows;
+      missing engine yields a clear error) and the wrapper from D-012: the engine is started
+      with -NoProfile -NonInteractive -ExecutionPolicy Bypass -File <wrapper>; the wrapper
+      reads the JSON parameter file named in QA_PARAMS_FILE, builds a hashtable in a way that
+      works in Windows PowerShell 5.1 and PowerShell 7, and invokes the target script (or the
+      inline code written to a temporary script file) with splatting so values are bound as
+      typed named parameters. The wrapper propagates the exit code and turns terminating
+      errors into a non-zero exit code with the error text on stderr. Temporary files are
+      created in a directory only the executing account can access and are deleted afterwards.
+    deliverables: [src/QoffeeAutomat.Core/Execution/PowerShell/, tests/QoffeeAutomat.Core.Tests/Execution/PowerShell/]
+    acceptance:
+      - "A string variable containing quotes, semicolons, dollar signs, backticks and newlines reaches the script unchanged and is not executed (test with pwsh on Linux and Windows, and powershell.exe on Windows)."
+      - "int, float and bool variables arrive with the matching PowerShell types."
+      - "A script calling exit 3 yields exit code 3; a thrown error yields a non-zero exit code and stderr text."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=PowerShell"
+    status: todo
+
+  - id: T209
+    title: Implement the manifest builder
+    milestone: M2
+    area: [core]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T205, T207]
+    requirements: [R-07]
+    spec: [S06, S07]
+    description: >-
+      Build the manifest from agent info, the metric catalog (only metrics exposed to Home
+      Assistant), the command registry (only enabled and exposed commands, with control
+      mapping) and the event catalog. Compute rev, cache the result and raise a
+      manifest-changed notification when rev changes. Changes that do not affect the manifest
+      (for example the script body) must not change rev.
+    deliverables: [src/QoffeeAutomat.Core/Manifest/, tests/QoffeeAutomat.Core.Tests/Manifest/]
+    acceptance:
+      - "Enabling, disabling, exposing or editing the parameters of a command changes rev; editing only its script does not."
+      - "The built manifest validates against protocol/schema."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Manifest"
+    status: todo
+
+  - id: T210
+    title: Implement the QoffeeLink server
+    milestone: M2
+    area: [agent, protocol]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T201, T209, T217]
+    requirements: [R-01, R-04, R-06, R-07]
+    spec: [S07, S09]
+    description: >-
+      Implement the WebSocket endpoint /link/v1 exactly as specified in S07: bearer token
+      check before the upgrade, subprotocol, permessage-deflate, hello and client_hello with
+      version negotiation and features arrays (empty for now), get_manifest, manifest_changed,
+      subscribe with snapshot and optional intervals, state
+      frames fed by the metric engine, run with wait true and false, event frames from the
+      event bus, bye on shutdown and power events, ping and idle timeout, frame size limit,
+      several simultaneous clients with independent subscriptions, and bounded send queues
+      (a slow client is disconnected instead of growing memory). Subscriptions end when the
+      connection closes. Add an in-process test client used by other tests.
+    deliverables: [src/QoffeeAutomat.Agent/Link/, tests/QoffeeAutomat.Agent.Tests/Link/]
+    acceptance:
+      - "Every frame sent by the server in the tests validates against the protocol schemas."
+      - "A connection without a valid token receives HTTP 401."
+      - "A run request with invalid variables returns error invalid_vars and does not start a process."
+      - "After the last client disconnects the metric engine stops sampling."
+      - "Unknown message types from the client are ignored without closing the connection."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Link"
+    status: todo
+
+  - id: T211
+    title: Implement pairing, link tokens and the TLS certificate
+    milestone: M2
+    area: [agent, security]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T201, T203]
+    requirements: [R-01, R-11]
+    spec: [S03, S07, S09]
+    description: >-
+      Generate and persist the self-signed certificate (S09 item 3), start the HTTPS listener
+      with it, and expose its SHA-256 fingerprint. Implement the pairing service: create a
+      6-digit code with five minutes validity (only one active code), POST /link/v1/pair,
+      attempt limiting, token issuance, hashed storage with client name, kind, creation time
+      and last-seen time, listing and revocation. Revoking a token closes its open
+      connections.
+    deliverables: [src/QoffeeAutomat.Agent/Link/Pairing/, src/QoffeeAutomat.Agent/Security/Tls/, tests/QoffeeAutomat.Agent.Tests/Pairing/]
+    acceptance:
+      - "A code works exactly once and not after expiry."
+      - "After five wrong attempts the active code is invalidated."
+      - "The certificate survives restarts and its fingerprint stays the same."
+      - "A revoked token is rejected and its live connection is closed."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Pairing"
+    status: todo
+
+  - id: T212
+    title: Implement management API authentication
+    milestone: M2
+    area: [agent, api, security]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T201, T203]
+    requirements: [R-02]
+    spec: [S03, S08, S09]
+    description: >-
+      Implement first-run setup with the setup token file, password hashing, login with rate
+      limiting and lockout, cookie sessions (HttpOnly, SameSite Strict, Secure on HTTPS),
+      anti-forgery protection for state-changing requests, logout, password change, and an
+      authorization policy that protects everything under /api/v1 except the endpoints listed
+      as unauthenticated in S08. Add the CLI verb reset-password that recreates the setup
+      token (requires local administrator or root).
+    deliverables: [src/QoffeeAutomat.Agent/Security/Auth/, tests/QoffeeAutomat.Agent.Tests/Auth/]
+    acceptance:
+      - "Every /api/v1 route except the documented exceptions returns 401 without a session (enumerated by a test over the endpoint data source)."
+      - "/auth/setup is unavailable once a password exists."
+      - "State-changing requests without the anti-forgery header are rejected."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Auth"
+    status: todo
+
+  - id: T213
+    title: Implement the configuration endpoints of the management API
+    milestone: M2
+    area: [api]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T212, T207, T205]
+    requirements: [R-02, R-03, R-12]
+    spec: [S06, S08]
+    description: >-
+      Implement the endpoints for commands (including PATCH for enabled and exposeToHa and
+      /commands/validate), scripts, sensors (including /sensors/test), metrics (catalog,
+      overrides), settings, and /status. Use the DTOs from Contracts, problem details for
+      errors with the validator's JSON pointer paths, If-Match handling, and publish the
+      OpenAPI document. Add a snapshot test of the OpenAPI document so API changes are
+      deliberate.
+    deliverables: [src/QoffeeAutomat.Agent/Api/, tests/QoffeeAutomat.Agent.Tests/Api/]
+    acceptance:
+      - "Creating, updating, disabling and deleting a command through the API is reflected in the command engine and in the manifest rev."
+      - "Validation errors return status 422 with field paths."
+      - "The OpenAPI snapshot test fails when a route or schema changes without updating the snapshot."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Api"
+    status: todo
+
+  - id: T214
+    title: Implement the runtime endpoints of the management API
+    milestone: M2
+    area: [api]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T213, T211, T217]
+    requirements: [R-02, R-05, R-11]
+    spec: [S08]
+    description: >-
+      Implement /commands/{id}/run, /commands/test (runs a validated draft document without
+      saving it; recorded in history as a test run), /runs with paging and filters, /runs/{id}/stream (live
+      output as Server-Sent Events, replay from the start for running commands),
+      /metrics/stream (SSE fed by the metric engine as an internal subscriber),
+      /metrics/history, /events, /link/pairing, /link/clients, /logs (tail with level filter),
+      /config/export and /config/import (zip with all documents and scripts, no secrets;
+      import validates everything before applying), and /diagnostics (zip with redacted
+      settings, versions, recent logs).
+    deliverables: [src/QoffeeAutomat.Agent/Api/Runtime/, tests/QoffeeAutomat.Agent.Tests/Api/Runtime/]
+    acceptance:
+      - "A run started through the API streams its output while it is running."
+      - "Export followed by import into an empty data directory reproduces all commands, sensors, overrides and scripts."
+      - "The diagnostics bundle contains no token, password hash or private key (asserted by scanning the archive)."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=ApiRuntime"
+    status: todo
+
+  - id: T215
+    title: Implement cross-platform custom sensors
+    milestone: M2
+    area: [core]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T205, T208]
+    requirements: [R-03, R-05]
+    spec: [S06]
+    description: >-
+      Implement the custom sensor provider for the types powershell (runs through the
+      PowerShell action with a timeout no longer than the interval, parses the last non-empty
+      output line according to valueType) and process_running (binary sensor by process
+      name). Sensor documents are loaded from the config store and appear in the catalog as
+      custom.<id>. A failing sensor reports unavailable and records its last error for the UI.
+      Minimum interval for script sensors is five seconds.
+    deliverables: [src/QoffeeAutomat.Core/Metrics/Custom/, tests/QoffeeAutomat.Core.Tests/Metrics/Custom/]
+    acceptance:
+      - "A script sensor is only executed while subscribed."
+      - "Parse failures and timeouts make the metric unavailable without affecting other metrics."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=CustomSensors"
+    status: todo
+
+  - id: T216
+    title: Advertise the agent through zeroconf
+    milestone: M2
+    area: [agent]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T211]
+    requirements: [R-11]
+    spec: [S03, S07, S19]
+    description: >-
+      First evaluate the options for mDNS and DNS-SD advertisement from .NET (a maintained
+      managed library versus the native Windows DNS-SD API through P/Invoke, Avahi on Linux
+      later) and record the choice in docs/adr/0001-zeroconf.md. Then implement
+      IServiceAdvertiser for the chosen option: service type _qoffeeautomat._tcp.local., port
+      of the HTTPS listener, TXT records id, name, v (agent version), pv (protocol range).
+      Announce as soon as the link listener accepts connections after service start and
+      after resume, because the Home Assistant integration uses the announcement to reconnect
+      immediately. Re-announce on network changes and on rename; withdraw on shutdown. The feature can be
+      turned off in settings.
+    deliverables: [docs/adr/0001-zeroconf.md, src/QoffeeAutomat.Agent/Discovery/]
+    acceptance:
+      - "The service is visible to a standard browser tool (for example avahi-browse or dns-sd) on the same network."
+      - "With the feature disabled no multicast socket is opened."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Discovery"
+    human_verify: true
+    status: todo
+
+  - id: T217
+    title: Implement the event bus and the emit command
+    milestone: M2
+    area: [core, agent]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T204, T201]
+    requirements: [R-11]
+    spec: [S07, S10]
+    description: >-
+      Implement an in-process event bus with a catalog of event types (agent_started,
+      command_finished, session_locked, session_unlocked, user_logged_in, user_logged_out,
+      session_ready, resumed, custom), persistence of recent events in SQLite, and the CLI verb emit
+      <name> [--data <json>] that sends a custom event to the running agent through an
+      authenticated local channel so scripts can notify Home Assistant.
+    deliverables: [src/QoffeeAutomat.Core/Events/, tests/QoffeeAutomat.Core.Tests/Events/]
+    acceptance:
+      - "An event published on the bus reaches every subscriber once and is stored in the recent-events table."
+      - "emit works from a script started by the agent and is rejected for callers without access to the local channel."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Events"
+    status: todo
+
+  - id: T218
+    title: Add performance budget tests
+    milestone: M2
+    area: [agent, ci]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T210]
+    requirements: [R-06]
+    spec: [S14]
+    description: >-
+      Add a benchmark harness that starts the agent with the simulated platform, connects one
+      link client subscribed to 20 metrics for 60 seconds and records CPU time, working set,
+      number and size of frames. Fail when the budgets of S14 are exceeded by more than a
+      tolerance. Run it in CI on pushes to main and report the numbers in the job summary.
+    deliverables: [tests/QoffeeAutomat.Agent.Benchmarks/, .github/workflows/ci-dotnet.yml]
+    acceptance:
+      - "The job summary shows CPU percentage, memory and average state frame size."
+      - "The measured values are within the budgets of S14."
+    verify:
+      - "dotnet run -c Release --project tests/QoffeeAutomat.Agent.Benchmarks -- --duration 20"
+    status: todo
+
+  # ─────────────────────────── M3 Windows platform ───────────────────────────
+  - id: T301
+    title: Host the agent as a Windows service
+    milestone: M3
+    area: [windows, agent]
+    size: M
+    actor: agent
+    platform: windows
+    depends_on: [T210, T212]
+    requirements: [R-01]
+    spec: [S09, S11]
+    description: >-
+      Add Windows service hosting, Event Log logging, and the CLI verbs service install,
+      uninstall, start, stop and status (service name, LocalSystem, delayed automatic start,
+      restart on failure). Create the data directories with the ACLs from S05 and S09 on
+      install and verify them at start. Implement the DPAPI secret protector, the ACL check
+      for system scripts (S09 item 5), session change notifications mapped to events, and
+      power events: before suspend or shutdown send bye with the matching reason and flush;
+      after resume publish resumed and re-announce zeroconf.
+    deliverables: [src/QoffeeAutomat.Platform.Windows/Service/, src/QoffeeAutomat.Platform.Windows/Security/, tests/QoffeeAutomat.Platform.Windows.Tests/]
+    acceptance:
+      - "service install followed by service start yields a running service that answers /healthz (CI test on windows-latest)."
+      - "The secrets directory grants access to SYSTEM and Administrators only."
+      - "A system script in a directory writable by standard users is refused with a logged security warning."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=Service"
+    human_verify: true
+    status: todo
+
+  - id: T302
+    title: Build the SessionHost and its IPC
+    milestone: M3
+    area: [sessionhost, windows, security]
+    size: L
+    actor: agent
+    platform: windows
+    depends_on: [T301]
+    requirements: [R-01, R-03]
+    spec: [S03, S09, S11]
+    description: >-
+      Implement the SessionHost executable (no console window) and the named-pipe IPC with
+      length-prefixed JSON messages listed in S11, defined as records in Contracts. In the
+      Windows platform implement the session manager: enumerate interactive sessions at start,
+      react to logon and logoff, start one SessionHost per session with WTSQueryUserToken and
+      CreateProcessAsUser (user environment block, interactive desktop), supervise and restart
+      it with backoff, and apply the mutual checks of S09 item 7. Implement ISessionBridge on
+      top of it, choosing the active console session. Publish the event session_ready when
+      the SessionHost of the active console session has completed its handshake, and expose
+      the ready state for the metric of T305. The agent tolerates the absence of any
+      session.
+    deliverables: [src/QoffeeAutomat.SessionHost/, src/QoffeeAutomat.Platform.Windows/Sessions/, src/QoffeeAutomat.Contracts/Session/]
+    acceptance:
+      - "IPC framing and message round trips are covered by tests that run without a service (pipe server and client in one test process)."
+      - "A pipe client whose image path is not the installed SessionHost is rejected."
+      - "session_ready is published once per SessionHost connection, and a user command sent directly after it succeeds (test with the in-process pipe pair)."
+      - "On a real PC the SessionHost appears in the user's session after logon and is restarted after being killed (manual check, open item O-06)."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=SessionIpc"
+    human_verify: true
+    status: todo
+
+  - id: T303
+    title: Run user-context commands through the SessionHost
+    milestone: M3
+    area: [sessionhost, windows]
+    size: M
+    actor: agent
+    platform: windows
+    depends_on: [T302, T208]
+    requirements: [R-03, R-04]
+    spec: [S06, S11]
+    description: >-
+      Execute process, powershell and builtin actions with runAs user inside the SessionHost
+      using the same runner and wrapper code as the agent (shared through Core). Stream
+      output back, support cancellation and timeout from the agent side, and report results in
+      the common result object. waitForExit false launches a program and returns immediately,
+      which is the normal mode for GUI applications.
+    deliverables: [src/QoffeeAutomat.SessionHost/Execution/, tests/QoffeeAutomat.Platform.Windows.Tests/Sessions/]
+    acceptance:
+      - "A user-context command reports the interactive user's name, not SYSTEM (manual check and loopback test)."
+      - "Cancelling from the agent terminates the process tree in the session."
+      - "A GUI program started with waitForExit false is visible on the user's desktop (manual check)."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=SessionExec"
+    human_verify: true
+    status: todo
+
+  - id: T304
+    title: Implement Windows system metric providers
+    milestone: M3
+    area: [windows]
+    size: M
+    actor: agent
+    platform: windows
+    depends_on: [T205, T301]
+    requirements: [R-05]
+    spec: [S06]
+    description: >-
+      Implement providers for CPU usage (GetSystemTimes deltas), memory
+      (GlobalMemoryStatusEx), fixed volumes (free, used percent; one metric set per drive
+      letter, appearing and disappearing dynamically), network adapters (receive and transmit
+      rate from interface statistics; physical adapters that are up), primary IPv4, battery
+      (level, charging; absent on desktops), uptime and last boot (also the source of the
+      boot id), OS version, pending reboot
+      (registry keys), and GPU usage through the GPU Engine performance counters. Use the
+      correct Home Assistant device classes, units and state classes, and mark diagnostic
+      metrics with the entity category.
+    deliverables: [src/QoffeeAutomat.Platform.Windows/Metrics/System/, tests/QoffeeAutomat.Platform.Windows.Tests/Metrics/]
+    acceptance:
+      - "On windows-latest every provider returns plausible values (ranges asserted) or a clean unavailable state."
+      - "Plugging in or removing a volume changes the manifest rev."
+      - "Sampling 20 metrics once per interval stays within the CPU budget of S14."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=SystemMetrics"
+    status: todo
+
+  - id: T305
+    title: Implement Windows session metric providers
+    milestone: M3
+    area: [windows, sessionhost]
+    size: M
+    actor: agent
+    platform: windows
+    depends_on: [T302, T304]
+    requirements: [R-05]
+    spec: [S06, S11]
+    description: >-
+      Implement session locked, logged-in user and session ready (agent side, from session
+      notifications and the SessionHost connection state; session.ready is a binary sensor
+      that is on while user commands can be executed),
+      and in the SessionHost: idle time (GetLastInputInfo), active window title and process
+      (off by default), master volume and mute (Core Audio), microphone in use and webcam in
+      use (capability access registry data), display count and primary resolution. User
+      metrics travel over the IPC subscription messages and are only sampled while
+      subscribed. They become unavailable when no session exists.
+    deliverables: [src/QoffeeAutomat.SessionHost/Metrics/, src/QoffeeAutomat.Platform.Windows/Metrics/Session/]
+    acceptance:
+      - "Locking and unlocking the PC updates the metric within two seconds and fires the events (manual check)."
+      - "Active window metrics have enabledDefault false."
+      - "session.ready turns on after logon once the SessionHost is connected and turns off at logoff or when the SessionHost exits."
+      - "With no user logged in the user metrics report unavailable and the agent logs no errors."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=SessionMetrics"
+    human_verify: true
+    status: todo
+
+  - id: T306
+    title: Implement Windows built-in actions
+    milestone: M3
+    area: [windows, sessionhost]
+    size: M
+    actor: agent
+    platform: windows
+    depends_on: [T303]
+    requirements: [R-01, R-11]
+    spec: [S06, S11]
+    description: >-
+      Implement the v1 built-in actions listed in S11 with their parameter definitions
+      (for example audio.set_volume with an int Level from 0 to 100, media.key with an enum
+      Key, app.launch with Path and Arguments, process.kill with Name). Each action declares
+      whether it needs the system or the user context. On first start with an empty config,
+      create default command documents for the power and session actions, disabled and not
+      exposed, so the user only has to switch them on.
+    deliverables: [src/QoffeeAutomat.Platform.Windows/Actions/, src/QoffeeAutomat.SessionHost/Actions/, tests/QoffeeAutomat.Platform.Windows.Tests/Actions/]
+    acceptance:
+      - "Every action validates its variables through the common binder."
+      - "Destructive actions (shutdown, restart, logoff, process.kill) are covered by tests through an injectable native API wrapper and are never really executed in CI."
+      - "Default commands are created once and not recreated after the user deletes them."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=Actions"
+    human_verify: true
+    status: todo
+
+  - id: T307
+    title: Implement Windows custom sensor types
+    milestone: M3
+    area: [windows]
+    size: S
+    actor: agent
+    platform: windows
+    depends_on: [T215, T304]
+    requirements: [R-03, R-05]
+    spec: [S06]
+    description: >-
+      Add the custom sensor types perf_counter (category, counter, instance), cim_query
+      (namespace, class, property, optional filter; first result) and service_state (service
+      name; enum sensor). Validate definitions at save time where possible and through
+      /sensors/test.
+    deliverables: [src/QoffeeAutomat.Platform.Windows/Metrics/Custom/]
+    acceptance:
+      - "Each type has a test on windows-latest using a counter, class and service that exist on every Windows installation."
+      - "On other platforms these types are reported as unsupported by validation instead of failing at runtime."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=CustomSensors"
+    status: todo
+
+  - id: T309
+    title: Port the prototype features as command templates
+    milestone: M3
+    area: [windows, docs]
+    size: M
+    actor: agent+human
+    platform: windows
+    depends_on: [T303, T306]
+    requirements: [R-03, R-10]
+    spec: [S02, S06]
+    description: >-
+      Using docs/prototype/ as reference, create templates under templates/: the script
+      set_display_profile.ps1 (parameters Profile and UpdateAdapterIds; imports the
+      DisplayConfig module, loads the profile XML from a configurable directory and applies
+      it), save_display_profile.ps1 (exports the current configuration under a name), a
+      command set_display_profile bound to a select control, and an example mode command of
+      type sequence that applies a profile, launches programs and waits between them
+      (equivalent to the prototype's modes.json). Write a migration guide from the prototype.
+    deliverables: [templates/scripts/set_display_profile.ps1, templates/scripts/save_display_profile.ps1, templates/commands/set_display_profile.json, templates/commands/mode_example.json, docs/migration-from-prototype.md]
+    acceptance:
+      - "The template documents validate against the config schemas."
+      - "On the owner's PC a display profile is applied and a program chain is started from Home Assistant or the API (manual check, open item O-06)."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Templates"
+    human_verify: true
+    status: todo
+
+  - id: T310
+    title: Add the tray icon
+    milestone: M3
+    area: [sessionhost]
+    size: S
+    actor: agent
+    platform: windows
+    depends_on: [T302]
+    requirements: [R-11]
+    spec: [S11]
+    description: >-
+      Add a tray icon to the SessionHost: tooltip with agent name and link status, menu
+      entries Open UI (opens the loopback URL in the default browser), Pause commands and
+      Resume commands (sets the global pause flag through IPC), and About. The icon is derived
+      from assets/brand/app.ico and reflects the states connected, not paired and paused. A setting hides the tray icon.
+    deliverables: [src/QoffeeAutomat.SessionHost/Tray/]
+    acceptance:
+      - "While paused, runs from every source are rejected with error paused and /status reports it."
+      - "The tray icon is shown after logon and disappears when the SessionHost exits (manual check)."
+    verify:
+      - "dotnet build src/QoffeeAutomat.SessionHost"
+    human_verify: true
+    status: todo
+
+  - id: T311
+    title: Run desktop commands with administrator rights
+    milestone: M3
+    area: [windows, security]
+    size: M
+    actor: agent
+    platform: windows
+    depends_on: [T303]
+    requirements: [R-03]
+    spec: [S03, S06, S09, S11]
+    description: >-
+      Implement IElevatedLauncher for Windows as specified in S11 and D-036: token of the
+      active console session, linked elevated token, environment block of the user,
+      CreateProcessAsUser on the interactive desktop, output capture through pipes owned by
+      the agent, job object for timeout and cancellation. Support the action types process
+      and powershell (the wrapper and its parameter file must be readable only by SYSTEM,
+      Administrators and that user). Return elevation_unavailable when the token has no
+      elevated linked token and no_session when nobody is logged in. Explain the three run
+      contexts in the command editor texts and the documentation, including that
+      user_elevated only works for users who are administrators.
+    deliverables: [src/QoffeeAutomat.Platform.Windows/Sessions/ElevatedLauncher.cs, tests/QoffeeAutomat.Platform.Windows.Tests/Sessions/]
+    acceptance:
+      - "Token handling is covered by tests through an injectable native API wrapper, including the cases no session and no linked token."
+      - "On a real PC a program whose manifest requires administrator rights starts on the desktop without a UAC prompt and reports the interactive user as owner (manual check)."
+      - "With a standard user logged in the run fails with elevation_unavailable and nothing is started (manual check)."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=Elevated"
+    human_verify: true
+    status: todo
+
+  # ─────────────────────────────── M4 Web UI ───────────────────────────────
+  - id: T401
+    title: Build the UI shell
+    milestone: M4
+    area: [ui]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T213]
+    requirements: [R-02]
+    spec: [S03, S04, S08, S09]
+    description: >-
+      Set up the Blazor WebAssembly app with MudBlazor, hosted as static files by the agent
+      on both listeners (remote only when enabled). Put layout, navigation and all pages in
+      Ui.Components. Define IAgentApi in Ui.Components and implement it in Ui with a typed
+      HttpClient using the DTOs and JSON contexts from Contracts (cookies, anti-forgery header,
+      problem details mapped to a common error display). Add first-run setup and login pages,
+      a session guard, favicon and app icon taken from assets/brand/, light and dark theme
+      following the system setting, and localisation
+      infrastructure with English and German resources. All assets are bundled; no request
+      leaves the PC.
+    deliverables: [src/QoffeeAutomat.Ui/, src/QoffeeAutomat.Ui.Components/, tests/QoffeeAutomat.Ui.Tests/]
+    acceptance:
+      - "Opening the loopback URL shows the setup page on first run and the login page afterwards."
+      - "The published UI contains no reference to an external host (checked by a test over the publish output)."
+      - "Ui.Components compiles without a reference to Agent, Core or any platform project."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Ui.Tests"
+      - "dotnet publish src/QoffeeAutomat.Agent -c Release"
+    status: todo
+
+  - id: T402
+    title: Build the dashboard
+    milestone: M4
+    area: [ui]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T401, T214]
+    requirements: [R-05, R-11]
+    spec: [S08]
+    description: >-
+      Dashboard page with agent status (version, uptime, platform, SessionHost state, paused
+      flag), Home Assistant link status (paired clients, connected or not, last seen), tiles
+      for the main metrics with live values from /metrics/stream and line charts from
+      /metrics/history, and the most recent runs and events. The live stream is opened only
+      while the page is visible so the dashboard does not keep metrics sampled in the
+      background.
+    deliverables: [src/QoffeeAutomat.Ui.Components/Pages/Dashboard/]
+    acceptance:
+      - "Values update without reloading the page."
+      - "Leaving the page closes the stream (asserted in a component test through the fake API)."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Dashboard"
+    status: todo
+
+  - id: T403
+    title: Build the command list
+    milestone: M4
+    area: [ui]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T401, T214]
+    requirements: [R-02]
+    spec: [S06, S08]
+    description: >-
+      Page listing all commands with search and filters, switches for enabled and for expose
+      to Home Assistant that save immediately, action type and run context badges, last run
+      status and time, and the actions run, edit, duplicate and delete (with confirmation).
+      Run opens a dialog with a form generated from the parameter definitions (input types,
+      ranges, options, required markers) and shows live output and the result.
+    deliverables: [src/QoffeeAutomat.Ui.Components/Pages/Commands/]
+    acceptance:
+      - "Toggling enabled calls PATCH and the list reflects the saved state; a failed save reverts the switch and shows the error."
+      - "The run form refuses values outside the parameter rules before sending and shows server-side validation errors next to the fields."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Commands"
+    status: todo
+
+  - id: T404
+    title: Build the command editor
+    milestone: M4
+    area: [ui]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T403]
+    requirements: [R-03, R-04, R-11]
+    spec: [S06, S08, S10]
+    description: >-
+      Editor for creating and changing commands: general data (name, id derived from the name
+      and editable before first save, description, icon picker, run context with an
+      explanation of the three run contexts), action type selection with a matching form for
+      powershell (inline or file), process, builtin and sequence, a parameter table editor
+      with type-specific fields, the Home Assistant control mapping with only the valid
+      choices offered, timeout, concurrency and cooldown. PowerShell code is edited in the
+      locally bundled Monaco editor with PowerShell highlighting; a button inserts or updates
+      the param() block from the parameter table. Drafts are validated through
+      /commands/validate while typing (debounced). A test panel runs the unsaved draft with
+      entered variables and shows live output. A preview shows which Home Assistant entity
+      will result and a copyable YAML snippet for calling qoffeeautomat.run_command with the
+      variables. Unsaved changes are guarded on navigation.
+    deliverables: [src/QoffeeAutomat.Ui.Components/Pages/CommandEditor/]
+    acceptance:
+      - "A user can create a PowerShell command with one enum and one int parameter, test it, bind it to a select control and save it, without leaving the editor."
+      - "Server validation errors are shown at the corresponding fields."
+      - "The Monaco assets are served by the agent itself."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=CommandEditor"
+    status: todo
+
+  - id: T405
+    title: Build the metrics and sensors pages
+    milestone: M4
+    area: [ui]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T401, T214, T215]
+    requirements: [R-03, R-05]
+    spec: [S06, S08]
+    description: >-
+      Metrics page: catalog grouped by provider with current value, switches for enabled and
+      expose to Home Assistant, interval and deadband editing, and a privacy hint on
+      sensitive metrics. Sensors page: list and editor for custom sensors of every supported
+      type with a test button that shows the parsed value or the error, and Home Assistant
+      attributes (unit, device class, state class) chosen from valid values.
+    deliverables: [src/QoffeeAutomat.Ui.Components/Pages/Metrics/, src/QoffeeAutomat.Ui.Components/Pages/Sensors/]
+    acceptance:
+      - "A new script sensor can be created, tested and seen with a live value."
+      - "Sensor types unsupported on the current platform are not offered."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Sensors"
+    status: todo
+
+  - id: T406
+    title: Build the Home Assistant link page
+    milestone: M4
+    area: [ui]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T401, T214]
+    requirements: [R-01, R-11]
+    spec: [S07, S09]
+    description: >-
+      Page with a Pair button that shows the pairing code with a countdown and the
+      certificate fingerprint, short instructions for Home Assistant, the list of paired
+      clients (name, kind, created, last seen, connected) with revoke, and the zeroconf
+      switch. The dialog closes automatically when a client has paired.
+    deliverables: [src/QoffeeAutomat.Ui.Components/Pages/Link/]
+    acceptance:
+      - "The code disappears when it expires or was used."
+      - "Revoking a client asks for confirmation and removes it from the list."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Link"
+    status: todo
+
+  - id: T407
+    title: Build settings, history, logs and backup pages
+    milestone: M4
+    area: [ui]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T401, T214]
+    requirements: [R-11]
+    spec: [S08]
+    description: >-
+      Settings page (agent name, ports, remote UI switch with a security explanation, log
+      level, retention, tray icon, password change). History page with runs (filters, detail
+      view with variables, output, exit code, source) and events. Log viewer with level
+      filter and follow mode. Backup page with export, import with a preview of what will
+      change, document revision history with restore, and diagnostics download.
+    deliverables: [src/QoffeeAutomat.Ui.Components/Pages/Settings/, src/QoffeeAutomat.Ui.Components/Pages/History/, src/QoffeeAutomat.Ui.Components/Pages/Backup/]
+    acceptance:
+      - "Changing a port shows that a restart is required and offers to restart the agent."
+      - "Import shows validation errors and applies nothing when any document is invalid."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Settings"
+    status: todo
+
+  - id: T408
+    title: Add a browser smoke test for the UI
+    milestone: M4
+    area: [ui, ci]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T404, T405, T406, T407]
+    requirements: [R-08]
+    spec: [S14]
+    description: >-
+      Add a Playwright test project that starts the published agent with the simulated
+      platform and a fresh data directory and walks through: first-run setup, login, create a
+      PowerShell command with a variable, test run with output, toggle enabled, create a
+      script sensor, start pairing and read the code, export the configuration. Run it in
+      ci-dotnet.yml on Linux and upload traces on failure.
+    deliverables: [tests/QoffeeAutomat.Ui.E2E/, .github/workflows/ci-dotnet.yml]
+    acceptance:
+      - "The smoke test passes headless in CI in under five minutes."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Ui.E2E"
+    status: todo
+
+  # ─────────────────────── M5 Home Assistant integration ───────────────────────
+  - id: T501
+    title: Implement the protocol client in Python
+    milestone: M5
+    area: [integration]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T104, T210, T211]
+    requirements: [R-06, R-07]
+    spec: [S07, S09, S10]
+    description: >-
+      Implement custom_components/qoffeeautomat/client.py without Home Assistant imports:
+      pairing call, WebSocket connection with bearer token, certificate pinning by SHA-256
+      fingerprint (aiohttp fingerprint pinning instead of chain validation), handshake with version negotiation, request and response correlation with
+      timeouts, callbacks for state, event, manifest_changed, bye and connection changes,
+      reconnect with exponential backoff and jitter, a method that triggers an immediate
+      connection attempt and resets the backoff, a fast-retry mode (one attempt per second
+      for a given duration), and clean shutdown. Add a fake agent
+      server for tests (aiohttp test server speaking QoffeeLink from fixtures) under
+      tests_integration/fake_agent.py.
+    deliverables: [custom_components/qoffeeautomat/client.py, tests_integration/fake_agent.py, tests_integration/test_client.py]
+    acceptance:
+      - "A certificate with a different fingerprint is refused."
+      - "After the fake agent drops the connection the client reconnects and re-subscribes."
+      - "While waiting in a 60 second backoff, the immediate-connect method leads to a connection within two seconds of the fake agent becoming reachable."
+      - "The client interoperates with the real agent in a test that starts the Linux agent binary with the simulated platform (skipped when the binary is absent)."
+    verify:
+      - "pytest tests_integration/test_client.py"
+    status: todo
+
+  - id: T502
+    title: Implement the config flow
+    milestone: M5
+    area: [integration]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T501]
+    requirements: [R-07, R-11]
+    spec: [S09, S10]
+    description: >-
+      Implement the user step (host and port), the zeroconf step (uses TXT id as unique id,
+      aborts when already configured, updates the stored address and asks the entry's client
+      to connect immediately), the confirmation step
+      showing agent name and certificate fingerprint, the pairing-code step, error handling
+      (cannot connect, invalid code, code expired, unsupported protocol version),
+      reauthentication when the token was revoked, and reconfiguration of host and port. Add
+      strings and English and German translations.
+    deliverables: [custom_components/qoffeeautomat/config_flow.py, custom_components/qoffeeautomat/strings.json, custom_components/qoffeeautomat/translations/, tests_integration/test_config_flow.py]
+    acceptance:
+      - "Config flow test coverage is 100 percent."
+      - "Configuring the same agent twice is not possible."
+      - "A rediscovered agent with a new IP address updates the existing entry."
+      - "A zeroconf announcement of a configured but disconnected agent triggers an immediate connection attempt."
+    verify:
+      - "pytest tests_integration/test_config_flow.py --cov=custom_components.qoffeeautomat.config_flow --cov-fail-under=100"
+    status: todo
+
+  - id: T503
+    title: Implement entry setup, device and dynamic entity management
+    milestone: M5
+    area: [integration]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T502]
+    requirements: [R-07, R-11]
+    spec: [S07, S10]
+    description: >-
+      Implement async_setup_entry and unload with runtime_data holding the client and the
+      manifest. The first connection attempt is tested before setup completes
+      (ConfigEntryNotReady, ConfigEntryAuthFailed). Register the device as specified in S10.
+      Implement a manifest manager that caches by rev, notifies platforms about added and
+      removed metrics and commands, removes stale entities and keeps user customisations of
+      unchanged entities. Implement a base entity with availability tied to the connection,
+      the connectivity binary sensor and the power-state sensor fed by bye reasons. Store the
+      last seen boot id in the config entry data and expose a changed boot id on connect as
+      the booted event described in S10 (fired by the event platform of T506). Log once
+      when the agent becomes unavailable and once when it returns.
+    deliverables: [custom_components/qoffeeautomat/__init__.py, custom_components/qoffeeautomat/entity.py, custom_components/qoffeeautomat/manifest_manager.py, tests_integration/test_init.py]
+    acceptance:
+      - "Adding a metric or command on the agent creates the entity without reloading the integration; removing it removes the entity."
+      - "After bye with reason sleep all entities are unavailable except connectivity and power state, and power state shows sleep."
+      - "The device page links to the agent UI."
+      - "Reconnecting with a new boot id signals booted exactly once; reconnecting with the same boot id does not."
+    verify:
+      - "pytest tests_integration/test_init.py"
+    status: todo
+
+  - id: T504
+    title: Implement the sensor and binary sensor platforms
+    milestone: M5
+    area: [integration]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T503]
+    requirements: [R-05, R-06, R-07]
+    spec: [S06, S07, S10]
+    description: >-
+      Create sensor and binary sensor entities from metric descriptors with device class,
+      unit, state class, entity category, options, suggested precision, translation key
+      (falling back to the manifest name) and enabled-by-default. Deliver state frames only
+      to the affected entities. Maintain the subscription: collect the metric ids of enabled
+      entities, send subscribe on connect and whenever an entity is enabled, disabled, added
+      or removed (debounced). Unknown device classes or units from a newer agent are dropped
+      with a debug log instead of failing.
+    deliverables: [custom_components/qoffeeautomat/sensor.py, custom_components/qoffeeautomat/binary_sensor.py, tests_integration/test_sensor.py]
+    acceptance:
+      - "Disabling an entity in Home Assistant removes its metric from the next subscribe message."
+      - "A state frame with one metric writes exactly one entity state."
+      - "Timestamp and enum metrics become correctly typed sensors."
+    verify:
+      - "pytest tests_integration/test_sensor.py"
+    status: todo
+
+  - id: T505
+    title: Implement the command entity platforms
+    milestone: M5
+    area: [integration]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T503]
+    requirements: [R-04, R-07]
+    spec: [S06, S07, S10]
+    description: >-
+      Create button, switch, select, number and text entities from command control
+      descriptors as defined in the haControl table. Each entity runs the command with the
+      mapped variable, uses the state metric when present and is optimistic otherwise, and
+      turns agent errors into translated Home Assistant errors. Number entities take min, max,
+      step and unit from the variable definition; select entities take the options.
+    deliverables: [custom_components/qoffeeautomat/button.py, custom_components/qoffeeautomat/switch.py, custom_components/qoffeeautomat/select.py, custom_components/qoffeeautomat/number.py, custom_components/qoffeeautomat/text.py, tests_integration/test_controls.py]
+    acceptance:
+      - "Each control type sends the expected run message (asserted against the fake agent)."
+      - "A failing command raises a Home Assistant error containing the agent's error message."
+    verify:
+      - "pytest tests_integration/test_controls.py"
+    status: todo
+
+  - id: T506
+    title: Implement the run_command action and events
+    milestone: M5
+    area: [integration]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T503]
+    requirements: [R-04, R-11]
+    spec: [S07, S10]
+    description: >-
+      Register the action qoffeeautomat.run_command in async_setup with a schema (device
+      target, command, variables, wait, timeout), services.yaml with selectors, and optional
+      response data. Pass the calling user's id in the run context. Implement the event
+      entity platform and fire qoffeeautomat_event on the bus for agent events, including
+      device id, type and data. Document examples for automations that inject variables from
+      templates.
+    deliverables: [custom_components/qoffeeautomat/services.py, custom_components/qoffeeautomat/services.yaml, custom_components/qoffeeautomat/event.py, tests_integration/test_services.py]
+    acceptance:
+      - "Calling the action with variables returns exit code and output as response data."
+      - "Unknown commands and invalid variables raise ServiceValidationError; an offline agent raises HomeAssistantError."
+      - "An agent event triggers both the event entity and the bus event."
+    verify:
+      - "pytest tests_integration/test_services.py"
+    status: todo
+
+  - id: T507
+    title: Add diagnostics, repairs, translations and brand assets
+    milestone: M5
+    area: [integration]
+    size: M
+    actor: agent+human
+    platform: any
+    depends_on: [T504, T505, T506]
+    requirements: [R-07, R-08]
+    spec: [S10, S18]
+    description: >-
+      Add diagnostics with redaction of token, fingerprint, addresses and MACs; a repair
+      issue when the agent's protocol range does not overlap (asks to update agent or
+      integration); entity, exception and icon translations in English and German for all
+      built-in metrics; brand images under custom_components/qoffeeautomat/brand/ copied from
+      assets/brand/ by a script that CI uses to check both stay identical (open item O-05); and quality_scale.yaml with
+      the status of every rule named in S10.
+    deliverables: [custom_components/qoffeeautomat/diagnostics.py, custom_components/qoffeeautomat/repairs.py, custom_components/qoffeeautomat/icons.json, custom_components/qoffeeautomat/brand/, custom_components/qoffeeautomat/quality_scale.yaml, tests_integration/test_diagnostics.py]
+    acceptance:
+      - "Diagnostics output contains no secret (snapshot test)."
+      - "hassfest passes."
+      - "quality_scale.yaml marks every targeted rule as done or exempt with a reason."
+    verify:
+      - "pytest tests_integration"
+    status: todo
+
+  - id: T508
+    title: Add the end-to-end test with a real Home Assistant
+    milestone: M5
+    area: [integration, ci]
+    size: L
+    actor: agent
+    platform: linux
+    depends_on: [T504, T505, T506]
+    requirements: [R-08]
+    spec: [S12, S14]
+    description: >-
+      Create tests/e2e/ with a docker compose file that runs the Home Assistant container
+      (stable; a second matrix entry uses beta) with the integration mounted and a container
+      with the Linux agent using the simulated platform and a preconfigured password, one
+      PowerShell command with variables and one custom sensor. A pytest driver onboards Home
+      Assistant through its API, obtains a pairing code from the agent API, completes the
+      config flow, waits for entities, checks that values update, calls run_command with
+      variables and checks the response, toggles a command on the agent and checks that the
+      entity appears and disappears, and restarts the agent to check reconnection. Add
+      e2e.yml (nightly, manual, and on pull requests labelled release).
+    deliverables: [tests/e2e/, .github/workflows/e2e.yml]
+    acceptance:
+      - "The workflow passes against the stable Home Assistant container."
+      - "A failure uploads the logs of both containers."
+    verify:
+      - "docker compose -f tests/e2e/docker-compose.yml config"
+      - "pytest tests/e2e"
+    status: todo
+
+  # ───────────────────────────── M6 Release 1.0 ─────────────────────────────
+  - id: T601
+    title: Package the agent for Windows
+    milestone: M6
+    area: [packaging, windows]
+    size: L
+    actor: agent
+    platform: windows
+    depends_on: [T301, T302, T401]
+    requirements: [R-01]
+    spec: [S03, S05, S09, S13]
+    description: >-
+      Add publish profiles for win-x64 and win-arm64 (self-contained, single file,
+      ReadyToRun, version stamped, application icon assets/brand/app.ico) producing the agent
+      and the SessionHost, a portable zip,
+      and an Inno Setup script that installs to Program Files, creates the data directories
+      with ACLs, installs and starts the service, adds the firewall rule for the link port on
+      private and domain profiles, adds a Start menu shortcut to the UI, shows the setup
+      token location at the end, upgrades in place (stops the service and SessionHosts,
+      replaces files, restarts) and uninstalls with an option to keep the data. Support
+      silent installation. Build the installer in CI on windows-latest and test it there
+      (silent install, health check, silent upgrade, uninstall).
+    deliverables: [packaging/windows/, src/QoffeeAutomat.Agent/Properties/PublishProfiles/, .github/workflows/ci-dotnet.yml]
+    acceptance:
+      - "The CI installer test passes: install, /healthz answers, upgrade keeps the configuration, uninstall removes service and firewall rule."
+      - "Installation on the owner's PC works with a standard elevation prompt (manual check)."
+    verify:
+      - "dotnet publish src/QoffeeAutomat.Agent -c Release -r win-x64"
+    human_verify: true
+    status: todo
+
+  - id: T602
+    title: Automate releases
+    milestone: M6
+    area: [ci, packaging]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T601, T507]
+    requirements: [R-08]
+    spec: [S12, S13]
+    description: >-
+      Configure release-please (single package, extra files Directory.Build.props and the
+      integration manifest.json, changelog sections by commit type) with release-please.yml.
+      Immutable releases are enabled (S13), so nothing can be attached after publication:
+      release-please creates the tag and a draft release (check its current options for
+      draft releases and tag creation) and calls release.yml, which builds the Windows
+      artifacts and the integration zip (contents of custom_components/qoffeeautomat at the archive root, as
+      HACS expects for zip_release), generates SHA256SUMS.txt and an SPDX SBOM, creates build
+      provenance attestations for every asset, uploads everything to the draft release and
+      publishes it as the last step; a failed run leaves the draft unpublished. Support
+      prereleases from a manual trigger. Document the release procedure for maintainers.
+    deliverables: [release-please-config.json, .release-please-manifest.json, .github/workflows/release-please.yml, .github/workflows/release.yml, docs/maintainers/releasing.md]
+    acceptance:
+      - "A prerelease created from a test tag contains every asset listed in S13 with matching checksums."
+      - "gh attestation verify succeeds for the installer."
+      - "The version in the binaries, in manifest.json and in the tag are identical."
+      - "A release is published only after all assets are attached; a run that fails before that leaves a draft."
+    verify:
+      - "actionlint .github/workflows/release.yml .github/workflows/release-please.yml"
+    status: todo
+
+  - id: T603
+    title: Add code signing
+    milestone: M6
+    area: [packaging, security]
+    size: M
+    actor: agent+human
+    platform: windows
+    depends_on: [T602]
+    requirements: [R-08]
+    spec: [S03, S18]
+    description: >-
+      Decided: the project applies to SignPath Foundation (open item O-02). The owner submits
+      the application and stores the credentials in the release environment. The agent adds signing of the executables and the installer to
+      release.yml behind a condition on the presence of the secrets, so unsigned releases
+      still work, and documents how users verify signatures, checksums and attestations. If
+      the application is declined, document the SmartScreen prompt and keep the unsigned path.
+    deliverables: [.github/workflows/release.yml, docs/user/verify-download.md]
+    acceptance:
+      - "With secrets present the release assets carry a valid Authenticode signature; without them the workflow still succeeds."
+    verify:
+      - "actionlint .github/workflows/release.yml"
+    status: todo
+
+  - id: T604
+    title: Write the user documentation and final README
+    milestone: M6
+    area: [docs]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T408, T507]
+    requirements: [R-08]
+    spec: [S06, S07, S09, S10, S12]
+    description: >-
+      Set up MkDocs with the Material theme under docs/ and docs.yml for GitHub Pages. Write:
+      overview and architecture, installation on Windows, first-run setup, pairing with Home
+      Assistant, installing the integration through HACS, commands (action types, run
+      context, variables with examples of injecting Home Assistant templates, control
+      mapping), sensors, built-in metrics reference (generated from the catalog), built-in
+      actions reference, events, a worked example that starts the PC in a chosen mode (wake,
+      wait for connection and session ready, then run mode-specific commands from Home
+      Assistant), security model and recommendations, backup and restore,
+      troubleshooting, protocol reference (generated from protocol/), API reference (from the
+      OpenAPI document), and migration from the prototype. Rewrite README.md with a short
+      pitch, screenshots, quick start and badges (CI, release, HACS, license).
+    deliverables: [mkdocs.yml, docs/user/, .github/workflows/docs.yml, README.md]
+    acceptance:
+      - "mkdocs build --strict succeeds."
+      - "The quick start leads from download to a working Home Assistant entity without referring to source code."
+    verify:
+      - "mkdocs build --strict"
+    status: todo
+
+  - id: T605
+    title: Make the integration installable through HACS
+    milestone: M6
+    area: [integration, github]
+    size: S
+    actor: agent+human
+    platform: any
+    depends_on: [T602]
+    requirements: [R-07, R-08]
+    spec: [S03, S18]
+    description: >-
+      Verify that a published release installs through HACS as a custom repository (zip
+      release found, version shown, update detected for the next release). Add the My Home
+      Assistant link button for adding the repository to the documentation. Remove every
+      ignored check from the HACS validation action that is no longer needed. Decided:
+      the integration is submitted to the HACS default store after 1.0 (open item O-04);
+      prepare the submission checklist and the pull request text so the owner only has to
+      open it.
+    deliverables: [docs/user/install-integration.md, docs/maintainers/hacs-default-submission.md]
+    acceptance:
+      - "The HACS validation action passes without ignored checks other than those documented as unavoidable."
+      - "The owner has installed the integration through HACS on a real Home Assistant instance."
+    verify:
+      - "python -c \"import json; d=json.load(open('hacs.json')); assert d['zip_release'] and d['filename']=='qoffeeautomat.zip'\""
+    status: todo
+
+  - id: T606
+    title: Perform the security review and release 1.0.0
+    milestone: M6
+    area: [security, docs]
+    size: M
+    actor: agent+human
+    platform: any
+    depends_on: [T603, T604, T605, T508, T309, T310, T311, T305, T307, T216, T218]
+    requirements: [R-08]
+    spec: [S09, S13, S19]
+    description: >-
+      Write docs/security/threat-model.md covering every item of S09 with the implementing
+      code and tests. Review: all endpoints for authentication, input validation on every
+      boundary, variable handling in every action type, file permissions after a fresh
+      install, the pipe checks, secrets in logs and diagnostics, dependency licences and
+      known vulnerabilities, CodeQL and Scorecard findings. Fix or file issues for all
+      findings; none of severity high may remain open. Complete the 1.0 checklist (all M0 to
+      M6 tasks done, placeholder artwork in assets/brand/ replaced by the owner, end-to-end test green, documentation published, upgrade from the last
+      prerelease tested) and merge the release pull request.
+    deliverables: [docs/security/threat-model.md, docs/maintainers/release-1.0-checklist.md]
+    acceptance:
+      - "No open security finding of severity high."
+      - "assets/brand/ contains the owner's final artwork, or the owner has confirmed in the pull request that the placeholder stays."
+      - "Release 1.0.0 is published with all assets."
+    verify:
+      - "python scripts/plan/validate.py"
+    status: todo
+
+  - id: T607
+    title: Publish to winget
+    milestone: M6
+    area: [packaging, ci]
+    size: S
+    actor: agent+human
+    platform: windows
+    depends_on: [T606]
+    requirements: [R-08, R-11]
+    spec: [S12]
+    description: >-
+      Create the initial winget manifest for the installer and the workflow winget.yml that
+      submits an updated manifest to the community repository on every stable release. The
+      owner provides the token for the submission.
+    deliverables: [.github/workflows/winget.yml, docs/maintainers/winget.md]
+    acceptance:
+      - "winget install for the package id installs the current release after the first manifest was merged upstream."
+    verify:
+      - "actionlint .github/workflows/winget.yml"
+    status: todo
+
+  # ───────────────────────── M7 Quality of life (1.x) ─────────────────────────
+  - id: T701
+    title: Add the template gallery
+    milestone: M7
+    area: [core, api, ui]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T606]
+    requirements: [R-11]
+    spec: [S06, S08, S16]
+    description: >-
+      Ship the templates directory with the agent and expose it through /templates. Add a
+      gallery page where a template can be previewed and added as a new command or sensor
+      (id made unique, scripts copied). Seed templates: display profile and mode (from T309),
+      launch application, open URL, set volume, lock, sleep, kill process, empty recycle bin,
+      disk-space sensor, process-running sensor, service-state sensor. Templates are
+      validated in CI.
+    deliverables: [templates/, src/QoffeeAutomat.Ui.Components/Pages/Templates/]
+    acceptance:
+      - "Every shipped template validates and can be instantiated twice without id conflicts."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Templates"
+    status: todo
+
+  - id: T702
+    title: Add notifications from Home Assistant to the PC
+    milestone: M7
+    area: [sessionhost, integration]
+    size: M
+    actor: agent
+    platform: windows
+    depends_on: [T606]
+    requirements: [R-11]
+    spec: [S10, S11, S16]
+    description: >-
+      Implement the built-in action notify.toast in the SessionHost (title, message, optional
+      image URL fetched by the agent with size and type limits, up to three action buttons).
+      Announce the feature notify in the manifest. Button presses emit the event
+      notification_action with the action id. In the integration add a notify entity and
+      document automations that react to the action event.
+    deliverables: [src/QoffeeAutomat.SessionHost/Notifications/, custom_components/qoffeeautomat/notify.py]
+    acceptance:
+      - "A notification sent from Home Assistant appears on the desktop and a button press arrives as an event (manual check)."
+      - "The notify entity only exists when the manifest lists the feature."
+    verify:
+      - "pytest tests_integration"
+    human_verify: true
+    status: todo
+
+  - id: T703
+    title: Add the Wake-on-LAN button
+    milestone: M7
+    area: [integration]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T606]
+    requirements: [R-11]
+    spec: [S10, S16]
+    description: >-
+      Store the MAC addresses from the manifest in the config entry. Add a button entity that
+      is available while the agent is disconnected and sends magic packets for every stored
+      MAC to the broadcast address (configurable in the options flow) and then switches the
+      client to fast-retry mode for five minutes. Document the BIOS and
+      adapter settings needed for waking.
+    deliverables: [custom_components/qoffeeautomat/wol.py, tests_integration/test_wol.py]
+    acceptance:
+      - "The magic packet has the correct format (unit test) and is sent for every stored MAC."
+      - "The button stays available when the PC is off."
+      - "After a press the client attempts to connect once per second until connected or five minutes have passed."
+    verify:
+      - "pytest tests_integration/test_wol.py"
+    status: todo
+
+  - id: T704
+    title: Add update notification and self-update
+    milestone: M7
+    area: [agent, integration, security]
+    size: L
+    actor: agent
+    platform: windows
+    depends_on: [T606]
+    requirements: [R-11]
+    spec: [S09, S13, S16]
+    description: >-
+      The agent checks the GitHub releases API once a day (can be disabled; this is the only
+      outbound internet request and must be documented) and reports installed and latest
+      version as metrics. The built-in action agent.update downloads the installer, verifies
+      the checksum from the release and the Authenticode signature when the running build is
+      signed, sends bye with reason update and runs the installer silently. The integration
+      adds an update entity with release notes and install support.
+    deliverables: [src/QoffeeAutomat.Agent/Updates/, custom_components/qoffeeautomat/update.py]
+    acceptance:
+      - "An installer with a wrong checksum is refused."
+      - "The update check can be turned off and then performs no network request."
+      - "Updating from the previous release through Home Assistant works on a real PC (manual check)."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Updates"
+    human_verify: true
+    status: todo
+
+  - id: T705
+    title: Add maintenance mode and command conditions
+    milestone: M7
+    area: [core, ui, integration]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T606]
+    requirements: [R-11]
+    spec: [S06, S16]
+    description: >-
+      Expose the global pause flag as a metric and as a switch control so Home Assistant can
+      see and set it. Add optional conditions to command documents (schemaVersion 2 with
+      migration): session state required (any, logged_in, unlocked, locked) and a time
+      window. A blocked run returns a dedicated error code added to the protocol in a
+      backward compatible way. Add the editor fields.
+    deliverables: [src/QoffeeAutomat.Core/Commands/Conditions/, protocol/schema/]
+    acceptance:
+      - "Existing schemaVersion 1 documents are migrated automatically and keep working."
+      - "A command with condition unlocked is rejected while the session is locked."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Conditions"
+    status: todo
+
+  - id: T706
+    title: Add secrets for scripts
+    milestone: M7
+    area: [core, api, ui, security]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T606]
+    requirements: [R-11]
+    spec: [S09, S16]
+    description: >-
+      Add named secrets stored in the secrets store, managed in the UI (write-only values),
+      and referenced by commands through a secrets list. Referenced secrets are passed as
+      environment variables QA_SECRET_<NAME> to the process only, never appear in history,
+      logs, exports or diagnostics, and are masked in captured output.
+    deliverables: [src/QoffeeAutomat.Core/Secrets/Named/, src/QoffeeAutomat.Ui.Components/Pages/Secrets/]
+    acceptance:
+      - "A secret value that a script prints is masked in stored and streamed output."
+      - "Export and diagnostics contain no secret values (archive scan test)."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=NamedSecrets"
+    status: todo
+
+  - id: T707
+    title: Evaluate and add hardware sensors
+    milestone: M7
+    area: [windows]
+    size: L
+    actor: agent+human
+    platform: windows
+    depends_on: [T606]
+    requirements: [R-05, R-11]
+    spec: [S03, S16, S19]
+    description: >-
+      Spike first: evaluate LibreHardwareMonitorLib (licence MPL-2.0, current kernel driver
+      situation, antivirus reputation, need for administrator rights) and alternatives, and
+      record the result in docs/adr/0002-hardware-sensors.md. If accepted, add an optional
+      provider behind a setting that is off by default, with temperatures, fan speeds and
+      power draw for CPU, GPU, mainboard and drives, a clear warning in the UI about the
+      driver, and clean unloading when turned off.
+    deliverables: [docs/adr/0002-hardware-sensors.md, src/QoffeeAutomat.Platform.Windows/Metrics/Hardware/]
+    acceptance:
+      - "The decision record names the driver that would be loaded and its trust status."
+      - "With the setting off no driver or hardware library is loaded."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=Hardware"
+    human_verify: true
+    status: todo
+
+  - id: T708
+    title: Add global hotkeys that fire events
+    milestone: M7
+    area: [sessionhost, ui]
+    size: S
+    actor: agent
+    platform: windows
+    depends_on: [T606]
+    requirements: [R-11]
+    spec: [S11, S16]
+    description: >-
+      Let the user define global hotkeys in the UI; the SessionHost registers them and emits
+      the event hotkey_pressed with the configured name, so Home Assistant automations can be
+      triggered from the keyboard. Report registration conflicts in the UI.
+    deliverables: [src/QoffeeAutomat.SessionHost/Hotkeys/]
+    acceptance:
+      - "Pressing a configured hotkey fires the event entity in Home Assistant (manual check)."
+    verify:
+      - "dotnet build src/QoffeeAutomat.SessionHost"
+    human_verify: true
+    status: todo
+
+  - id: T709
+    title: Add a Prometheus endpoint
+    milestone: M7
+    area: [agent, api]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T606]
+    requirements: [R-05, R-11, R-12]
+    spec: [S08, S16]
+    description: >-
+      Add an optional /metrics endpoint in the Prometheus text format on the HTTPS listener,
+      protected by a separate read-only token, exposing numeric and boolean metrics that the
+      user selected. Scrapes act as subscribers with a keep-alive window so sampling stops
+      when scraping stops.
+    deliverables: [src/QoffeeAutomat.Agent/Api/Prometheus/]
+    acceptance:
+      - "Output passes a Prometheus exposition format parser in tests."
+      - "The endpoint is disabled by default and rejects requests without the token."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Prometheus"
+    status: todo
+
+  - id: T710
+    title: Add the reverse link for roaming devices
+    milestone: M7
+    area: [agent, integration, protocol]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T606]
+    requirements: [R-06, R-11, R-12]
+    spec: [S03, S07, S17]
+    description: >-
+      Write docs/adr/0003-reverse-link.md (authentication, endpoint exposed by the
+      integration, behaviour through reverse proxies and remote access), then implement an
+      outbound mode in which the agent dials a WebSocket endpoint provided by the integration
+      and speaks the same QoffeeLink messages after the handshake. The dial-out code is written
+      so the hub link (T905) reuses it.
+    deliverables: [docs/adr/0003-reverse-link.md, src/QoffeeAutomat.Agent/Link/Outbound/]
+    acceptance:
+      - "An agent behind NAT without inbound connectivity is fully usable from Home Assistant."
+      - "Protocol fixtures cover the reverse handshake."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=OutboundLink"
+    status: todo
+
+  - id: T711
+    title: Add one-click UI login from the tray
+    milestone: M7
+    area: [sessionhost, agent, security]
+    size: S
+    actor: agent
+    platform: windows
+    depends_on: [T606]
+    requirements: [R-11]
+    spec: [S09, S16]
+    description: >-
+      When the interactive user is a member of the local Administrators group, the tray
+      entry Open UI requests a single-use login token over the pipe (valid 30 seconds, bound
+      to loopback) and opens the browser with it, so no password is needed. Other users get
+      the normal login page.
+    deliverables: [src/QoffeeAutomat.Agent/Security/Auth/OneTimeLogin.cs]
+    acceptance:
+      - "The token works once, only from loopback, and only within its lifetime."
+      - "A standard user never receives a token."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=OneTimeLogin"
+    human_verify: true
+    status: todo
+
+  - id: T712
+    title: Wake, wait until ready and run in one action call
+    milestone: M7
+    area: [integration]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T703]
+    requirements: [R-04, R-11]
+    spec: [S10, S16]
+    description: >-
+      Extend the action qoffeeautomat.run_command with the fields wake, wait_for and
+      ready_timeout from S10. When the agent is offline and wake is true, send the magic
+      packets and switch the client to fast-retry mode. With wait_for connected or
+      session_ready, wait for the connection; for session_ready additionally wait until the
+      metric session.ready is on (subscribe to it for the duration of the call even when its
+      entity is disabled). Then run the command. On expiry of ready_timeout raise an error
+      that states which condition was not reached. Calls waiting for the same PC do not send
+      duplicate wake packets and run in call order. Works on the direct route and, once it
+      exists, on the hub route. Update services.yaml, translations and the documentation
+      example for starting the PC in a chosen mode.
+    deliverables: [custom_components/qoffeeautomat/services.py, custom_components/qoffeeautomat/services.yaml, tests_integration/test_services_wait.py]
+    acceptance:
+      - "With a fake agent that comes online after ten seconds and reports session ready after twenty, a call with wake and wait_for session_ready runs the command after the ready signal."
+      - "A call without the new fields behaves exactly as before."
+      - "A timeout produces a Home Assistant error naming the missing condition and runs nothing."
+    verify:
+      - "pytest tests_integration/test_services_wait.py"
+    status: todo
+
+  - id: T713
+    title: Add audio device switching
+    milestone: M7
+    area: [sessionhost, windows, core]
+    size: M
+    actor: agent
+    platform: windows
+    depends_on: [T606]
+    requirements: [R-05, R-11]
+    spec: [S06, S11, S16]
+    description: >-
+      In the SessionHost add the enum metrics audio.output_device and audio.input_device
+      (current default device; options are the active devices; updated by device
+      notifications, and the manifest rev changes when devices appear or disappear) and the
+      built-in actions audio.set_default_output and audio.set_default_input with a variable
+      Device (exact name, otherwise a unique case-insensitive part of the name; also sets the
+      default communication device). Add the parameter field optionsFrom from S06 to the
+      schemas, validation and manifest builder (backward compatible addition) and create
+      default commands bound to select controls with the device metrics as state. Setting the
+      default device uses an interface of Windows that is widely used but not officially
+      documented; isolate it behind an interface, handle failure with a clear error and note
+      the dependency in the documentation.
+    deliverables: [src/QoffeeAutomat.SessionHost/Audio/, src/QoffeeAutomat.Core/Validation/, protocol/schema/config/]
+    acceptance:
+      - "The select entity in Home Assistant lists the current devices and shows the active one; plugging in a device adds an option without restarting anything (manual check)."
+      - "An ambiguous or unknown device name is rejected with invalid_vars and changes nothing."
+      - "Documents without optionsFrom validate unchanged."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=OptionsFrom"
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=AudioDevices"
+    human_verify: true
+    status: todo
+
+  - id: T714
+    title: Add state values that scripts can set
+    milestone: M7
+    area: [core, api, ui]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T606]
+    requirements: [R-03, R-05, R-11]
+    spec: [S06, S08, S16]
+    description: >-
+      Add the custom sensor type state from S06: value type, optional initial value, a persist
+      flag (kept across agent restarts and operating-system starts) and otherwise reset to the
+      initial value on start. Values are set with the CLI verb state set <id> <value> through
+      the authenticated local channel of the emit verb, with PUT /sensors/{id}/value, and
+      read with state get. The value is validated against the value type and options and
+      published immediately as an event-driven metric. Add the type to the sensor editor
+      with a field to set the value by hand, and document the pattern of a switch whose
+      script reports its real state.
+    deliverables: [src/QoffeeAutomat.Core/Metrics/Custom/StateSensor.cs, tests/QoffeeAutomat.Core.Tests/Metrics/Custom/]
+    acceptance:
+      - "A command script that calls state set changes the sensor value in Home Assistant within the normal flush time."
+      - "Setting an undeclared sensor or an invalid value fails with a clear error."
+      - "A persisted value survives an agent restart; a non-persisted one returns to its initial value."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=StateSensor"
+    status: todo
+
+  - id: T715
+    title: Add keep awake and power actions with countdown
+    milestone: M7
+    area: [windows, sessionhost]
+    size: M
+    actor: agent
+    platform: windows
+    depends_on: [T606]
+    requirements: [R-11]
+    spec: [S07, S11, S16]
+    description: >-
+      Keep awake: built-in action power.keep_awake with the variables On (bool), Display
+      (bool, also keep the screen on) and Minutes (0 means until switched off), implemented
+      with a power request owned by the agent, the metric power.keep_awake as real state, and
+      a default command bound to a switch. The request ends with the agent and is not
+      restored after a restart. Countdown: add the optional variables DelaySeconds (0 to
+      3600) and Message to power.shutdown, power.restart, power.sleep, power.hibernate and
+      session.logoff. With a delay and a logged-in user the SessionHost shows a topmost
+      dialog with the message, the remaining time and a cancel button; without a user the
+      delay simply elapses. Cancelling in the dialog or through the new built-in action
+      power.cancel ends the run with error cancelled and publishes the event
+      power_action_cancelled. Only one delayed power action can be pending.
+    deliverables: [src/QoffeeAutomat.Platform.Windows/Actions/Power/, src/QoffeeAutomat.SessionHost/Dialogs/]
+    acceptance:
+      - "While keep awake is on, the system does not enter sleep by idle timeout, and the switch in Home Assistant shows the real state (manual check)."
+      - "A delayed shutdown cancelled on the PC is reported to Home Assistant as cancelled and the PC stays on (manual check)."
+      - "Pending and cancel logic is covered by tests with a fake clock and a fake native layer; no test really shuts down."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=PowerDelay"
+    human_verify: true
+    status: todo
+
+  - id: T716
+    title: Expose the PC as a media player
+    milestone: M7
+    area: [sessionhost, windows, integration]
+    size: L
+    actor: agent
+    platform: windows
+    depends_on: [T606]
+    requirements: [R-05, R-11]
+    spec: [S03, S07, S10, S11, S16]
+    description: >-
+      In the SessionHost read the current system media session through the Windows media
+      transport controls API and publish the metrics media.state (enum playing, paused,
+      idle), media.title, media.artist, media.album, media.app, media.duration and
+      media.position (position only on changes of track or playback state, together with a
+      timestamp so clients can interpolate), all disabled by default as separate entities.
+      Add the built-in action media.control with an enum Action (play, pause, play_pause,
+      next, previous, stop) addressed to that session, falling back to media keys. Announce
+      the feature media in the manifest. In the integration add a media_player entity that
+      exists only with that feature, subscribes to these metrics while enabled, maps state
+      and metadata, supports play, pause, next, previous, stop, volume set and mute through
+      the existing audio actions, and is unavailable without a user session. Cover art is
+      out of scope and noted as a known limitation.
+    deliverables: [src/QoffeeAutomat.SessionHost/Media/, custom_components/qoffeeautomat/media_player.py, tests_integration/test_media_player.py]
+    acceptance:
+      - "With a fake agent announcing the feature, the media_player entity shows state, title and artist and sends the expected run messages for each control."
+      - "Without the feature no media_player entity is created."
+      - "Playing music in a desktop player on a real PC is reflected in Home Assistant, and pause from Home Assistant pauses it (manual check)."
+    verify:
+      - "pytest tests_integration/test_media_player.py"
+      - "dotnet build src/QoffeeAutomat.SessionHost"
+    human_verify: true
+    status: todo
+
+  - id: T717
+    title: Add modes with enter and exit actions
+    milestone: M7
+    area: [core, api, ui, docs]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T606]
+    requirements: [R-03, R-10, R-11]
+    spec: [S03, S06, S08, S16, S20]
+    description: >-
+      Implement mode groups exactly as specified in S06: document model, JSON Schema and
+      validation (unique mode ids, steps reference existing commands, defaultMode exists,
+      steps cannot switch modes), storage in the config store as kind mode, the mode engine
+      (exit steps, enter steps, one switch at a time, onError, persisted current mode, the
+      three onBoot behaviours decided by the boot id, apply_default waiting for session
+      ready), the generated command and state metric in the manifest, the mode_changed
+      event, and the /modes endpoints. Add a Modes page and editor to the UI that reuses the
+      step editor of the sequence action and shows the current mode with a switch control.
+      Replace the sequence-based mode example of T309 by a mode group template built from the
+      prototype's modes (Normal, Study, TV gaming, TV entertainment, racing) and update the
+      migration guide and the worked example for starting the PC in a chosen mode.
+    deliverables: [src/QoffeeAutomat.Core/Modes/, src/QoffeeAutomat.Ui.Components/Pages/Modes/, protocol/schema/config/, templates/modes/, tests/QoffeeAutomat.Core.Tests/Modes/]
+    acceptance:
+      - "Switching from A to B runs the exit steps of A before the enter steps of B, and the state metric changes to B only after the enter steps finished."
+      - "A failing step with onError stop leaves the state unknown and fires no mode_changed event; with continue the switch completes."
+      - "Each onBoot value behaves as specified when the boot id changes, and nothing happens on an agent restart with the same boot id."
+      - "In the end-to-end test Home Assistant shows one select entity per group with the real state and switching it runs the steps."
+      - "A second switch request during a running switch is rejected with busy."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Modes"
+      - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Modes"
+    status: todo
+
+  # ───────────────────────────── M8 Linux support ─────────────────────────────
+  - id: T801
+    title: Implement Linux metric providers
+    milestone: M8
+    area: [linux]
+    size: L
+    actor: agent
+    platform: linux
+    depends_on: [T606]
+    requirements: [R-05, R-09]
+    spec: [S06, S17]
+    description: >-
+      Create Platform.Linux with providers equivalent to the Windows system set: CPU and
+      memory from /proc, file systems, network rates, battery from /sys, uptime, OS release,
+      pending reboot marker, session state and logged-in user through logind. Metric ids are
+      the same as on Windows where the meaning is the same.
+    deliverables: [src/QoffeeAutomat.Platform.Linux/Metrics/, tests/QoffeeAutomat.Platform.Linux.Tests/]
+    acceptance:
+      - "The shared metric ids match the Windows ids (test compares the catalogs)."
+      - "Providers return plausible values on ubuntu-latest."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Linux.Tests"
+    status: todo
+
+  - id: T802
+    title: Integrate with systemd
+    milestone: M8
+    area: [linux, agent]
+    size: M
+    actor: agent
+    platform: linux
+    depends_on: [T801]
+    requirements: [R-01, R-09]
+    spec: [S05, S09, S17]
+    description: >-
+      Add systemd hosting (notify, journald logging), the service verbs for Linux (writes the
+      unit file, enables and starts it), the Linux data paths with permissions, suspend and
+      shutdown notifications through logind inhibitors so bye is sent, and zeroconf through
+      the option chosen in the zeroconf decision record.
+    deliverables: [src/QoffeeAutomat.Platform.Linux/Service/, packaging/linux/qoffeeautomat.service]
+    acceptance:
+      - "The service installs and starts in a systemd-enabled container in CI and answers /healthz."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Platform.Linux.Tests --filter Category=Service"
+    status: todo
+
+  - id: T803
+    title: Add Linux actions, bash scripts and the user session helper
+    milestone: M8
+    area: [linux]
+    size: L
+    actor: agent
+    platform: linux
+    depends_on: [T802]
+    requirements: [R-03, R-09]
+    spec: [S06, S17]
+    description: >-
+      Add the action type bash with the same variable guarantees as PowerShell (values passed
+      as environment variables and positional arguments, never spliced into the script), the
+      Linux built-in actions (power through logind, lock, volume where available;
+      equivalents of the Windows-only features listed in S17 where the desktop offers them,
+      otherwise reported as unsupported), and a
+      session helper as a systemd user service connected through a Unix domain socket for
+      user-context commands and desktop metrics. Update schemas, validation, editor and
+      documentation.
+    deliverables: [src/QoffeeAutomat.Core/Execution/Bash/, src/QoffeeAutomat.Platform.Linux/Actions/, src/QoffeeAutomat.Platform.Linux/Sessions/]
+    acceptance:
+      - "The injection test suite of T208 passes for bash."
+      - "Command documents with Windows-only action types are flagged as unsupported on Linux, not deleted."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Bash"
+    human_verify: true
+    status: todo
+
+  - id: T804
+    title: Package and release for Linux
+    milestone: M8
+    area: [packaging, ci, docs]
+    size: M
+    actor: agent
+    platform: linux
+    depends_on: [T803]
+    requirements: [R-08, R-09]
+    spec: [S12, S13]
+    description: >-
+      Publish linux-x64 and linux-arm64 builds as tarballs with an install script and as .deb
+      packages, add them to release.yml with checksums and attestations, extend the
+      end-to-end test with a variant that uses the real Linux platform, and write the Linux
+      installation documentation.
+    deliverables: [packaging/linux/, .github/workflows/release.yml, docs/user/install-linux.md]
+    acceptance:
+      - "The .deb installs on the current Ubuntu LTS and Debian stable in CI and the service starts."
+    verify:
+      - "actionlint .github/workflows/release.yml"
+    status: todo
+
+
+  # ───────────────────────────── M9 Central hub ─────────────────────────────
+  - id: T901
+    title: Specify the hub protocol extensions and contracts
+    milestone: M9
+    area: [protocol, contracts, hub]
+    size: M
+    actor: agent+human
+    platform: any
+    depends_on: [T606]
+    requirements: [R-12]
+    spec: [S07, S18, S20]
+    description: >-
+      The owner reviews S20 first (open item O-07); requested changes are applied to S20 in
+      this pull request. Then add JSON Schemas and fixtures for everything in the S20
+      sections Enrollment and trust, Hub link extensions and Fleet link: the enrollment
+      string payload, enroll request and response, config_desired, config_documents,
+      config_status, mgmt_request, mgmt_stream_open, mgmt_stream_data, mgmt_stream_close,
+      credential_rotate, unenroll, the fleet hello, get_agents, agent_added, agent_removed,
+      agent_status, the agent-scoped variants with field a, and the new error codes.
+      Implement the C# records in Contracts with source-generated serialization, a canonical
+      JSON helper shared with the manifest revision code, and helpers to hash documents and
+      to sign and verify the desired-state item list with ECDSA P-256. Extend the Python
+      models with the fleet messages.
+    deliverables: [protocol/schema/hub/, protocol/fixtures/hub/, src/QoffeeAutomat.Contracts/Hub/, tests/QoffeeAutomat.Contracts.Tests/Hub/]
+    acceptance:
+      - "Every message named in S20 has a schema and a valid fixture; .NET and Python conformance tests pass."
+      - "A desired state signed in a test verifies; changing any item hash, the policy, the generation or the agent id makes verification fail."
+      - "All protocol v1 fixtures from milestone M1 still validate unchanged."
+    verify:
+      - "python scripts/dev/validate_protocol.py"
+      - "dotnet test tests/QoffeeAutomat.Contracts.Tests"
+      - "pytest tests_integration/test_protocol.py"
+    status: todo
+
+  - id: T902
+    title: Bootstrap the hub server
+    milestone: M9
+    area: [hub]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T901]
+    requirements: [R-12]
+    spec: [S14, S20]
+    description: >-
+      Create src/QoffeeAutomat.Hub (ASP.NET Core, net10.0) and tests/QoffeeAutomat.Hub.Tests.
+      Implement the data directory (/data in the container, overridable), the SQLite database
+      hub.db with versioned schema migrations, hub identity (hub id, name), generation and
+      protected storage of the TLS certificate and of the ECDSA signing key, the HTTPS
+      listener on port 8490 with the options from S20 (self-signed, user certificate, plain
+      HTTP behind a trusted proxy with forwarded headers restricted to configured proxy
+      addresses), /healthz, structured logging and graceful shutdown. Reuse Core building
+      blocks (secrets, validation) instead of copying them. Add the project to the solution
+      and to ci-dotnet.yml.
+    deliverables: [src/QoffeeAutomat.Hub/, tests/QoffeeAutomat.Hub.Tests/]
+    acceptance:
+      - "The hub starts on Linux with an empty data directory, creates its identity and keys once and keeps them across restarts."
+      - "Schema migrations run forward from every earlier schema version in tests."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Hosting"
+    status: todo
+
+  - id: T903
+    title: Implement hub users, roles, API tokens and audit log
+    milestone: M9
+    area: [hub, api, security]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T902]
+    requirements: [R-12]
+    spec: [S09, S20]
+    description: >-
+      Implement first-run setup of the initial administrator (setup token printed to the
+      container log and written to the data directory), local accounts with the password
+      rules of S09, the roles admin, operator and viewer as authorization policies, cookie
+      sessions with anti-forgery protection, API tokens with a role and optional expiry
+      (stored hashed), login rate limiting, and the audit log (user, time, action, target,
+      affected agents, result) with a query endpoint. Add user and token management
+      endpoints under /api/v1 and publish the OpenAPI document with a snapshot test.
+    deliverables: [src/QoffeeAutomat.Hub/Security/, src/QoffeeAutomat.Hub/Api/Users/, tests/QoffeeAutomat.Hub.Tests/Security/]
+    acceptance:
+      - "Every /api/v1 route requires authentication except the documented setup and login routes (enumerated by a test)."
+      - "A test matrix proves for each route which roles are allowed."
+      - "Every state-changing request produces exactly one audit entry."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Security"
+    status: todo
+
+  - id: T904
+    title: Implement enrollment and the agent registry on the hub
+    milestone: M9
+    area: [hub, security]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T903]
+    requirements: [R-12]
+    spec: [S20]
+    description: >-
+      Implement enrollment tokens (expiry, maximum uses, tags to assign, approval flag),
+      creation of the enrollment string, POST /hub/v1/enroll with rate limiting, issuance and
+      hashed storage of agent credentials, the pending state with approve and reject, the
+      agent registry (id, name, hostname, OS, version, tags, enrolled, last seen, status),
+      tag editing, credential rotation bookkeeping, and removal of an agent (marks the
+      credential revoked so later connections receive 401 with code revoked). Expose all of
+      it through /api/v1.
+    deliverables: [src/QoffeeAutomat.Hub/Enrollment/, src/QoffeeAutomat.Hub/Agents/, tests/QoffeeAutomat.Hub.Tests/Enrollment/]
+    acceptance:
+      - "A token cannot be used after expiry or beyond its maximum uses."
+      - "An agent enrolled with an approval token cannot open the agent link before approval."
+      - "Enrolling the same agent id again replaces its credential only when a valid token is presented."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Enrollment"
+    status: todo
+
+  - id: T905
+    title: Add hub join, leave and the outbound hub link to the agent
+    milestone: M9
+    area: [agent, hub, api]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T901, T710]
+    requirements: [R-12]
+    spec: [S07, S09, S20]
+    description: >-
+      Agent side of enrollment and link: parse and validate the enrollment string, the CLI
+      verbs hub join, hub leave and hub status, the management API endpoints for the same
+      actions, the installer parameter HUBENROLL, protected storage of credential, pinned
+      fingerprint and hub public key, the enroll call, the pending state, and the outbound
+      connection to /hub/v1/agent built on the connector from T710 with backoff and jitter
+      from one second to five minutes. On the connection the agent sends hello with its
+      features and serves the standard client messages to the hub exactly as to any link
+      client. Handle credential_rotate, unenroll and the 401 revoked answer as specified.
+      Report hub state (not joined, pending, connected, disconnected, revoked) in /status.
+      Add the local setting that switches the management tunnel off.
+    deliverables: [src/QoffeeAutomat.Agent/Hub/, tests/QoffeeAutomat.Agent.Tests/Hub/]
+    acceptance:
+      - "Against a test hub the agent enrolls, connects, answers get_manifest, subscribe and run, and reconnects after the hub restarts."
+      - "A hub certificate that does not match the pinned fingerprint is refused."
+      - "After a revoked answer the agent deletes its credential and stops connecting."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=HubLink"
+    status: todo
+
+  - id: T906
+    title: Implement the hub's agent gateway
+    milestone: M9
+    area: [hub]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T904, T905]
+    requirements: [R-12, R-06]
+    spec: [S07, S20]
+    description: >-
+      Implement the WebSocket endpoint /hub/v1/agent: credential check before the upgrade,
+      handshake as client of kind hub with feature negotiation, one session per agent (a new
+      connection replaces the old one), presence and last-seen tracking, power state from
+      bye reasons, a manifest cache keyed by rev, a live state cache, storage of agent events,
+      and an internal API for other hub services: subscribe to metrics of an agent with
+      intervals (the gateway maintains the union subscription described in S20 and re-sends
+      it when consumers change), run a command, and receive notifications about presence,
+      manifest and state changes. Bound all queues; a misbehaving agent connection is closed.
+      Add inventory and agent detail endpoints and a run endpoint (role operator or higher)
+      to /api/v1.
+    deliverables: [src/QoffeeAutomat.Hub/Gateway/, tests/QoffeeAutomat.Hub.Tests/Gateway/]
+    acceptance:
+      - "With two internal consumers requesting different metrics and intervals the agent receives one subscribe message containing the union."
+      - "When the last consumer of a metric goes away the next subscribe no longer contains it."
+      - "Tests run real agents with the simulated platform against the hub in process."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Gateway"
+    status: todo
+
+  - id: T907
+    title: Implement library, profiles, assignments and desired-state computation
+    milestone: M9
+    area: [hub, api]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T903]
+    requirements: [R-12]
+    spec: [S06, S20]
+    description: >-
+      Implement the configuration model of S20: library documents with revision history and
+      validation by the same validators as the agent, profiles with draft and immutable
+      published revisions, variables and policy, assignments to all, tag and agent targets,
+      and the pure function that computes an agent's desired state including precedence,
+      OS filter, merging of variables and policy, and override warnings. Implement
+      generation bookkeeping per agent (a new generation only when the content hash
+      changes), signing, publish with a preview of affected agents and per-agent
+      differences, and roll-back by republishing an earlier revision. Publishing a profile
+      that contains system scripts requires role admin. Expose everything through /api/v1.
+    deliverables: [src/QoffeeAutomat.Hub/Config/, tests/QoffeeAutomat.Hub.Tests/Config/]
+    acceptance:
+      - "Table-driven tests cover precedence for every combination of all, tag and agent targets with equal and different priorities."
+      - "Publishing without content change creates no new generation for any agent."
+      - "The preview lists exactly the agents whose desired state would change."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Config"
+    status: todo
+
+  - id: T908
+    title: Apply hub configuration and policy on the agent
+    milestone: M9
+    area: [agent, core, security]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T905]
+    requirements: [R-12]
+    spec: [S06, S09, S20]
+    description: >-
+      Implement the config_sync feature on the agent: handle config_desired (verify the
+      signature with the pinned key, compare hashes with the hub layer, answer with the
+      needed items), receive config_documents, verify hashes, validate with the normal
+      validators, apply atomically as the hub layer under config/hub/ following the apply
+      rules of S20, and send config_status. Add the hub layer to the config store with
+      shadowing of local documents, origin hub in API responses, rejection of local writes
+      to hub documents, and the variables document exposed as QA_HUBVAR environment
+      variables. Enforce the policy: local_config locked deactivates the local layer and
+      makes configuration endpoints read-only; direct_link deny stops zeroconf, rejects
+      pairing and closes direct clients. Implement leave with the choice to convert hub
+      documents to local ones or remove them, and removal of the hub layer on unenroll and
+      on revoked. Show origin, shadowing and lock state in the agent UI.
+    deliverables: [src/QoffeeAutomat.Core/Config/HubLayer/, src/QoffeeAutomat.Agent/Hub/ConfigSync/, tests/QoffeeAutomat.Agent.Tests/Hub/ConfigSync/]
+    acceptance:
+      - "A desired state with a bad signature, a wrong hash or one invalid document changes nothing and reports failed."
+      - "A power failure simulated at any step of apply leaves either the old or the new generation active, never a mixture."
+      - "A local command shadowed by a hub command becomes active again after the hub command is withdrawn."
+      - "With local_config locked every write to commands, sensors, scripts and metric overrides is rejected locally and through the tunnel."
+      - "The manifest rev changes when the effective configuration changes and Home Assistant entities keep their unique ids."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=ConfigSync"
+    status: todo
+
+  - id: T909
+    title: Push configuration from the hub and track roll-outs
+    milestone: M9
+    area: [hub]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T906, T907, T908]
+    requirements: [R-12]
+    spec: [S20]
+    description: >-
+      Connect the config service to the gateway: send config_desired when an agent connects
+      and whenever its desired generation changes, serve config_documents for the requested
+      items in frames below the size limit, process config_status, and store desired and
+      applied generation and per-document results per agent. Expose roll-out status per
+      profile revision and per agent through /api/v1, including errors reported by agents.
+      Changing an agent's tags or assignments triggers recomputation and push.
+    deliverables: [src/QoffeeAutomat.Hub/Config/Rollout/, tests/QoffeeAutomat.Hub.Tests/Rollout/]
+    acceptance:
+      - "An agent that was offline during a publish receives the current generation on reconnect and skips intermediate ones."
+      - "Reconnecting with an up-to-date hub layer transfers no document bodies."
+      - "A document invalid on one agent is reported for that agent while other agents apply the generation."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Rollout"
+    status: todo
+
+  - id: T910
+    title: Implement metric collection, storage and query on the hub
+    milestone: M9
+    area: [hub, api]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T906]
+    requirements: [R-12, R-05]
+    spec: [S20]
+    description: >-
+      Implement the collection policy (global default plus profile overrides, id and prefix
+      matching, interval), IMetricStore with the SQLite implementation and the tables of
+      S20, batched inserts, the roll-up jobs for 5-minute and 1-hour buckets, retention
+      clean-up, and the query endpoint that chooses the resolution from the time range and
+      returns series for one or several agents. Store string and enum metrics as change log.
+      Removing an agent removes its series. Add a load test with 50 simulated agents and 30
+      metrics each and document the measured database growth and the sizing formula.
+    deliverables: [src/QoffeeAutomat.Hub/Metrics/, tests/QoffeeAutomat.Hub.Tests/Metrics/, docs/user/hub-sizing.md]
+    acceptance:
+      - "Roll-up values equal the minimum, average and maximum of the raw values in a property-based test."
+      - "The load test sustains 50 agents with 30 metrics at a 60 second interval with hub CPU below 5 percent of one core on the CI runner."
+      - "Retention deletes expired rows and the database file does not grow without bound in a simulated 30 day run."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Metrics"
+    status: todo
+
+  - id: T911
+    title: Add the Prometheus export to the hub
+    milestone: M9
+    area: [hub, api]
+    size: S
+    actor: agent
+    platform: any
+    depends_on: [T910]
+    requirements: [R-12, R-05]
+    spec: [S20]
+    description: >-
+      Add /metrics in the Prometheus text format with the naming and labels from S20, the
+      latest value per collected numeric and boolean metric from the live cache, hub health
+      metrics (agents online, enrolled, link reconnects, database size), and protection by
+      a read-only token managed in the hub UI. Offline agents export no stale values.
+    deliverables: [src/QoffeeAutomat.Hub/Metrics/Prometheus/]
+    acceptance:
+      - "Output passes a Prometheus exposition format parser in tests."
+      - "Requests without a valid token receive 401."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Prometheus"
+    status: todo
+
+  - id: T912
+    title: Implement the management tunnel
+    milestone: M9
+    area: [hub, agent, security]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T906]
+    requirements: [R-12]
+    spec: [S08, S09, S20]
+    description: >-
+      Agent side: handle mgmt_request by dispatching into the management API pipeline
+      in process with a principal built from the hub user and role, enforce the role rules of
+      S20 and the local tunnel switch, and bridge Server-Sent-Events endpoints through
+      mgmt_stream_open, mgmt_stream_data and mgmt_stream_close with back-pressure. Hub side:
+      the proxy /api/v1/agents/{id}/agent-api/ that forwards requests of authenticated hub
+      users, maps hub roles, streams events to the browser, applies timeouts and returns a
+      clear error for offline agents. Both sides write audit entries.
+    deliverables: [src/QoffeeAutomat.Agent/Hub/Tunnel/, src/QoffeeAutomat.Hub/Tunnel/, tests/QoffeeAutomat.Hub.Tests/Tunnel/]
+    acceptance:
+      - "A hub viewer can read an agent's command list but receives 403 for run and for every write."
+      - "Live output of a run started through the tunnel is streamed to the hub client while the command runs."
+      - "With the tunnel switched off on the agent every tunnelled request fails with a specific error and the hub UI shows the reason."
+      - "Paths outside /api/v1/ are rejected by the agent."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Tunnel"
+    status: todo
+
+  - id: T913
+    title: Implement the fleet link on the hub
+    milestone: M9
+    area: [hub, protocol]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T906]
+    requirements: [R-12, R-06, R-07]
+    spec: [S07, S20]
+    description: >-
+      Implement pairing for Home Assistant on the hub (POST /hub/v1/pair with the code flow
+      of S07, fleet tokens with scope all or tags, listing and revocation in /api/v1) and
+      the WebSocket endpoint /hub/v1/fleet as specified in S20: fleet hello, get_agents,
+      agent_added, agent_removed, agent_status, and the agent-scoped get_manifest,
+      manifest_changed, subscribe, state, run and event messages. Manifests come from the
+      cache; subscriptions register as consumers at the gateway; run is forwarded with
+      source and user id; scope is enforced on every message. Changing an agent's tags
+      updates what each fleet client sees.
+    deliverables: [src/QoffeeAutomat.Hub/Fleet/, tests/QoffeeAutomat.Hub.Tests/Fleet/]
+    acceptance:
+      - "Every frame sent on the fleet link validates against the schemas."
+      - "A client scoped to a tag never receives data of agents without that tag and gets forbidden when addressing them."
+      - "State of two agents travels over one connection and each frame carries the right agent id."
+      - "An agent going offline produces agent_status and its entities' metrics are reported unavailable to the client."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=Fleet"
+    status: todo
+
+  - id: T914
+    title: Add the hub route to the Home Assistant integration
+    milestone: M9
+    area: [integration]
+    size: L
+    actor: agent+human
+    platform: any
+    depends_on: [T913]
+    requirements: [R-12, R-07]
+    spec: [S10, S18, S20]
+    description: >-
+      Extend the protocol client with the fleet link (one connection, per-agent
+      demultiplexing). Add the config-flow path Connect to a hub (host and port, fingerprint
+      confirmation, pairing code, reauthentication, reconfiguration) creating one config
+      entry per hub. Create a hub device and one device per agent linked through via_device,
+      add and remove agent devices dynamically, and reuse the existing entity platforms
+      through a common per-agent runtime object so that entity code does not know the route.
+      Maintain one subscription per agent. Skip agents that already have a direct config
+      entry and raise a repair issue that offers to switch the route; implement switching in
+      both directions so entity ids and user customisations are kept, after verifying how
+      the entity and device registries behave when the owning config entry changes. Make
+      run_command, events and the Wake-on-LAN button work on both routes. Set
+      integration_type in manifest.json to the value that fits an integration with both
+      kinds of entries. Update translations, diagnostics, quality_scale.yaml and the
+      documentation. The owner decides which PCs use which route (open item O-08).
+    deliverables: [custom_components/qoffeeautomat/fleet.py, custom_components/qoffeeautomat/config_flow.py, tests_integration/test_fleet.py]
+    acceptance:
+      - "With a fake hub serving two agents, two devices with all entities appear under one config entry."
+      - "An agent configured directly and visible through the hub exists once; no duplicate unique ids are registered."
+      - "Switching an agent from the direct route to the hub route and back keeps entity ids and a customised entity name (test)."
+      - "Config flow coverage stays at 100 percent."
+    verify:
+      - "pytest tests_integration/test_fleet.py"
+      - "pytest tests_integration/test_config_flow.py --cov=custom_components.qoffeeautomat.config_flow --cov-fail-under=100"
+    status: todo
+
+  - id: T915
+    title: Build the hub UI shell and fleet pages
+    milestone: M9
+    area: [hub, ui]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T912, T904]
+    requirements: [R-12]
+    spec: [S03, S20]
+    description: >-
+      Create src/QoffeeAutomat.Hub.Ui (Blazor WebAssembly with MudBlazor, served by the hub)
+      with setup and login, role-aware navigation, and the pages: fleet overview (agents with
+      status, version, tags, applied versus desired generation, filters), agent detail,
+      enrollment (tokens, enrollment string with copy button and installer command line,
+      pending approvals), Home Assistant pairing and fleet tokens, users and API tokens,
+      audit log, and hub settings. Implement TunnelAgentApi (IAgentApi over the hub proxy)
+      and embed the existing agent pages from Ui.Components in the agent detail view
+      (dashboard, commands with run, history, logs), marking hub-managed documents. The UI
+      must work under a path prefix, with the base path taken from the ingress header when
+      present. Add bUnit tests.
+    deliverables: [src/QoffeeAutomat.Hub.Ui/, tests/QoffeeAutomat.Hub.Ui.Tests/]
+    acceptance:
+      - "An agent's command can be run from the hub UI with live output."
+      - "Navigation and actions that a role may not use are hidden and also rejected by the API."
+      - "The UI works when served under a non-root path prefix (test with a prefix)."
+      - "No change to Ui.Components breaks the agent UI tests."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Ui.Tests"
+      - "dotnet test tests/QoffeeAutomat.Ui.Tests"
+    status: todo
+
+  - id: T916
+    title: Build the configuration and metrics pages of the hub UI
+    milestone: M9
+    area: [hub, ui]
+    size: L
+    actor: agent
+    platform: any
+    depends_on: [T915, T909, T910]
+    requirements: [R-12]
+    spec: [S20]
+    description: >-
+      Implement LibraryAgentApi (IAgentApi backed by the hub library) so the existing command
+      and sensor editors edit library documents; the test panel asks for an online target
+      agent and runs the draft there through the tunnel. Add pages for the library, profiles
+      (documents, variables, policy, priority, OS filter, draft versus published), assignments,
+      publish with preview and confirmation, roll-out status with per-agent errors and
+      roll-back, the collection policy, and metric dashboards that compare a metric across
+      agents and show history from the query API.
+    deliverables: [src/QoffeeAutomat.Hub.Ui/Pages/Library/, src/QoffeeAutomat.Hub.Ui/Pages/Profiles/, src/QoffeeAutomat.Hub.Ui/Pages/Metrics/]
+    acceptance:
+      - "A user can create a command in the library, put it in a profile, assign the profile to a tag, publish, and see it applied on the tagged agents, without leaving the hub UI."
+      - "The publish dialog shows affected agents and differences and requires confirmation."
+      - "A chart shows one metric for several agents over a selectable time range."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Ui.Tests --filter Category=Config"
+    status: todo
+
+  - id: T917
+    title: Add fleet actions
+    milestone: M9
+    area: [hub, api, ui]
+    size: M
+    actor: agent
+    platform: any
+    depends_on: [T915, T704]
+    requirements: [R-12, R-11]
+    spec: [S20]
+    description: >-
+      Add bulk runs: run one command with variables on all agents matching a tag or a
+      selection, with bounded parallelism, per-agent results, and a stored bulk-run record in
+      the audit log. Add update orchestration: show agent versions against the latest
+      release and trigger the agent update action on selected agents one after another,
+      stopping when an agent does not come back with the new version within a timeout.
+    deliverables: [src/QoffeeAutomat.Hub/Fleet/Actions/, src/QoffeeAutomat.Hub.Ui/Pages/Actions/]
+    acceptance:
+      - "A bulk run reports success, failure or offline for each targeted agent."
+      - "Update orchestration stops after the first agent that fails to return and reports which agents were updated."
+    verify:
+      - "dotnet test tests/QoffeeAutomat.Hub.Tests --filter Category=FleetActions"
+    status: todo
+
+  - id: T918
+    title: Package the hub as container image and Home Assistant app
+    milestone: M9
+    area: [hub, packaging, ci, docs]
+    size: L
+    actor: agent+human
+    platform: linux
+    depends_on: [T916, T911, T914]
+    requirements: [R-12, R-08]
+    spec: [S12, S13, S20]
+    description: >-
+      Add packaging/hub/Dockerfile (multi-stage, non-root user, health check, /data volume)
+      and build multi-arch images for amd64 and arm64 published to GHCR with provenance
+      attestations in release.yml, tagged with the release version. Add a docker compose
+      example. Add the Home Assistant app definition under packaging/hub/ha-app/ (config
+      file with image reference, version kept in step by release-please, ingress on port
+      8099, sidebar panel, the agent port 8490 exposed on the host, data mapping) and
+      repository.yaml at the repository root, after reading the current app developer
+      documentation. In app mode enable the ingress listener, accept only the Supervisor
+      address on it, and map the Home Assistant user from the ingress headers to a hub role.
+      Add a CI check that fails when a file named config.yaml, config.yml or config.json
+      exists outside hidden folders and outside the app directory. Write the hub
+      documentation: installation as container and as app, enrollment, profiles, policies,
+      the two Home Assistant routes, metrics and Prometheus, backup and restore, security
+      recommendations. The owner installs the app on a real Home Assistant.
+    deliverables: [packaging/hub/Dockerfile, packaging/hub/docker-compose.yml, packaging/hub/ha-app/, repository.yaml, .github/workflows/release.yml, docs/user/hub/]
+    acceptance:
+      - "The image starts as non-root and passes its health check in CI on both architectures."
+      - "Requests to the ingress listener from an address other than the Supervisor are rejected (test)."
+      - "The app installs from the repository URL on the owner's Home Assistant and the hub UI opens in the sidebar."
+      - "HACS validation and hassfest still pass with the app files present."
+    verify:
+      - "docker build -f packaging/hub/Dockerfile ."
+      - "actionlint .github/workflows/release.yml"
+    human_verify: true
+    status: todo
+
+  - id: T919
+    title: Add the hub end-to-end test, review security and release
+    milestone: M9
+    area: [hub, security, ci]
+    size: L
+    actor: agent+human
+    platform: linux
+    depends_on: [T918, T917]
+    requirements: [R-12, R-08]
+    spec: [S09, S14, S19, S20]
+    description: >-
+      Extend tests/e2e with a compose scenario: the hub image, two agents with the simulated
+      platform and Home Assistant. The driver sets up the hub, creates an enrollment token,
+      joins both agents, publishes a profile with a command and a sensor to a tag, checks
+      roll-out status, checks stored metrics through the query API and the Prometheus
+      endpoint, runs a command through the tunnel, pairs Home Assistant with the hub, checks
+      devices and entities of both agents and runs a command with variables through the
+      fleet link, sets local_config locked and checks that a local write is refused, and
+      removes one agent and checks its hub layer is gone. Add the scenario to e2e.yml.
+      Extend docs/security/threat-model.md with the hub (every item of the S20 security
+      list with implementing code and tests) and perform the review as in T606: no finding of
+      severity high may remain open. Then release the hub in a minor version.
+    deliverables: [tests/e2e/hub/, .github/workflows/e2e.yml, docs/security/threat-model.md]
+    acceptance:
+      - "The hub scenario passes in CI."
+      - "No open security finding of severity high."
+      - "A release containing the hub image and the Home Assistant app is published."
+    verify:
+      - "docker compose -f tests/e2e/hub/docker-compose.yml config"
+      - "pytest tests/e2e/hub"
+    status: todo

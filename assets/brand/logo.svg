@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1166 256" width="1166" height="256">
+  <!-- QoffeeAutomat placeholder logo. Replace before 1.0. -->
+  <g transform="scale(0.5)">
+  <!-- QoffeeAutomat placeholder icon. Replace before 1.0. -->
+  <rect width="512" height="512" rx="112" fill="#17424F"/>
+  <g transform="translate(11 6)">
+  <!-- steam -->
+  <g fill="none" stroke="#F2A65A" stroke-width="20" stroke-linecap="round">
+    <path d="M164 150 q-22 -26 0 -52 q22 -26 0 -52"/>
+    <path d="M220 150 q-22 -26 0 -52 q22 -26 0 -52"/>
+    <path d="M276 150 q-22 -26 0 -52 q22 -26 0 -52"/>
+  </g>
+  <!-- handle -->
+  <circle cx="330" cy="282" r="50" fill="none" stroke="#FFFFFF" stroke-width="28"/>
+  <!-- cup -->
+  <path d="M112 196 h216 v124 a80 80 0 0 1 -80 80 h-56 a80 80 0 0 1 -80 -80 z" fill="#FFFFFF"/>
+  <!-- power symbol -->
+  <g fill="none" stroke="#17424F" stroke-width="20" stroke-linecap="round">
+    <path d="M190.5 262.5 a46 46 0 1 0 59 0"/>
+    <path d="M220 238 v54"/>
+  </g>
+  <!-- saucer -->
+  <path d="M96 440 h248" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+  </g>
+
+</g>
+  <text x="300" y="170" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-weight="700" font-size="118" letter-spacing="-2" fill="#17424F">Qoffee<tspan fill="#C9772B">Automat</tspan></text>
+</svg>
