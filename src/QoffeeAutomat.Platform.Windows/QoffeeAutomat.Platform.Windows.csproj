@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows metric providers, built-in commands, service integration (PLAN.md S04, S11).
+       Builds on Linux and macOS too, because Directory.Build.props sets EnableWindowsTargeting. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
+  </ItemGroup>
+
+</Project>

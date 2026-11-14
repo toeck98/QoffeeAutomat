@@ -1,0 +1,126 @@
+# Path-based labels for actions/labeler (syntax of v5 and newer). The label names are
+# defined in .github/labels.yml; the area values match the `area` field in tasks.yaml.
+
+"area:contracts":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/QoffeeAutomat.Contracts/**
+          - tests/QoffeeAutomat.Contracts.Tests/**
+
+"area:core":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/QoffeeAutomat.Core/**
+          - src/QoffeeAutomat.Platform.Simulated/**
+          - tests/QoffeeAutomat.Core.Tests/**
+
+"area:agent":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/QoffeeAutomat.Agent/**
+          - tests/QoffeeAutomat.Agent.Tests/**
+
+"area:windows":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/QoffeeAutomat.Platform.Windows/**
+          - tests/QoffeeAutomat.Platform.Windows.Tests/**
+
+"area:sessionhost":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/QoffeeAutomat.SessionHost/**
+
+"area:ui":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/QoffeeAutomat.Ui/**
+          - src/QoffeeAutomat.Ui.Components/**
+          - tests/QoffeeAutomat.Ui.Tests/**
+
+"area:linux":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/QoffeeAutomat.Platform.Linux/**
+          - packaging/linux/**
+
+"area:hub":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/QoffeeAutomat.Hub/**
+          - src/QoffeeAutomat.Hub.Ui/**
+          - packaging/hub/**
+
+"area:integration":
+  - changed-files:
+      - any-glob-to-any-file:
+          - custom_components/**
+          - tests_integration/**
+          - hacs.json
+
+"area:protocol":
+  - changed-files:
+      - any-glob-to-any-file:
+          - protocol/**
+
+"area:packaging":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packaging/**
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**
+          - "*.md"
+
+"area:security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - SECURITY.md
+          - docs/security/**
+          - .github/workflows/codeql.yml
+          - .github/workflows/dependency-review.yml
+          - .github/workflows/scorecard.yml
+
+"area:ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**
+          - .github/dependabot.yml
+
+"area:github":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/ISSUE_TEMPLATE/**
+          - .github/CODEOWNERS
+          - .github/labels.yml
+          - .github/labeler.yml
+          - .github/pull_request_template.md
+          - .github/copilot-instructions.md
+          - scripts/github/**
+          - docs/maintainers/**
+
+"area:repo":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .devcontainer/**
+          - .editorconfig
+          - .gitattributes
+          - .gitignore
+          - AGENTS.md
+          - CLAUDE.md
+          - Directory.Build.props
+          - Directory.Packages.props
+          - QoffeeAutomat.slnx
+          - global.json
+          - pyproject.toml
+          - requirements-dev.txt
+          - scripts/dev/**
+          - scripts/plan/**
+          - scripts/requirements.txt
+
+"type:docs":
+  - changed-files:
+      - all-globs-to-all-files:
+          - "{docs/**,*.md}"

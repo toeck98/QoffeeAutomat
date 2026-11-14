@@ -1,0 +1,59 @@
+name: Feature request
+description: Suggest an idea or an improvement
+title: "[Feature]: "
+labels: ["type:feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. For open-ended ideas and questions,
+        [Discussions](https://github.com/toeck98/QoffeeAutomat/discussions) may be a better place.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Agent (service)
+        - SessionHost (tray, user commands)
+        - Web UI
+        - Home Assistant integration
+        - QoffeeLink protocol
+        - Installer
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to do, and what is in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it work? For Home Assistant, describe the entities or actions you would expect.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, for example a custom command or sensor.
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      description: Leave empty when Home Assistant is not involved.
+      placeholder: "2026.11.1"
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and discussions.
+          required: true
+        - label: I would be willing to help implement or test this.
+          required: false

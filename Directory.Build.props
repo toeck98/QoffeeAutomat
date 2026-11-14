@@ -1,0 +1,50 @@
+<Project>
+
+  <!-- Build settings shared by every project (PLAN.md S04, S14, D-004). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Needed to build the net10.0-windows projects on Linux and macOS (the targeting
+         packs are restored from NuGet). Running Windows-only code is verified in CI on
+         windows-latest. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <!-- Warnings are errors, analyzers at the latest recommended level. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Security advisories for packages must not break an unrelated build; they are
+         reported by Dependabot and by the dependency review workflow instead. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <!-- Reproducible builds. -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <DebugType>portable</DebugType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <!-- Version and package metadata. release-please updates Version (PLAN.md S13). -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Authors>toeck98</Authors>
+    <Company>toeck98</Company>
+    <Product>QoffeeAutomat</Product>
+    <Copyright>Copyright (c) toeck98</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/toeck98/QoffeeAutomat</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/toeck98/QoffeeAutomat</PackageProjectUrl>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

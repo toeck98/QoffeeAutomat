@@ -1,0 +1,62 @@
+name: pr-title
+
+# The pull request title becomes the squash commit message, so it must be a Conventional
+# Commit (PLAN.md S01, S12, task T008): `type(scope): subject`, for example
+# `feat(agent): add metric engine (T205)`. The task id suffix is expected for plan tasks
+# but not enforced, because Dependabot and release-please titles have none.
+# release-please must be configured to use an allowed scope in its titles, for example
+# `chore(repo): release ${version}`.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: pr title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the pull request title
+        uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6.1.2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          scopes: |
+            agent
+            core
+            contracts
+            protocol
+            ui
+            integration
+            windows
+            linux
+            hub
+            ci
+            docs
+            deps
+            repo
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" must not start with an uppercase letter.
+            Example: feat(agent): add metric engine (T205)

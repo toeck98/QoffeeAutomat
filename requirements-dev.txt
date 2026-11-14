@@ -1,0 +1,9 @@
+# Development dependencies for the Home Assistant integration and the plan tooling.
+# Install with: python -m pip install -r requirements-dev.txt
+# Versions looked up on 2026-11-14 (PLAN.md S01 rule 9); Dependabot keeps them current.
+# pytest-homeassistant-custom-component pins matching versions of homeassistant and pytest.
+pytest-homeassistant-custom-component==0.13.375
+ruff==0.17.5
+mypy==2.4.1
+PyYAML==6.0.3
+types-PyYAML==6.0.12.20261113
