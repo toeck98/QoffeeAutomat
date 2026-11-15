@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/config/metrics.schema.json",
+  "title": "Metric override document",
+  "description": "config/metrics.json (PLAN.md S06): overrides for built-in metrics. Only the members that are present override the built-in defaults.",
+  "type": "object",
+  "required": ["schemaVersion", "overrides"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "revision": { "$ref": "common.schema.json#/$defs/revision" },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/updated_at" },
+    "origin": { "$ref": "common.schema.json#/$defs/origin" },
+    "overrides": {
+      "type": "object",
+      "propertyNames": { "$ref": "common.schema.json#/$defs/metric_id" },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "exposeToHa": { "type": "boolean" },
+          "intervalSeconds": { "type": "number", "minimum": 0 },
+          "deadband": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

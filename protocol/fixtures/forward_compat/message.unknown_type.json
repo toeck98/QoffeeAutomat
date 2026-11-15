@@ -1,0 +1,5 @@
+{
+  "t": "some_future_message",
+  "id": 11,
+  "payload": { "anything": [1, 2, 3] }
+}

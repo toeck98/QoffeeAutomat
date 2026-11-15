@@ -112,6 +112,7 @@ on that date and should be re-checked when the related task starts.
 | D-036 | Third run context `runAs: user_elevated`: the agent starts the process itself on the user's desktop with the elevated token linked to the interactive user's token. It is available only when that user is an administrator; otherwise the run fails with `elevation_unavailable`. | Programs that require administrator rights would otherwise show a UAC prompt and block automations. The service already has higher rights (`system`), so no new privilege is handed out. |
 | D-037 | Modes are a first-class document (mode group) but appear on the wire as a generated command with an enum variable plus a state metric. | Home Assistant gets one select entity with a real state without any protocol or integration change. |
 | D-038 | The media player is composed by the integration from ordinary metrics and commands, announced by the manifest feature `media`. | No new message types; the PC side stays a set of metrics. |
+| D-039 | The WebSocket close codes 4400, 4401 and 4406 and the canonical JSON form that `rev` is computed from are part of QoffeeLink v1 (S07). The schemas in `protocol/schema/` are normative for which fields are mandatory; optional fields are omitted rather than sent as `null`, and receivers treat `null` like absent. | Specified by T101 so the C# and Python implementations agree byte for byte on `rev`; no wire change for implementations that followed S07 literally. |
 | D-023 | Hardware sensors that need a kernel driver (temperatures, fans via LibreHardwareMonitorLib, MPL-2.0) are optional, off by default and delivered after v1. | Driver trust and antivirus history of such drivers; needs a spike (T707). GPU load is available without a driver through performance counters. |
 
 ## S04 Architecture
@@ -409,6 +410,13 @@ Error codes: `unauthorized`, `unsupported_version`, `bad_request`,
 `no_session`, `elevation_unavailable`, `cancelled`, `timeout`, `paused`,
 `internal`.
 
+Close codes (D-039): the standard WebSocket codes 1000 (normal), 1001 (going
+away, sent after `bye`), 1009 (frame too large) and 1011 (internal error), plus
+4400 `bad_request` (handshake violation, for example a missing or invalid
+`client_hello`), 4401 `unauthorized` (the link token was revoked while connected)
+and 4406 `unsupported_version`. The code 44xx mirrors the HTTP status that the
+error would have.
+
 State delivery rules (R-06): values are compared after applying `precision`
 and `deadband`; changes are coalesced and flushed at most once per second per
 connection; a metric that did not change is not sent; one `state` frame can
@@ -439,7 +447,12 @@ Manifest:
 ```
 
 `rev` is the first 12 hex characters of the SHA-256 of the canonical manifest
-JSON without the `rev` field. Clients cache the manifest by `rev` and call
+JSON without the `rev` field. Canonical JSON (D-039) is UTF-8 without
+insignificant whitespace, with object members sorted by name (ordinal order of
+the UTF-16 code units), members whose value is `null` omitted, strings escaped
+only where JSON requires it (`"`, `\`, control characters as `\b \f \n \r \t`
+or lower-case `\u00xx`) and numbers written as plain integers or decimals
+without exponent, in the shortest form. Clients cache the manifest by `rev` and call
 `get_manifest` only when `hello.manifest_rev` or `manifest_changed.rev` differs.
 
 Pairing endpoint (HTTPS, same listener, no bearer token):

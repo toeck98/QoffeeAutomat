@@ -1,0 +1,4 @@
+{
+  "code": "1234",
+  "client": { "kind": "homeassistant", "name": "Home" }
+}

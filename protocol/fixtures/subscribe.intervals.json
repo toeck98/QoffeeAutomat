@@ -1,0 +1,6 @@
+{
+  "t": "subscribe",
+  "id": 4,
+  "metrics": ["cpu.usage", "audio.volume"],
+  "intervals": { "cpu.usage": 5, "audio.volume": 0.5 }
+}

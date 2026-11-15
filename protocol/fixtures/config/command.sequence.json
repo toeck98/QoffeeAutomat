@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "revision": 3,
+  "updatedAt": "2026-11-14T09:30:00Z",
+  "origin": "local",
+  "id": "tv_gaming_mode",
+  "name": "TV gaming mode",
+  "icon": "mdi:television-play",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "user",
+  "action": {
+    "type": "sequence",
+    "onError": "stop",
+    "steps": [
+      { "command": "set_display_profile", "vars": { "Profile": "TV-Mode" } },
+      { "delaySeconds": 2 },
+      { "command": "launch_steam_big_picture" }
+    ]
+  },
+  "haControl": { "type": "button" },
+  "timeoutSeconds": 300,
+  "concurrency": "single"
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/pair_request.schema.json",
+  "title": "pair_request",
+  "description": "Body of POST /link/v1/pair (HTTPS, no bearer token; PLAN.md S07).",
+  "type": "object",
+  "required": ["code", "client"],
+  "properties": {
+    "code": { "type": "string", "pattern": "^[0-9]{6}$" },
+    "client": {
+      "type": "object",
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "$ref": "defs.schema.json#/$defs/client_kind" },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

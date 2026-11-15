@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "no_action",
+  "name": "No action",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "system"
+}

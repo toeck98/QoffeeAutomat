@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/manifest.schema.json",
+  "title": "manifest",
+  "description": "What the agent offers: metrics, commands and events. It is the data of the result of get_manifest. rev is the first 12 hex characters of the SHA-256 of the canonical manifest JSON without rev (see protocol/README.md).",
+  "type": "object",
+  "required": ["rev", "agent", "metrics", "commands"],
+  "properties": {
+    "rev": { "$ref": "defs.schema.json#/$defs/manifest_rev" },
+    "agent": { "$ref": "defs.schema.json#/$defs/agent_info" },
+    "metrics": { "type": "array", "items": { "$ref": "defs.schema.json#/$defs/metric_descriptor" } },
+    "commands": { "type": "array", "items": { "$ref": "defs.schema.json#/$defs/command_descriptor" } },
+    "events": { "type": "array", "items": { "$ref": "defs.schema.json#/$defs/event_descriptor" } },
+    "features": { "$ref": "defs.schema.json#/$defs/feature_list" }
+  }
+}

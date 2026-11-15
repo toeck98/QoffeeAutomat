@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/config/sensor.schema.json",
+  "title": "Custom sensor document",
+  "description": "config/sensors/<id>.json (PLAN.md S06). The sensor appears as the metric custom.<id>.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "name", "enabled", "exposeToHa", "kind", "valueType", "source"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "revision": { "$ref": "common.schema.json#/$defs/revision" },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/updated_at" },
+    "origin": { "$ref": "common.schema.json#/$defs/origin" },
+    "id": { "$ref": "common.schema.json#/$defs/document_id" },
+    "name": { "$ref": "common.schema.json#/$defs/display_name" },
+    "description": { "type": "string", "maxLength": 2000 },
+    "icon": { "$ref": "common.schema.json#/$defs/icon" },
+    "enabled": { "type": "boolean" },
+    "exposeToHa": { "type": "boolean" },
+    "enabledDefault": { "type": "boolean" },
+    "kind": { "enum": ["sensor", "binary_sensor"] },
+    "valueType": { "enum": ["number", "string", "bool", "timestamp", "enum"] },
+    "unit": { "type": "string" },
+    "deviceClass": { "type": "string" },
+    "stateClass": { "type": "string" },
+    "entityCategory": { "type": "string" },
+    "precision": { "type": "integer", "minimum": 0 },
+    "options": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "intervalSeconds": { "type": "number", "minimum": 0 },
+    "deadband": { "type": "number", "minimum": 0 },
+    "source": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["powershell", "process_running", "perf_counter", "cim_query", "service_state", "state"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "powershell" } }, "required": ["type"] },
+          "then": { "$ref": "common.schema.json#/$defs/powershell_source" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "process_running" } }, "required": ["type"] },
+          "then": { "required": ["process"], "properties": { "process": { "type": "string", "minLength": 1 } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "perf_counter" } }, "required": ["type"] },
+          "then": {
+            "required": ["category", "counter"],
+            "properties": {
+              "category": { "type": "string", "minLength": 1 },
+              "counter": { "type": "string", "minLength": 1 },
+              "instance": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "cim_query" } }, "required": ["type"] },
+          "then": {
+            "required": ["namespace", "class", "property"],
+            "properties": {
+              "namespace": { "type": "string", "minLength": 1 },
+              "class": { "type": "string", "minLength": 1 },
+              "property": { "type": "string", "minLength": 1 },
+              "filter": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "service_state" } }, "required": ["type"] },
+          "then": { "required": ["service"], "properties": { "service": { "type": "string", "minLength": 1 } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "state" } }, "required": ["type"] },
+          "then": {
+            "properties": {
+              "initialValue": { "type": ["string", "number", "boolean"] },
+              "persist": { "type": "boolean" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

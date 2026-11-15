@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "set_mute",
+  "name": "Set mute",
+  "icon": "mdi:volume-mute",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "user",
+  "action": {
+    "type": "powershell",
+    "source": "inline",
+    "code": "param([bool]$Muted) Write-Output \"Muted: $Muted\"",
+    "engine": "pwsh"
+  },
+  "parameters": [
+    { "name": "Muted", "type": "bool", "required": true }
+  ],
+  "haControl": { "type": "switch", "parameter": "Muted", "stateMetric": "audio.muted" },
+  "timeoutSeconds": 15,
+  "captureOutput": true
+}

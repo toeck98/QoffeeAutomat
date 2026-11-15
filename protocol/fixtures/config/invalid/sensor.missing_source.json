@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "missing_source",
+  "name": "Missing source",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "sensor",
+  "valueType": "number"
+}

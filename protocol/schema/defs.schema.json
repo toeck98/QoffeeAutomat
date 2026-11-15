@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/defs.schema.json",
+  "title": "QoffeeLink shared definitions",
+  "description": "Definitions shared by the QoffeeLink v1 message schemas (PLAN.md S07).",
+  "$defs": {
+    "protocol_version": {
+      "description": "A QoffeeLink protocol version (positive integer).",
+      "type": "integer",
+      "minimum": 1
+    },
+    "metric_id": {
+      "description": "Dotted metric id, for example cpu.usage or custom.my_sensor (PLAN.md S06).",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_-]+)*$",
+      "maxLength": 128
+    },
+    "command_id": {
+      "description": "Command id (PLAN.md S06).",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+    },
+    "variable_name": {
+      "description": "Name of a command variable (PLAN.md S06).",
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+    },
+    "manifest_rev": {
+      "description": "Manifest revision: the first 12 hex characters of the SHA-256 of the canonical manifest without rev.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{12}$"
+    },
+    "feature_list": {
+      "description": "Optional features announced by one side (PLAN.md S07).",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "client_kind": {
+      "description": "Kind of the connecting peer.",
+      "enum": ["homeassistant", "hub", "tool"]
+    },
+    "scalar": {
+      "description": "A scalar value that can be bound to a command variable.",
+      "type": ["string", "number", "boolean"]
+    },
+    "agent_info": {
+      "description": "Identity of an agent. Used in hello and in the manifest.",
+      "type": "object",
+      "required": ["id", "name", "version", "os", "arch", "hostname", "macs"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "os": { "type": "string", "minLength": 1 },
+        "os_version": { "type": "string" },
+        "arch": { "type": "string", "minLength": 1 },
+        "hostname": { "type": "string", "minLength": 1 },
+        "macs": {
+          "description": "MAC addresses of the physical adapters; may be empty.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$" }
+        },
+        "ui_url": { "type": "string", "pattern": "^https?://" }
+      }
+    },
+    "error_info": {
+      "description": "Error of a failed request (PLAN.md S07). The code is one of the documented error codes; receivers must tolerate unknown codes.",
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "message": { "type": "string" }
+      }
+    },
+    "variable_descriptor": {
+      "description": "A variable of a command as announced in the manifest.",
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "$ref": "#/$defs/variable_name" },
+        "type": { "enum": ["string", "int", "float", "bool", "enum"] },
+        "required": { "type": "boolean" },
+        "default": { "$ref": "#/$defs/scalar" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "step": { "type": "number", "exclusiveMinimum": 0 },
+        "pattern": { "type": "string" },
+        "max_length": { "type": "integer", "minimum": 1 },
+        "options": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "secret": { "type": "boolean" },
+        "unit": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "control_descriptor": {
+      "description": "Home Assistant control of a command (haControl in PLAN.md S06).",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["none", "button", "switch", "select", "number", "text"] },
+        "var": { "$ref": "#/$defs/variable_name" },
+        "state_metric": { "oneOf": [{ "$ref": "#/$defs/metric_id" }, { "type": "null" }] }
+      }
+    },
+    "command_descriptor": {
+      "description": "A command as announced in the manifest.",
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/command_id" },
+        "name": { "type": "string", "minLength": 1 },
+        "icon": { "type": "string" },
+        "description": { "type": "string" },
+        "returns_output": { "type": "boolean" },
+        "vars": { "type": "array", "items": { "$ref": "#/$defs/variable_descriptor" } },
+        "control": { "$ref": "#/$defs/control_descriptor" }
+      }
+    },
+    "metric_descriptor": {
+      "description": "A metric as announced in the manifest (PLAN.md S06).",
+      "type": "object",
+      "required": ["id", "name", "kind", "value_type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/metric_id" },
+        "name": { "type": "string", "minLength": 1 },
+        "translation_key": { "type": "string" },
+        "kind": { "enum": ["sensor", "binary_sensor"] },
+        "value_type": { "enum": ["number", "string", "bool", "timestamp", "enum"] },
+        "unit": { "type": "string" },
+        "device_class": { "type": "string" },
+        "state_class": { "type": "string" },
+        "entity_category": { "type": "string" },
+        "icon": { "type": "string" },
+        "precision": { "type": "integer", "minimum": 0 },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "enabled_default": { "type": "boolean" },
+        "interval_seconds": { "type": "number", "minimum": 0 },
+        "deadband": { "type": "number", "minimum": 0 },
+        "context": { "enum": ["system", "user"] }
+      }
+    },
+    "event_descriptor": {
+      "description": "An event type that the agent can raise.",
+      "type": "object",
+      "required": ["type", "name"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "run_result_data": {
+      "description": "The data of a successful run result (informative; not enforced by result.schema.json because a result does not name its request).",
+      "type": "object",
+      "required": ["run_id"],
+      "properties": {
+        "run_id": { "type": "string", "minLength": 1 },
+        "exit_code": { "type": "integer" },
+        "stdout": { "type": "string" },
+        "stderr": { "type": "string" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "timed_out": { "type": "boolean" }
+      }
+    }
+  }
+}

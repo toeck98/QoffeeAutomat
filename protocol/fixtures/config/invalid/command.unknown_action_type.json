@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "unknown_action",
+  "name": "Unknown action",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "system",
+  "action": { "type": "telepathy" }
+}

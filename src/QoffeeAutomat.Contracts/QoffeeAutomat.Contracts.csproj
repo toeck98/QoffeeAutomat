@@ -3,4 +3,10 @@
   <!-- Protocol messages, API DTOs and config document models. No dependencies beyond the BCL
        and no project references (PLAN.md S04). -->
 
+  <PropertyGroup>
+    <!-- Enables the trim and AOT analyzers: with warnings as errors the build fails when
+         the library uses reflection-based serialization (PLAN.md S14). -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
 </Project>

@@ -1,0 +1,6 @@
+{
+  "t": "client_hello",
+  "protocol": 1,
+  "client": { "kind": "hub", "name": "QoffeeAutomat Hub", "version": "1.0.0" },
+  "features": ["fleet"]
+}

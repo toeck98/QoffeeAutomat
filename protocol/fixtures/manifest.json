@@ -1,0 +1,91 @@
+{
+  "rev": "143ffa0cd221",
+  "agent": {
+    "id": "5b0c6c1e-8e0a-4f6e-9a57-3d2f3a1c9b77",
+    "name": "Gaming-PC",
+    "version": "1.0.0",
+    "os": "windows",
+    "os_version": "10.0.26200",
+    "arch": "x64",
+    "hostname": "GAMING-PC",
+    "macs": ["A4:B1:C1:00:11:22"],
+    "ui_url": "https://gaming-pc.local:8481/"
+  },
+  "metrics": [
+    {
+      "id": "cpu.usage",
+      "name": "CPU usage",
+      "translation_key": "cpu_usage",
+      "kind": "sensor",
+      "value_type": "number",
+      "unit": "%",
+      "state_class": "measurement",
+      "precision": 0,
+      "entity_category": "diagnostic",
+      "enabled_default": true
+    },
+    {
+      "id": "session.locked",
+      "name": "Session locked",
+      "translation_key": "session_locked",
+      "kind": "binary_sensor",
+      "value_type": "bool",
+      "enabled_default": true,
+      "context": "user"
+    },
+    {
+      "id": "audio.volume",
+      "name": "Master volume",
+      "translation_key": "audio_volume",
+      "kind": "sensor",
+      "value_type": "number",
+      "unit": "%",
+      "icon": "mdi:volume-high",
+      "precision": 0,
+      "enabled_default": true,
+      "interval_seconds": 0
+    }
+  ],
+  "commands": [
+    {
+      "id": "set_display_profile",
+      "name": "Set display profile",
+      "icon": "mdi:monitor-multiple",
+      "description": "Applies a saved DisplayConfig profile.",
+      "returns_output": true,
+      "vars": [
+        { "name": "Profile", "type": "enum", "options": ["Normal-Mode", "TV-Mode"], "required": true },
+        { "name": "UpdateAdapterIds", "type": "bool", "default": false }
+      ],
+      "control": { "type": "select", "var": "Profile" }
+    },
+    {
+      "id": "set_volume",
+      "name": "Set volume",
+      "icon": "mdi:volume-high",
+      "vars": [
+        { "name": "Level", "type": "int", "required": true, "min": 0, "max": 100, "step": 1, "unit": "%" }
+      ],
+      "control": { "type": "number", "var": "Level", "state_metric": "audio.volume" }
+    },
+    {
+      "id": "lock_session",
+      "name": "Lock session",
+      "icon": "mdi:lock",
+      "control": { "type": "button" }
+    },
+    {
+      "id": "say_text",
+      "name": "Say text",
+      "vars": [
+        { "name": "Message", "type": "string", "required": true, "max_length": 200, "pattern": "^[A-Za-z0-9 .,!?-]+$" }
+      ],
+      "control": { "type": "text", "var": "Message" }
+    }
+  ],
+  "events": [
+    { "type": "session_locked", "name": "Session locked" },
+    { "type": "session_unlocked", "name": "Session unlocked" }
+  ],
+  "features": ["wol", "notify"]
+}

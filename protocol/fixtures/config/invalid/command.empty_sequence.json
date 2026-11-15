@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "empty_sequence",
+  "name": "Empty sequence",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "sequence", "steps": [] }
+}

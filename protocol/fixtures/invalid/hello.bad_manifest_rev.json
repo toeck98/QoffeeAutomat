@@ -1,0 +1,15 @@
+{
+  "t": "hello",
+  "protocol": { "min": 1, "max": 1 },
+  "agent": {
+    "id": "5b0c6c1e-8e0a-4f6e-9a57-3d2f3a1c9b77",
+    "name": "Gaming-PC",
+    "version": "1.0.0",
+    "os": "windows",
+    "arch": "x64",
+    "hostname": "GAMING-PC",
+    "macs": []
+  },
+  "manifest_rev": "NOT-A-REVISION",
+  "boot_id": "c2a4b8e0-6f55-4c9e-b3d5-0d7a9f1e2b34"
+}

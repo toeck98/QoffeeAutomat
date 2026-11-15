@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "revision": 2,
+  "updatedAt": "2026-11-14T09:45:00Z",
+  "origin": "local",
+  "overrides": {
+    "cpu.usage": { "intervalSeconds": 10, "deadband": 1 },
+    "window.title": { "enabled": true, "exposeToHa": false }
+  }
+}

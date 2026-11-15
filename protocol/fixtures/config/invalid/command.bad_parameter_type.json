@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "bad_parameter_type",
+  "name": "Bad parameter type",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "builtin", "name": "audio.set_volume" },
+  "parameters": [
+    { "name": "Level", "type": "percent" }
+  ]
+}

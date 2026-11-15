@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/config/settings.schema.json",
+  "title": "Agent settings document",
+  "description": "config/settings.json (PLAN.md S06, S08): agent name, ports, remote UI, logging and retention. Defaults: uiPort 8480, linkPort 8481, remoteUi false (D-018, O-03).",
+  "type": "object",
+  "required": ["schemaVersion", "name"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "revision": { "$ref": "common.schema.json#/$defs/revision" },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/updated_at" },
+    "origin": { "$ref": "common.schema.json#/$defs/origin" },
+    "name": { "$ref": "common.schema.json#/$defs/display_name" },
+    "uiPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "linkPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "remoteUi": { "type": "boolean" },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "level": { "enum": ["trace", "debug", "information", "warning", "error", "critical"] }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "properties": {
+        "runHistoryDays": { "type": "integer", "minimum": 1 },
+        "auditLogDays": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

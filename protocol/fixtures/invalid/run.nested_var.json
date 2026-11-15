@@ -1,0 +1,6 @@
+{
+  "t": "run",
+  "id": 5,
+  "command": "set_display_profile",
+  "vars": { "Profile": { "name": "TV-Mode" } }
+}

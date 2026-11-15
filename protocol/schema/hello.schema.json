@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hello.schema.json",
+  "title": "hello",
+  "description": "Agent to client. First frame after connect, sent by the agent no matter who dialled (PLAN.md S07).",
+  "type": "object",
+  "required": ["t", "protocol", "agent", "manifest_rev", "boot_id"],
+  "properties": {
+    "t": { "const": "hello" },
+    "protocol": {
+      "description": "Range of protocol versions the agent supports.",
+      "type": "object",
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "$ref": "defs.schema.json#/$defs/protocol_version" },
+        "max": { "$ref": "defs.schema.json#/$defs/protocol_version" }
+      }
+    },
+    "agent": { "$ref": "defs.schema.json#/$defs/agent_info" },
+    "manifest_rev": { "$ref": "defs.schema.json#/$defs/manifest_rev" },
+    "boot_id": {
+      "description": "Changes with every operating-system start and stays the same across agent restarts.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "features": { "$ref": "defs.schema.json#/$defs/feature_list" }
+  }
+}

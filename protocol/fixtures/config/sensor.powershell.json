@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "gpu_temperature",
+  "name": "GPU temperature",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "sensor",
+  "valueType": "number",
+  "unit": "°C",
+  "deviceClass": "temperature",
+  "stateClass": "measurement",
+  "precision": 0,
+  "intervalSeconds": 30,
+  "deadband": 1,
+  "source": { "type": "powershell", "source": "file", "script": "gpu_temperature.ps1", "engine": "auto" }
+}
