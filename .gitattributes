@@ -1,0 +1,41 @@
+# Normalize line endings: LF in the repository and in working trees, except for files
+# that Windows tooling requires to be CRLF.
+* text=auto eol=lf
+
+*.cs text diff=csharp
+*.csproj text
+*.slnx text
+*.props text
+*.targets text
+*.razor text
+*.json text
+*.yml text
+*.yaml text
+*.md text diff=markdown
+*.py text diff=python
+*.sh text eol=lf
+
+# Windows scripts keep CRLF.
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary files.
+*.png binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.zip binary
+*.dll binary
+*.exe binary
+*.snk binary
+*.pfx binary
+*.woff binary
+*.woff2 binary
+
+# Keep generated and vendored files out of language statistics and diffs.
+*.svg text linguist-detectable=false
+docs/prototype/** linguist-documentation

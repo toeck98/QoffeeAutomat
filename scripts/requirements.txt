@@ -1,0 +1,5 @@
+# Minimal dependencies of the plan tooling in scripts/plan/ and its tests in
+# tests/scripts/ (used by ci-meta.yml and plan-sync.yml; requirements-dev.txt contains the
+# full development environment). Versions looked up on 2026-11-14.
+PyYAML==6.0.3
+pytest==9.2.0

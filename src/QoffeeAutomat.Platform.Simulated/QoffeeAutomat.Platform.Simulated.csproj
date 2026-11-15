@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Deterministic fake metrics and commands for tests, CI and development on any OS (D-021). -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
+  </ItemGroup>
+
+</Project>

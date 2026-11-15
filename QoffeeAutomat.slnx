@@ -1,0 +1,27 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/QoffeeAutomat.Agent/QoffeeAutomat.Agent.csproj" />
+    <Project Path="src/QoffeeAutomat.Contracts/QoffeeAutomat.Contracts.csproj" />
+    <Project Path="src/QoffeeAutomat.Core/QoffeeAutomat.Core.csproj" />
+    <Project Path="src/QoffeeAutomat.Platform.Simulated/QoffeeAutomat.Platform.Simulated.csproj" />
+    <Project Path="src/QoffeeAutomat.Platform.Windows/QoffeeAutomat.Platform.Windows.csproj" />
+    <Project Path="src/QoffeeAutomat.SessionHost/QoffeeAutomat.SessionHost.csproj" />
+    <Project Path="src/QoffeeAutomat.Ui/QoffeeAutomat.Ui.csproj" />
+    <Project Path="src/QoffeeAutomat.Ui.Components/QoffeeAutomat.Ui.Components.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QoffeeAutomat.Agent.Tests/QoffeeAutomat.Agent.Tests.csproj" />
+    <Project Path="tests/QoffeeAutomat.Contracts.Tests/QoffeeAutomat.Contracts.Tests.csproj" />
+    <Project Path="tests/QoffeeAutomat.Core.Tests/QoffeeAutomat.Core.Tests.csproj" />
+    <Project Path="tests/QoffeeAutomat.Platform.Windows.Tests/QoffeeAutomat.Platform.Windows.Tests.csproj" />
+    <Project Path="tests/QoffeeAutomat.Ui.Tests/QoffeeAutomat.Ui.Tests.csproj" />
+  </Folder>
+</Solution>

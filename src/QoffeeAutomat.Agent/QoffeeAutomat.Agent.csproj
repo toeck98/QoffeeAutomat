@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Host, Kestrel listeners, management API and QoffeeLink server (PLAN.md S04). The Windows
+       platform project is referenced here in milestone M3. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
+    <ProjectReference Include="..\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
+    <ProjectReference Include="..\QoffeeAutomat.Platform.Simulated\QoffeeAutomat.Platform.Simulated.csproj" />
+  </ItemGroup>
+
+</Project>

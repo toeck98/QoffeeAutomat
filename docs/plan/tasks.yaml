@@ -142,7 +142,7 @@ tasks:
       - "dotnet build -warnaserror"
       - "dotnet test"
       - "dotnet format --verify-no-changes"
-    status: todo
+    status: done
 
   - id: T003
     title: Create the Home Assistant integration skeleton
@@ -172,7 +172,7 @@ tasks:
       - "ruff check . && ruff format --check ."
       - "mypy custom_components/qoffeeautomat"
       - "pytest tests_integration"
-    status: todo
+    status: done
 
   - id: T004
     title: Add license, community health files and issue forms
@@ -197,7 +197,7 @@ tasks:
       - "All issue forms are valid YAML with required fields for version, OS and Home Assistant version where relevant."
     verify:
       - "python -c \"import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/ISSUE_TEMPLATE/*.yml')]\""
-    status: todo
+    status: done
 
   - id: T005
     title: Add agent instructions and plan tooling
@@ -227,7 +227,7 @@ tasks:
     verify:
       - "python scripts/plan/validate.py"
       - "python scripts/plan/next_task.py --all"
-    status: todo
+    status: done
 
   - id: T006
     title: Add the .NET CI workflow
@@ -252,7 +252,7 @@ tasks:
       - "The Windows job builds Platform.Windows and SessionHost and runs Platform.Windows.Tests."
     verify:
       - "actionlint .github/workflows/ci-dotnet.yml"
-    status: todo
+    status: done
 
   - id: T007
     title: Add the integration CI workflow
@@ -274,7 +274,7 @@ tasks:
       - "hassfest and HACS validation pass, or the only ignored HACS checks are those that need a published release or repository settings and are listed with a comment."
     verify:
       - "actionlint .github/workflows/ci-integration.yml"
-    status: todo
+    status: done
 
   - id: T008
     title: Add security and hygiene workflows
@@ -299,7 +299,7 @@ tasks:
       - "Every workflow declares explicit permissions and pins actions by SHA."
     verify:
       - "actionlint"
-    status: todo
+    status: done
 
   - id: T009
     title: Review the repository setup script and add the required status checks
@@ -337,7 +337,7 @@ tasks:
       - "bash -n scripts/github/setup-repo.sh"
       - "shellcheck scripts/github/setup-repo.sh"
       - "bash tests/scripts/test_setup_repo.sh"
-    status: todo
+    status: done
 
   - id: T010
     title: Sync plan tasks to GitHub issues and a project board
@@ -364,7 +364,7 @@ tasks:
       - "Running the sync twice creates no duplicate issues (matching by task id in the title)."
     verify:
       - "python scripts/plan/sync_issues.py --dry-run"
-    status: todo
+    status: done
 
   - id: T011
     title: Add the devcontainer and coding-agent setup
@@ -389,7 +389,7 @@ tasks:
       - "Inside the devcontainer all global checks from PLAN.md S14 can be run without further installation."
     verify:
       - "python -c \"import json; json.load(open('.devcontainer/devcontainer.json'))\""
-    status: todo
+    status: done
 
   # ─────────────────────── M1 Protocol and contracts ───────────────────────
   - id: T101

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Protocol messages, API DTOs and config document models. No dependencies beyond the BCL
+       and no project references (PLAN.md S04). -->
+
+</Project>

@@ -1,0 +1,33 @@
+name: labeler
+
+# Path-based labels for pull requests (PLAN.md S12, task T008); the mapping is in
+# .github/labeler.yml. The workflow uses pull_request_target so that it can label pull
+# requests from forks and from Dependabot. It never checks out or runs code from the pull
+# request: labeler reads the changed file names through the API and the label
+# configuration from the base branch.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: labeler-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: label
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Apply labels
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: true

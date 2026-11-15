@@ -1,223 +1,85 @@
-# Build results
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-[Ww][Ii][Nn]32/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
+# ---------------------------------------------------------------------------
+# .NET
+# ---------------------------------------------------------------------------
 [Bb]in/
 [Oo]bj/
-[Ll]og/
-[Ll]ogs/
-
-# Visual Studio cache/options
-.vs/
-.vscode/
-*.suo
+artifacts/
+publish/
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.cobertura.xml
+*.nupkg
+*.snupkg
 *.user
+*.suo
 *.userosscache
 *.sln.docstates
+*.binlog
+.vs/
+*.rsuser
+launchSettings.json.user
+project.lock.json
+*.pubxml
+*.pubxml.user
+*.publishproj
+PublishProfiles/
 
-# Visual Studio Code
+# ---------------------------------------------------------------------------
+# Python (Home Assistant integration, plan tooling)
+# ---------------------------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.egg-info/
+build/
+dist/
+
+# ---------------------------------------------------------------------------
+# Editors and operating systems
+# ---------------------------------------------------------------------------
+.idea/
+*.iml
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
-
-# Rider
-.idea/
-*.sln.iml
 .DS_Store
+Thumbs.db
+ehthumbs.db
+*.swp
+*.swo
+*~
 
-# NuGet packages
-*.nupkg
-*.snupkg
-*.nuget.props
-*.nuget.targets
+# ---------------------------------------------------------------------------
+# Local data and secrets (never commit)
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+appsettings.local.json
+secrets.json
+*.pfx
+*.pem
+*.key
+setup-token.txt
+.local/
 
-# NuGet package directory
-packages/
-.nuget/
+# Home Assistant development instance started by scripts/dev/run-ha.sh
+.ha-dev/
 
-# Local package cache
-~/.nuget/
-
-# Temporary NuGet files
-.ncrunchproject
-.ncrunch*
-*ncrunch*
-packages.lock.json
-
-# Resharper is a .NET coding assist-tool
-.resharper
-.resharper.user
-*.DotSettings
-*.DotSettings.user
-
-# Jetbrains Rider
-.idea/
-.idea_modules/
-*.sln.iml
-
-# ReSharper is a .NET coding assist-tool
-_ReSharper*/
-*.[Rr]e[Ss]harper
-*.DotSettings.user
-
-# VS Code
-.vscode/
-launch.json
-tasks.json
-
-# User-specific files
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-
-# Test Results
-TestResults/
-*.trx
-*.coverage
-
-# Build Folders
-artifacts/
-bin/
-obj/
-publish/
-
-# Publish Folders
-PublishProfiles/
-
-# Web publish log
-*.PublishSettings
-*.azurepubxml
-
-# Generated files
-Generated/
-
-# Temporary files
+# Temporary files and logs
 *.tmp
 *.temp
 *.log
-
-# OS files
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-
-# Sensitive information
-*.key
-*.pem
-*.pfx
-appsettings.local.json
-secrets.json
-
-# Environment files
-.env
-.env.local
-
-# IDE Generated files
-*.VC.db
-.vsspellcheckignored
-
-# Visual Studio profiler
-*.psess
-*.vsp
-*.vspx
-*.sap
-
-# ReSharper is a .NET coding assist-tool
-_ReSharper*/
-*.[Rr]e[Ss]harper
-
-# NCrunch
-_NCrunch_*
-.*crunch*.local.xml
-nCrunchTemp_*
-
-# MightiMoose
-*.mm.*
-AutoTest.Net/
-
-# Web workbench (sass)
-.sass-cache/
-
-# Installshield output folder
-[Ee]xpress/
-
-# DocProject is a documentation generator add-in
-DocProject/buildhelp/
-DocProject/Help/*.HxT
-DocProject/Help/*.HxC
-DocProject/Help/*.hhc
-DocProject/Help/*.hhk
-DocProject/Help/*.hhp
-DocProject/Help/Html2
-DocProject/Help/html
-
-# Click-Once directory
-publish/
-
-# Publish Web Output
-*.Publish.xml
-*.pubxml
-*.publishproj
-
-# Microsoft Azure Web App publish settings
-PublishProfiles/
-
-# *.user
-*.userosscache
-
-# NuGet Symbol Packages
-*.snupkg
-
-# Ignore local configuration files
-config/*.conf
-config/modes.json
-
-# Ignore runtime files
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Ignore IDE specific files for different platforms
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Ignore OS specific files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Ignore backup files
-*.bak
-*.backup
-*~
-
-# Build artifacts
-dist/
-build/
-.gradle/
-
-# Misc
-*.class
-*.log
-*.jar
-*.zip

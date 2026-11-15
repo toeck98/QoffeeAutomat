@@ -1,0 +1,7 @@
+# Configuration of zizmor, the workflow security linter run by ci-meta.yml.
+rules:
+  dangerous-triggers:
+    ignore:
+      # labeler.yml uses pull_request_target on purpose and never checks out or executes
+      # code from the pull request (see the comment in that file).
+      - labeler.yml

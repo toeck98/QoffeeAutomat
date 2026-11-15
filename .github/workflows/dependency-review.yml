@@ -1,0 +1,54 @@
+name: dependency-review
+
+# Blocks pull requests that add dependencies with known vulnerabilities or with a
+# copyleft license that does not fit the MIT-licensed project (PLAN.md S12, task T008).
+# The dependency graph must be enabled for the repository (it is on for public repositories).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Skips the review (with a warning) while the dependency graph is off in the repository
+      # settings; any other API error fails the job. Values are passed through env, never
+      # interpolated into the script.
+      - name: Check that the dependency graph is enabled
+        id: graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -uo pipefail
+          if output="$(gh api "repos/${REPO}/dependency-graph/compare/${BASE_SHA}...${HEAD_SHA}" 2>&1)"; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          elif printf '%s' "$output" | grep -Eqi 'dependency graph|not supported|HTTP 40[34]'; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Dependency review skipped::The dependency graph is not enabled for ${REPO}. Enable it under Settings, Advanced Security; the review then runs strictly."
+          else
+            echo "$output" >&2
+            exit 1
+          fi
+      - name: Review dependency changes
+        if: steps.graph.outputs.enabled == 'true'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          comment-summary-in-pr: never
+          deny-licenses: GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later, SSPL-1.0

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows-only tests run on windows-latest in CI (PLAN.md S01, S14). The project also builds
+       on Linux because Directory.Build.props sets EnableWindowsTargeting. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Platform.Windows\QoffeeAutomat.Platform.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

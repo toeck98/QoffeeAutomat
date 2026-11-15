@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Platform-neutral engines and platform interfaces. References Contracts only (PLAN.md S04). -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

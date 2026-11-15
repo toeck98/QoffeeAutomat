@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas (Discussions)
+    url: https://github.com/toeck98/QoffeeAutomat/discussions
+    about: Ask questions, share your commands and sensors, or discuss ideas.
+  - name: Report a security vulnerability
+    url: https://github.com/toeck98/QoffeeAutomat/security/policy
+    about: Read the security policy and report vulnerabilities privately. Do not open a public issue.

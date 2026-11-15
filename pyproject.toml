@@ -1,0 +1,56 @@
+[project]
+name = "qoffeeautomat-dev"
+version = "0.1.0"
+description = "Development tooling for the QoffeeAutomat Home Assistant integration."
+requires-python = ">=3.14"
+readme = "README.md"
+license = { text = "MIT" }
+
+# This file only configures tools. It is not an installable package: the integration is
+# shipped as custom_components/qoffeeautomat (see hacs.json).
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+extend-exclude = [".venv", "docs/prototype"]
+
+[tool.ruff.lint]
+select = [
+    "A",     # flake8-builtins
+    "ASYNC", # flake8-async: no blocking calls in the event loop
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "PIE",   # flake8-pie
+    "PT",    # flake8-pytest-style
+    "RET",   # flake8-return
+    "RUF",   # ruff-specific rules
+    "S",     # flake8-bandit
+    "SIM",   # flake8-simplify
+    "T20",   # flake8-print
+    "UP",    # pyupgrade
+    "W",     # pycodestyle warnings
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests_integration/**" = ["S101"]
+"tests/scripts/**" = ["S101", "S603"]
+# sync_issues.py talks to the fixed https://api.github.com endpoint through urllib.
+"scripts/**" = ["S101", "S310", "S603", "S607", "T201"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unreachable = true
+files = ["custom_components/qoffeeautomat"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests_integration", "tests/scripts"]
+asyncio_mode = "auto"
+pythonpath = ["."]

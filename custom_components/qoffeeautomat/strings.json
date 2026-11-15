@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to a PC",
+        "description": "Setting up a QoffeeAutomat agent is not available yet.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      }
+    },
+    "abort": {
+      "not_implemented": "Setting up a QoffeeAutomat agent is not available yet."
+    }
+  }
+}

@@ -1,0 +1,74 @@
+name: Command or sensor template request
+description: Ask for a ready-made command or sensor in the template gallery
+title: "[Template]: "
+labels: ["type:feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Templates are ready-made commands and sensors (including PowerShell scripts) that users
+        can add from the gallery with one click. Describe what the template should do; if you
+        already have a working script, include it.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - Command
+        - Sensor
+        - Both
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      description: A short name for the template.
+      placeholder: "Set audio output device"
+    validations:
+      required: true
+  - type: textarea
+    id: purpose
+    attributes:
+      label: What should it do?
+      description: Describe the effect, the variables Home Assistant should be able to pass, and the value a sensor should report.
+    validations:
+      required: true
+  - type: dropdown
+    id: run_as
+    attributes:
+      label: Run context
+      description: Desktop actions need the user session; power actions and services run as the system.
+      options:
+        - system
+        - user
+        - user_elevated
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+      description: The system the template was written for or tested on.
+      placeholder: "Windows 11 24H2 (build 26100)"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: QoffeeAutomat version
+      placeholder: "0.1.0"
+  - type: textarea
+    id: script
+    attributes:
+      label: Existing script (optional)
+      description: Paste a working PowerShell script or command line. Remove secrets and personal paths first.
+      render: powershell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: The script contains no secrets, and I am allowed to share it under the MIT license.
+          required: true

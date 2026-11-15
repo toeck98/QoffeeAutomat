@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!-- All pages and components (D-015). Depends on Contracts only, never on Agent, Core or a
+       platform project, so the hub UI can reuse it (PLAN.md S04). -->
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

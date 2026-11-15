@@ -10,8 +10,9 @@
 # Usage:
 #   bash scripts/github/setup-repo.sh --dry-run        show what would be changed
 #   bash scripts/github/setup-repo.sh                  apply everything
-#   bash scripts/github/setup-repo.sh --required-check "build (ubuntu-latest)" \
-#                                     --required-check "build (windows-latest)"
+#   bash scripts/github/setup-repo.sh --required-check "dotnet ci passed" \
+#                                     --required-check "integration ci passed"
+#   (the complete list of check names is in docs/maintainers/github-setup.md)
 #
 # Options:
 #   --repo OWNER/NAME          repository (default: toeck98/QoffeeAutomat)
@@ -272,14 +273,18 @@ if want discussions; then
   # Show and tell by default; this only checks that they are there.
   if [ "$DRY_RUN" -eq 0 ]; then
     # shellcheck disable=SC2016  # GraphQL variables, not shell variables
-    CATS="$(gh api graphql -f owner="$OWNER" -f name="$NAME" \
-      -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){discussionCategories(first:50){nodes{name}}}}' \
-      --jq '.data.repository.discussionCategories.nodes[].name' 2>/dev/null | tr -d '\r' || true)"
-    for CAT in "Q&A" "Ideas" "Show and tell"; do
-      if ! has_line "$CATS" "$CAT"; then
-        warn "Discussion category '$CAT' is missing. Add it under Discussions > Categories (cannot be done by script)."
-      fi
-    done
+    CAT_QUERY='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){discussionCategories(first:50){nodes{name}}}}'
+    if CATS="$(gh api graphql -f owner="$OWNER" -f name="$NAME" -f query="$CAT_QUERY" \
+      --jq '.data.repository.discussionCategories.nodes[].name' 2>/dev/null)"; then
+      CATS="$(printf '%s' "$CATS" | tr -d '\r')"
+      for CAT in "Q&A" "Ideas" "Show and tell"; do
+        if ! has_line "$CATS" "$CAT"; then
+          warn "Discussion category '$CAT' is missing. Add it under Discussions > Categories (cannot be done by script)."
+        fi
+      done
+    else
+      warn "Could not read the discussion categories; check Q&A, Ideas and Show and tell by hand."
+    fi
   fi
 fi
 
@@ -379,7 +384,13 @@ fi
 # ----------------------------------------------------------------------------
 if want pages; then
   step "GitHub Pages"
-  PAGES_TYPE="$(gh api "repos/$REPO/pages" --jq '.build_type // "legacy"' 2>/dev/null | tr -d '\r' || true)"
+  # Decide by the exit status of gh, not by its output: for an HTTP error (404 while Pages
+  # is not enabled yet) gh prints the JSON error body on stdout, which must not be mistaken
+  # for a build type.
+  PAGES_TYPE=""
+  if PAGES_OUT="$(gh api "repos/$REPO/pages" --jq '.build_type // "legacy"' 2>/dev/null)"; then
+    PAGES_TYPE="$(printf '%s' "$PAGES_OUT" | tr -d '\r')"
+  fi
   if [ -z "$PAGES_TYPE" ]; then
     mutate_json "enable Pages with deployment from GitHub Actions" POST "repos/$REPO/pages" '{"build_type":"workflow"}'
   elif [ "$PAGES_TYPE" != "workflow" ]; then

@@ -1,0 +1,83 @@
+name: Bug report
+description: Something does not work as specified
+title: "[Bug]: "
+labels: ["type:bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please search the existing issues first.
+        **Security problems must not be reported here.** Use the private
+        [vulnerability reporting](https://github.com/toeck98/QoffeeAutomat/security/advisories/new).
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part is affected?
+      options:
+        - Agent (service)
+        - SessionHost (tray, user commands)
+        - Web UI
+        - Home Assistant integration
+        - QoffeeLink protocol
+        - Installer
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: QoffeeAutomat version
+      description: Shown in the web UI footer, or run `qoffeeautomat --version`. The integration version is on the Home Assistant device page.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system of the PC
+      description: Windows edition and build number (run `winver`), or the Linux distribution.
+      placeholder: "Windows 11 24H2 (build 26100)"
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      description: Leave empty when Home Assistant is not involved.
+      placeholder: "2026.11.1"
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and diagnostics
+      description: |
+        Attach the redacted diagnostics bundle from the web UI (Settings, Diagnostics) or relevant log lines.
+        Remove tokens, passwords and other secrets before pasting.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and discussions.
+          required: true
+        - label: I removed secrets (tokens, passwords, pairing codes) from everything I posted.
+          required: true
