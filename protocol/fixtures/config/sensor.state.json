@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "display_profile",
+  "name": "Display profile",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "sensor",
+  "valueType": "enum",
+  "options": ["Normal-Mode", "TV-Mode", "Study-Mode"],
+  "intervalSeconds": 0,
+  "source": { "type": "state", "initialValue": "Normal-Mode", "persist": true }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/get_manifest.schema.json",
+  "title": "get_manifest",
+  "description": "Client to agent (request). Fetches the manifest; the result data is the manifest (PLAN.md S07).",
+  "type": "object",
+  "required": ["t", "id"],
+  "properties": {
+    "t": { "const": "get_manifest" },
+    "id": { "type": "integer", "minimum": 0 }
+  }
+}

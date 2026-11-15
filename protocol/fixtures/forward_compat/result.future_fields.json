@@ -1,0 +1,7 @@
+{
+  "t": "result",
+  "id": 9,
+  "ok": false,
+  "error": { "code": "some_future_error", "message": "An error code that this client does not know.", "retry_after_ms": 500 },
+  "trace_id": "abc123"
+}

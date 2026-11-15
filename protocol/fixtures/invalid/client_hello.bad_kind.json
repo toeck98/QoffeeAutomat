@@ -1,0 +1,5 @@
+{
+  "t": "client_hello",
+  "protocol": 1,
+  "client": { "kind": "toaster", "name": "Home", "version": "1.0.0" }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/run.schema.json",
+  "title": "run",
+  "description": "Client to agent (request). Executes a command (PLAN.md S07). vars defaults to an empty object and wait defaults to true.",
+  "type": "object",
+  "required": ["t", "id", "command"],
+  "properties": {
+    "t": { "const": "run" },
+    "id": { "type": "integer", "minimum": 0 },
+    "command": { "$ref": "defs.schema.json#/$defs/command_id" },
+    "vars": {
+      "type": "object",
+      "propertyNames": { "$ref": "defs.schema.json#/$defs/variable_name" },
+      "additionalProperties": { "$ref": "defs.schema.json#/$defs/scalar" }
+    },
+    "wait": { "type": "boolean" },
+    "context": {
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

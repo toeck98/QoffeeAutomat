@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/state.schema.json",
+  "title": "state",
+  "description": "Agent to client. Changed values since the last frame (PLAN.md S07).",
+  "type": "object",
+  "required": ["t", "ts", "v"],
+  "properties": {
+    "t": { "const": "state" },
+    "ts": {
+      "description": "Unix time in milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "v": {
+      "description": "Metric id to value. null means unavailable.",
+      "type": "object",
+      "propertyNames": { "$ref": "defs.schema.json#/$defs/metric_id" },
+      "additionalProperties": { "type": ["number", "string", "boolean", "null"] }
+    }
+  }
+}

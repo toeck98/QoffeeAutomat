@@ -1,0 +1,6 @@
+{
+  "t": "result",
+  "id": 7,
+  "ok": false,
+  "error": { "code": "unknown_command", "message": "Command 'nope' does not exist." }
+}

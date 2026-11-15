@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/subscribe.schema.json",
+  "title": "subscribe",
+  "description": "Client to agent (request). Replaces the metric subscription set; the result is followed by a full state snapshot of the subscribed metrics (PLAN.md S07).",
+  "type": "object",
+  "required": ["t", "id", "metrics"],
+  "properties": {
+    "t": { "const": "subscribe" },
+    "id": { "type": "integer", "minimum": 0 },
+    "metrics": {
+      "description": "An array of metric ids, or the string \"*\" for all metrics.",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "$ref": "defs.schema.json#/$defs/metric_id" },
+          "uniqueItems": true
+        },
+        { "const": "*" }
+      ]
+    },
+    "intervals": {
+      "description": "Optional. Metric id to seconds: the client receives at most one value per interval for these metrics.",
+      "type": "object",
+      "propertyNames": { "$ref": "defs.schema.json#/$defs/metric_id" },
+      "additionalProperties": { "type": "number", "exclusiveMinimum": 0 }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "updatedAt": "2026-11-14T09:00:00Z",
+  "origin": "local",
+  "name": "Gaming-PC",
+  "uiPort": 8480,
+  "linkPort": 8481,
+  "remoteUi": false,
+  "logging": { "level": "information" },
+  "retention": { "runHistoryDays": 30, "auditLogDays": 365 }
+}

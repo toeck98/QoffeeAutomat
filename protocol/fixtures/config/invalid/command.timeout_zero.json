@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "timeout_zero",
+  "name": "Timeout zero",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "system",
+  "action": { "type": "builtin", "name": "power.shutdown" },
+  "timeoutSeconds": 0
+}

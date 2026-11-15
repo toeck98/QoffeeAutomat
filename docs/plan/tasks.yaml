@@ -418,7 +418,7 @@ tasks:
       - "Schemas allow unknown additional properties (forward compatibility) but require the documented mandatory fields."
     verify:
       - "python scripts/dev/validate_protocol.py"
-    status: todo
+    status: done
 
   - id: T102
     title: Implement protocol contracts in C#
@@ -446,7 +446,7 @@ tasks:
       - "The rev of the fixture manifest equals the value stored in the fixture."
     verify:
       - "dotnet test tests/QoffeeAutomat.Contracts.Tests"
-    status: todo
+    status: done
 
   - id: T103
     title: Implement config document models and validation
@@ -476,7 +476,7 @@ tasks:
       - "VariableBinder rejects unknown variables, out-of-range numbers, values not in options and strings over maxLength."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Validation"
-    status: todo
+    status: done
 
   - id: T104
     title: Implement protocol models in Python
@@ -500,7 +500,7 @@ tasks:
     verify:
       - "pytest tests_integration/test_protocol.py"
       - "mypy custom_components/qoffeeautomat"
-    status: todo
+    status: done
 
   # ───────────────────────────── M2 Agent core ─────────────────────────────
   - id: T201

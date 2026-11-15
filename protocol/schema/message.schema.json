@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/message.schema.json",
+  "title": "QoffeeLink message",
+  "description": "Top-level schema of one QoffeeLink v1 frame. It dispatches on the field t. Frames with an unknown t are valid: receivers ignore them (forward compatibility, PLAN.md S07).",
+  "type": "object",
+  "required": ["t"],
+  "properties": {
+    "t": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    { "if": { "properties": { "t": { "const": "hello" } }, "required": ["t"] }, "then": { "$ref": "hello.schema.json" } },
+    { "if": { "properties": { "t": { "const": "client_hello" } }, "required": ["t"] }, "then": { "$ref": "client_hello.schema.json" } },
+    { "if": { "properties": { "t": { "const": "get_manifest" } }, "required": ["t"] }, "then": { "$ref": "get_manifest.schema.json" } },
+    { "if": { "properties": { "t": { "const": "manifest_changed" } }, "required": ["t"] }, "then": { "$ref": "manifest_changed.schema.json" } },
+    { "if": { "properties": { "t": { "const": "subscribe" } }, "required": ["t"] }, "then": { "$ref": "subscribe.schema.json" } },
+    { "if": { "properties": { "t": { "const": "state" } }, "required": ["t"] }, "then": { "$ref": "state.schema.json" } },
+    { "if": { "properties": { "t": { "const": "run" } }, "required": ["t"] }, "then": { "$ref": "run.schema.json" } },
+    { "if": { "properties": { "t": { "const": "event" } }, "required": ["t"] }, "then": { "$ref": "event.schema.json" } },
+    { "if": { "properties": { "t": { "const": "bye" } }, "required": ["t"] }, "then": { "$ref": "bye.schema.json" } },
+    { "if": { "properties": { "t": { "const": "result" } }, "required": ["t"] }, "then": { "$ref": "result.schema.json" } }
+  ]
+}

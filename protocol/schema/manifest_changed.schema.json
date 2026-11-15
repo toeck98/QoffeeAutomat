@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/manifest_changed.schema.json",
+  "title": "manifest_changed",
+  "description": "Agent to client. The manifest revision changed (PLAN.md S07).",
+  "type": "object",
+  "required": ["t", "rev"],
+  "properties": {
+    "t": { "const": "manifest_changed" },
+    "rev": { "$ref": "defs.schema.json#/$defs/manifest_rev" }
+  }
+}

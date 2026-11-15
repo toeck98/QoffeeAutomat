@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "steam_running",
+  "name": "Steam running",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "binary_sensor",
+  "valueType": "bool",
+  "intervalSeconds": 10,
+  "source": { "type": "process_running", "process": "steam" }
+}

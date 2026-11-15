@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/result.schema.json",
+  "title": "result",
+  "description": "Answer to a request, in either direction (PLAN.md S07). Success carries data, failure carries error.",
+  "type": "object",
+  "required": ["t", "id", "ok"],
+  "properties": {
+    "t": { "const": "result" },
+    "id": { "type": "integer", "minimum": 0 },
+    "ok": { "type": "boolean" },
+    "data": { "type": "object" },
+    "error": { "$ref": "defs.schema.json#/$defs/error_info" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "ok": { "const": true } }, "required": ["ok"] },
+      "then": { "required": ["data"] }
+    },
+    {
+      "if": { "properties": { "ok": { "const": false } }, "required": ["ok"] },
+      "then": { "required": ["error"] }
+    }
+  ]
+}

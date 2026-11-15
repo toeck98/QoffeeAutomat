@@ -1,0 +1,16 @@
+{
+  "rev": "143ffa0cd221",
+  "agent": {
+    "id": "5b0c6c1e-8e0a-4f6e-9a57-3d2f3a1c9b77",
+    "name": "Gaming-PC",
+    "version": "1.0.0",
+    "os": "windows",
+    "arch": "x64",
+    "hostname": "GAMING-PC",
+    "macs": []
+  },
+  "metrics": [],
+  "commands": [
+    { "name": "Lock session", "control": { "type": "button" } }
+  ]
+}

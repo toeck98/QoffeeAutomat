@@ -1,0 +1,13 @@
+{
+  "t": "result",
+  "id": 5,
+  "ok": true,
+  "data": {
+    "run_id": "01JD8Z3Q4V7N2K9M5X6C8B0A1E",
+    "exit_code": 0,
+    "stdout": "Applied TV-Mode\n",
+    "stderr": "",
+    "duration_ms": 412,
+    "timed_out": false
+  }
+}

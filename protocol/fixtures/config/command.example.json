@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "set_display_profile",
+  "name": "Set display profile",
+  "description": "Applies a saved DisplayConfig profile.",
+  "icon": "mdi:monitor-multiple",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "user",
+  "action": { "type": "powershell", "source": "file", "script": "set_display_profile.ps1", "engine": "auto" },
+  "parameters": [
+    { "name": "Profile", "type": "enum", "options": ["Normal-Mode", "TV-Mode", "Study-Mode"], "required": true },
+    { "name": "UpdateAdapterIds", "type": "bool", "default": false }
+  ],
+  "haControl": { "type": "select", "parameter": "Profile", "stateMetric": null },
+  "timeoutSeconds": 60,
+  "concurrency": "queue",
+  "cooldownSeconds": 0,
+  "captureOutput": true
+}

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "overrides": {
+    "cpu.usage": { "intervalSeconds": -5 }
+  }
+}

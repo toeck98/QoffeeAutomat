@@ -1,0 +1,5 @@
+{
+  "t": "state",
+  "ts": 1763126400000,
+  "v": { "cpu.usage": 12, "session.locked": false, "audio.volume": 35.5 }
+}

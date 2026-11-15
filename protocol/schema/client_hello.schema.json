@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/client_hello.schema.json",
+  "title": "client_hello",
+  "description": "Client to agent. Answer to hello; states the chosen protocol version (PLAN.md S07).",
+  "type": "object",
+  "required": ["t", "protocol", "client"],
+  "properties": {
+    "t": { "const": "client_hello" },
+    "protocol": {
+      "description": "The highest version both sides support.",
+      "$ref": "defs.schema.json#/$defs/protocol_version"
+    },
+    "client": {
+      "type": "object",
+      "required": ["kind", "name", "version"],
+      "properties": {
+        "kind": { "$ref": "defs.schema.json#/$defs/client_kind" },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "features": { "$ref": "defs.schema.json#/$defs/feature_list" }
+  }
+}

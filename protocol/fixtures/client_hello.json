@@ -1,0 +1,5 @@
+{
+  "t": "client_hello",
+  "protocol": 1,
+  "client": { "kind": "homeassistant", "name": "Home", "version": "2026.11.0" }
+}

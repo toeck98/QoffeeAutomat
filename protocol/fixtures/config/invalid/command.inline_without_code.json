@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "inline_without_code",
+  "name": "Inline without code",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "powershell", "source": "inline", "engine": "auto" }
+}

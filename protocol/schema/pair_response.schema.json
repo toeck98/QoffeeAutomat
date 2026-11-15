@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/pair_response.schema.json",
+  "title": "pair_response",
+  "description": "Response of a successful POST /link/v1/pair (PLAN.md S07). The token is 32 random bytes, base64url without padding (43 characters).",
+  "type": "object",
+  "required": ["token", "agent"],
+  "properties": {
+    "token": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
+    "agent": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

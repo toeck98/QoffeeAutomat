@@ -1,0 +1,19 @@
+{
+  "t": "hello",
+  "protocol": { "min": 1, "max": 3, "preferred": 2 },
+  "agent": {
+    "id": "5b0c6c1e-8e0a-4f6e-9a57-3d2f3a1c9b77",
+    "name": "Gaming-PC",
+    "version": "3.0.0",
+    "os": "windows",
+    "arch": "x64",
+    "hostname": "GAMING-PC",
+    "macs": ["A4:B1:C1:00:11:22"],
+    "ui_url": "https://gaming-pc.local:8481/",
+    "tags": ["gaming", "office"]
+  },
+  "manifest_rev": "143ffa0cd221",
+  "boot_id": "c2a4b8e0-6f55-4c9e-b3d5-0d7a9f1e2b34",
+  "features": ["wol", "some_future_feature"],
+  "server_time": 1763126400000
+}

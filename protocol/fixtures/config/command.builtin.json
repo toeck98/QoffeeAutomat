@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "shutdown_pc",
+  "name": "Shut down PC",
+  "icon": "mdi:power",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "system",
+  "action": { "type": "builtin", "name": "power.shutdown" },
+  "parameters": [
+    { "name": "DelaySeconds", "type": "int", "min": 0, "max": 600, "step": 5, "default": 30, "unit": "s" }
+  ],
+  "haControl": { "type": "button" },
+  "cooldownSeconds": 60
+}

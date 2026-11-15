@@ -1,0 +1,30 @@
+{
+  "rev": "0123456789ab",
+  "agent": {
+    "id": "5b0c6c1e-8e0a-4f6e-9a57-3d2f3a1c9b77",
+    "name": "Gaming-PC",
+    "version": "3.0.0",
+    "os": "windows",
+    "arch": "x64",
+    "hostname": "GAMING-PC",
+    "macs": ["A4:B1:C1:00:11:22"],
+    "location": "office"
+  },
+  "metrics": [
+    {
+      "id": "cpu.usage",
+      "name": "CPU usage",
+      "kind": "sensor",
+      "value_type": "number",
+      "group": "system"
+    }
+  ],
+  "commands": [
+    {
+      "id": "lock_session",
+      "name": "Lock session",
+      "control": { "type": "button", "confirm": true }
+    }
+  ],
+  "capabilities": { "batch": true }
+}

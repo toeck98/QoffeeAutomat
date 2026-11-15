@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "Bad-Id",
+  "name": "Bad id",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "system",
+  "action": { "type": "builtin", "name": "power.shutdown" }
+}

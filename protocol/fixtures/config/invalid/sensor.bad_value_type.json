@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "bad_value_type",
+  "name": "Bad value type",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "sensor",
+  "valueType": "matrix",
+  "source": { "type": "process_running", "process": "steam" }
+}
