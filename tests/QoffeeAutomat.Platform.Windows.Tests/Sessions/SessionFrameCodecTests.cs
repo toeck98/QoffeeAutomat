@@ -298,7 +298,7 @@ public sealed class SessionFrameCodecTests
     {
         using var cts = new CancellationTokenSource(TestWait.Patience);
         string name = "qa-test-" + Guid.NewGuid().ToString("N");
-        await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 65536, 65536);
         await using var client = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
         await Task.WhenAll(server.WaitForConnectionAsync(cts.Token), client.ConnectAsync(10_000, cts.Token)).WaitAsync(TestWait.Patience, cts.Token);
 
@@ -315,7 +315,7 @@ public sealed class SessionFrameCodecTests
     public async Task A_peer_that_closes_the_pipe_ends_the_stream_cleanly_between_frames()
     {
         string name = "qa-test-" + Guid.NewGuid().ToString("N");
-        await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 65536, 65536);
         await using var client = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
         await Task.WhenAll(server.WaitForConnectionAsync(), client.ConnectAsync(10_000)).WaitAsync(TestWait.Patience);
 
