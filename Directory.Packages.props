@@ -23,6 +23,19 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.15" />
   </ItemGroup>
 
+  <ItemGroup Label="Windows">
+    <!-- Windows service hosting, Event Log, service control and DPAPI for Platform.Windows (T301). They ship
+         with the .NET 10 servicing train, like the ASP.NET Core packages above; Dependabot keeps them current. -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.15" />
+    <PackageVersion Include="System.ServiceProcess.ServiceController" Version="10.0.15" />
+    <PackageVersion Include="System.Diagnostics.EventLog" Version="10.0.15" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
+    <!-- Performance counters (GPU Engine, the perf_counter sensor) and WMI (the cim_query sensor) for the system metrics and
+         the Windows custom sensor types (T304, T307); same release train as the packages above. -->
+    <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="10.0.15" />
+    <PackageVersion Include="System.Management" Version="10.0.15" />
+  </ItemGroup>
+
   <ItemGroup Label="Blazor">
     <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.15" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.15" />

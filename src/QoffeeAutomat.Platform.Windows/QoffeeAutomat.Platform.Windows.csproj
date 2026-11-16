@@ -11,4 +11,16 @@
     <ProjectReference Include="..\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Service hosting and Event Log logging (UseWindowsService), service control, Event Log sources, DPAPI (T301). -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" />
+    <PackageReference Include="System.Diagnostics.EventLog" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <!-- GPU Engine counters and the perf_counter sensor (T304, T307). -->
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" />
+    <!-- WMI for the cim_query sensor (T307). -->
+    <PackageReference Include="System.Management" />
+  </ItemGroup>
+
 </Project>

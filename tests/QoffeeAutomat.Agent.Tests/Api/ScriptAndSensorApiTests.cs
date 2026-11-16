@@ -125,20 +125,36 @@ public sealed class ScriptAndSensorApiTests
     }
 
     [Fact]
-    public async Task Testing_an_invalid_sensor_draft_returns_422_and_a_sensor_type_without_a_sampler_reports_its_error()
+    public async Task Testing_an_invalid_sensor_draft_returns_422_and_a_windows_only_sensor_type_is_unsupported_on_this_platform()
     {
         await using ApiTestHost host = await ApiTestHost.StartAsync();
 
         using HttpResponseMessage invalid = await host.PostAsync("/api/v1/sensors/test", "{\"id\":\"x\"}");
         await ApiAssert.ProblemAsync(invalid, HttpStatusCode.UnprocessableEntity, "validation_failed");
 
-        // A Windows-only sensor type is valid, but this agent cannot sample it: that is a result, not an error response.
+        // A Windows-only sensor type is refused by validation with the code unsupported (T307): the agent of this test runs on
+        // the simulated platform, which has no sampler for it, and a sensor that could never deliver a value is not accepted.
         const string counter = """
             {"id":"win_counter","name":"Counter","enabled":true,"exposeToHa":false,"kind":"sensor","valueType":"number","source":{"type":"perf_counter","category":"Processor","counter":"% Processor Time","instance":"_Total"}}
             """;
         using HttpResponseMessage unsupported = await host.PostAsync("/api/v1/sensors/test", counter);
-        JsonNode result = await ApiAssert.JsonAsync(unsupported);
-        Assert.False(result["succeeded"]!.GetValue<bool>());
-        Assert.False(string.IsNullOrEmpty(result["error"]!.GetValue<string>()));
+        JsonNode problem = await ApiAssert.ProblemAsync(unsupported, HttpStatusCode.UnprocessableEntity, "validation_failed");
+        Assert.Contains("/source/type", ApiAssert.ErrorPaths(problem));
+    }
+
+    [Fact]
+    public async Task A_windows_only_sensor_type_cannot_be_saved_on_a_platform_without_a_sampler_for_it()
+    {
+        await using ApiTestHost host = await ApiTestHost.StartAsync();
+        const string service = """
+            {"id":"win_service","name":"Service","enabled":true,"exposeToHa":false,"kind":"sensor","valueType":"enum","options":["running","stopped"],"source":{"type":"service_state","service":"EventLog"}}
+            """;
+
+        using HttpResponseMessage response = await host.PostAsync("/api/v1/sensors", service);
+
+        JsonNode problem = await ApiAssert.ProblemAsync(response, HttpStatusCode.UnprocessableEntity, "validation_failed");
+        Assert.Contains("/source/type", ApiAssert.ErrorPaths(problem));
+        using HttpResponseMessage notSaved = await host.GetAsync("/api/v1/sensors/win_service");
+        Assert.Equal(HttpStatusCode.NotFound, notSaved.StatusCode);
     }
 }

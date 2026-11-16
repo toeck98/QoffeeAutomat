@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "save_display_profile",
+  "name": "Save display profile",
+  "description": "Saves the current monitor layout under a name. Arrange the monitors first, then run this command.",
+  "icon": "mdi:content-save-cog",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "powershell", "source": "file", "script": "save_display_profile.ps1", "engine": "auto" },
+  "parameters": [
+    {
+      "name": "Name",
+      "type": "string",
+      "required": true,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$",
+      "description": "Profile name: letters, digits, space, dash and underscore."
+    },
+    {
+      "name": "Overwrite",
+      "type": "bool",
+      "default": false,
+      "description": "Replace a profile of the same name."
+    }
+  ],
+  "haControl": { "type": "none" },
+  "timeoutSeconds": 60,
+  "concurrency": "single",
+  "cooldownSeconds": 0,
+  "captureOutput": true
+}

@@ -41,9 +41,7 @@ public sealed class Program
                 WriteLine("QoffeeAutomat " + AgentVersion.Current);
                 return ExitCodes.Success;
             case AgentVerb.Service:
-                // The service verbs (install, remove, start, stop) arrive with T301.
-                WriteError("The 'service' verb is not available yet.");
-                return ExitCodes.Unavailable;
+                return await WindowsHostIntegration.RunServiceVerbAsync(options, Console.Out, Console.Error).ConfigureAwait(false);
             case AgentVerb.Emit:
                 return await EmitCommand.RunAsync(options, Console.Out, Console.Error, Environment.GetEnvironmentVariable).ConfigureAwait(false);
             case AgentVerb.ResetPassword:

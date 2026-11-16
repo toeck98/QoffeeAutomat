@@ -221,7 +221,8 @@ internal sealed class SensorHarness : IAsyncDisposable
         CustomSensorOptions? options = null,
         MetricEngineOptions? engineOptions = null,
         FakeEngineLocator? locator = null,
-        IReadOnlyList<IMetricProvider>? providers = null)
+        IReadOnlyList<IMetricProvider>? providers = null,
+        IReadOnlyList<ISensorSourceHandler>? handlers = null)
     {
         var temp = new TempDirectory();
         var clock = new SimulatedClock();
@@ -233,7 +234,7 @@ internal sealed class SensorHarness : IAsyncDisposable
             engineLocator,
             new PowerShellOptions { ScriptsDirectory = temp.Combine("scripts"), TempRoot = temp.Combine("run") },
             clock);
-        var provider = new CustomSensorProvider(store, runner, launcher, clock, processes, options, engineOptions);
+        var provider = new CustomSensorProvider(store, runner, launcher, clock, processes, options, engineOptions, handlers);
         var engine = new MetricEngine(store, providers ?? [], clock, engineOptions, session: null, customSensors: provider);
         return new SensorHarness(temp, clock, store, launcher, processes, engineLocator, provider, engine);
     }

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "launch_moza_pit_house",
+  "name": "Launch MOZA Pit House",
+  "description": "Starts the MOZA Pit House. Adjust the path to your installation.",
+  "icon": "mdi:steering",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": {
+    "type": "process",
+    "file": "C:\\Program Files (x86)\\MOZA Pit House\\MOZA Pit House.exe",
+    "waitForExit": false
+  },
+  "haControl": { "type": "none" },
+  "timeoutSeconds": 30,
+  "concurrency": "single"
+}

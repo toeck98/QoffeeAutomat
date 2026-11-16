@@ -15,7 +15,7 @@ public static class ExitCodes
     /// <summary>The command line is wrong.</summary>
     public const int Usage = 64;
 
-    /// <summary>The requested function is not available (the <c>service</c> verb before T301, or no running agent for <c>emit</c>).</summary>
+    /// <summary>The requested function is not available (the <c>service</c> verb outside the Windows build, a service that is not installed, or no running agent for <c>emit</c>).</summary>
     public const int Unavailable = 69;
 
     /// <summary>The agent refused the caller: it has no access to the local channel (<c>emit</c>).</summary>

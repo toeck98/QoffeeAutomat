@@ -2,7 +2,7 @@ using QoffeeAutomat.Agent.Hosting;
 
 namespace QoffeeAutomat.Agent.Tests;
 
-/// <summary>Command-line tests of T201: verbs, options, the version output and the service stub.</summary>
+/// <summary>Command-line tests of T201: verbs, options, the version output and the service verb of a build without Windows support.</summary>
 [Trait("Category", "Hosting")]
 [Collection("Console")]
 public sealed class CommandLineTests
@@ -56,8 +56,10 @@ public sealed class CommandLineTests
     }
 
     [Fact]
-    public async Task Service_verb_is_a_stub_until_T301()
+    public async Task Service_verb_is_unavailable_in_the_build_without_the_windows_platform()
     {
+        // This test project uses the net10.0 build of the agent; the service verb lives in the net10.0-windows build
+        // and is tested in QoffeeAutomat.Platform.Windows.Tests (T301).
         (int code, _, string error) = await RunMainAsync("service", "install");
 
         Assert.Equal(ExitCodes.Unavailable, code);

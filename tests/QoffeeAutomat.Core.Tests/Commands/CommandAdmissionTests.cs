@@ -101,6 +101,30 @@ public sealed class CommandAdmissionTests
         Assert.True((await h.RunAsync("c")).Succeeded);
     }
 
+    [Theory]
+    [InlineData(RunSources.HomeAssistant)]
+    [InlineData(RunSources.Ui)]
+    [InlineData(RunSources.Hub)]
+    [InlineData(RunSources.Cli)]
+    [InlineData(RunSources.Sequence)]
+    [InlineData(RunSources.Test)]
+    public async Task The_pause_of_the_tray_icon_rejects_runs_of_every_source_with_the_error_paused(string source)
+    {
+        await using CommandHarness h = await CommandHarness.CreateAsync();
+        h.Gate!.AutoComplete = Ok;
+        await h.SaveAsync(Cmd.Gated("c"));
+
+        h.Pause.SetPaused(true);
+        RunResult rejected = await h.RunFromAsync(source, "c");
+
+        Assert.False(rejected.Started);
+        Assert.Equal(ErrorCodes.Paused, rejected.ErrorCode);
+        Assert.Empty(h.Gate.Calls);
+
+        h.Pause.SetPaused(false);
+        Assert.True((await h.RunFromAsync(source, "c")).Succeeded);
+    }
+
     [Fact]
     public async Task A_run_that_is_already_running_is_not_affected_by_a_later_pause()
     {

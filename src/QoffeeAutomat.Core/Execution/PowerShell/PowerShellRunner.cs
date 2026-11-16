@@ -31,6 +31,19 @@ public sealed class PowerShellOptions
 
     /// <summary>Directories of runs that crashed (and so were not cleaned up) are removed after this age, once per runner.</summary>
     public TimeSpan StaleAfter { get; init; } = DefaultStaleAfter;
+
+    /// <summary>
+    /// Checks script files before they run with more rights than the user's (PLAN.md S09 item 5); null runs
+    /// every script. A refused script ends the run with <see cref="ErrorCodes.Internal"/>.
+    /// </summary>
+    public IScriptAccessGuard? ScriptGuard { get; init; }
+
+    /// <summary>
+    /// Runs the invocations of <c>runAs: user</c> in the session of the interactive user (PLAN.md S11); null runs them
+    /// through the launcher like every other invocation. The SessionHost has none: there the runner already is in the
+    /// session.
+    /// </summary>
+    public IUserContextPowerShell? UserSession { get; init; }
 }
 
 /// <summary>Everything the runner needs to execute one piece of PowerShell: an action of a command or the script of a sensor.</summary>
@@ -161,6 +174,12 @@ public sealed class PowerShellRunner
         ArgumentNullException.ThrowIfNull(invocation.Variables);
         ArgumentNullException.ThrowIfNull(invocation.Environment);
 
+        if (invocation.RunAs == RunAsValues.User && _options.UserSession is { } userSession)
+        {
+            // The session helper finds the engine, writes the wrapper and runs it with the user's rights.
+            return await userSession.RunAsync(invocation, cancellationToken);
+        }
+
         PowerShellEngineResolution resolution = _locator.Resolve(invocation.Engine);
         if (resolution.Engine is not { } engine)
         {
@@ -256,6 +275,17 @@ public sealed class PowerShellRunner
                 if (!full.StartsWith(rootWithSeparator, StringComparison.Ordinal) || !File.Exists(full))
                 {
                     return ExecutionResult.Failure(ErrorCodes.Internal, $"The script '{invocation.Script}' does not exist in the scripts directory.");
+                }
+
+                if (_options.ScriptGuard is { } guard && invocation.RunAs != RunAsValues.User)
+                {
+                    ScriptAccessDecision decision = guard.Check(full, invocation.RunAs);
+                    if (!decision.IsAllowed)
+                    {
+                        return ExecutionResult.Failure(
+                            ErrorCodes.Internal,
+                            decision.Reason ?? $"The script '{invocation.Script}' may not run with these rights.");
+                    }
                 }
 
                 scriptPath = full;

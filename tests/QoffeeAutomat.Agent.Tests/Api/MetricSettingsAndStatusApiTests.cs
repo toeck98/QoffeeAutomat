@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text.Json.Nodes;
+using QoffeeAutomat.Core.Commands;
 using QoffeeAutomat.Core.Manifest;
 using QoffeeAutomat.Core.Metrics;
+using QoffeeAutomat.Core.Platform;
 using QoffeeAutomat.Platform.Simulated;
 
 namespace QoffeeAutomat.Agent.Tests.Api;
@@ -132,5 +134,38 @@ public sealed class MetricSettingsAndStatusApiTests
         Assert.Equal(0, status["activeRuns"]!.GetValue<int>());
         Assert.Equal(host.Service<ManifestService>().Current.Rev, status["manifestRev"]!.GetValue<string>());
         Assert.NotNull(status["session"]!["ready"]);
+    }
+
+    [Fact]
+    public async Task The_status_follows_the_pause_flag_that_the_tray_icon_sets_and_clears()
+    {
+        await using ApiTestHost host = await ApiTestHost.StartAsync();
+        var pause = host.Service<AgentPause>();
+
+        pause.SetPaused(true);
+        using HttpResponseMessage paused = await host.GetAsync("/api/v1/status");
+        JsonNode pausedStatus = await ApiAssert.JsonAsync(paused);
+        pause.SetPaused(false);
+        using HttpResponseMessage resumed = await host.GetAsync("/api/v1/status");
+        JsonNode resumedStatus = await ApiAssert.JsonAsync(resumed);
+
+        Assert.True(pausedStatus["paused"]!.GetValue<bool>());
+        Assert.False(resumedStatus["paused"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task The_tray_status_comes_from_the_settings_the_pairing_store_and_the_link()
+    {
+        await using ApiTestHost host = await ApiTestHost.StartAsync();
+
+        TrayStatus status = await host.Service<ITrayStatusSource>().GetAsync(CancellationToken.None);
+
+        Assert.False(string.IsNullOrEmpty(status.AgentName));
+        Assert.Equal(0, status.PairedClients);
+        Assert.Equal(0, status.ConnectedClients);
+        Assert.True(status.ShowTrayIcon);
+
+        // The address is a loopback address when the host listens on one, and unknown (null) otherwise, never anything else.
+        Assert.True(status.UiUrl is null || status.UiUrl.StartsWith("http://127.0.0.1:", StringComparison.Ordinal));
     }
 }

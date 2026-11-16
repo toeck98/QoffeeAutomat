@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "launch_steam_big_picture",
+  "name": "Launch Steam Big Picture",
+  "description": "Starts Steam in Big Picture mode. Adjust the path to your installation.",
+  "icon": "mdi:steam",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": {
+    "type": "process",
+    "file": "C:\\Program Files (x86)\\Steam\\steam.exe",
+    "args": ["-start", "steam://open/bigpicture", "-fulldesktopres"],
+    "waitForExit": false
+  },
+  "haControl": { "type": "none" },
+  "timeoutSeconds": 30,
+  "concurrency": "single"
+}

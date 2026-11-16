@@ -67,8 +67,10 @@ public sealed record SensorTestOutcome(bool Succeeded, object? Value, string? Er
 /// <item>The last non-empty output line is parsed according to the value type, see <see cref="SensorOutputParser"/>.</item>
 /// <item>A sensor that fails (non-zero exit code, timeout, unusable output, missing engine) is unavailable (<c>null</c>) and its error is recorded in <see cref="GetStatus"/>; the other sensors of the same sample are unaffected, and scripts of one sample run concurrently.</item>
 /// </list>
-/// Sensor types that need the operating system (<c>perf_counter</c>, <c>cim_query</c>, <c>service_state</c>) and the
-/// externally set <c>state</c> type are not handled here; those sensors are unavailable with an explanation.
+/// Sensor types that need the operating system (<c>perf_counter</c>, <c>cim_query</c>, <c>service_state</c>) are sampled
+/// by the <see cref="ISensorSourceHandler"/>s that the platform passes in (T307); without a handler, and for the
+/// externally set <c>state</c> type, those sensors are unavailable with an explanation, and <see cref="TypeSupport"/>
+/// refuses them when they are saved or tested.
 /// </summary>
 public sealed class CustomSensorProvider : IMetricProvider
 {
@@ -82,6 +84,7 @@ public sealed class CustomSensorProvider : IMetricProvider
     private readonly IProcessNameSource _processes;
     private readonly CustomSensorOptions _options;
     private readonly MetricEngineOptions _engineOptions;
+    private readonly SensorTypeSupport _support;
     private readonly Dictionary<string, CustomSensorStatus> _status = new(StringComparer.Ordinal);
 
     /// <summary>Creates the provider.</summary>
@@ -92,6 +95,7 @@ public sealed class CustomSensorProvider : IMetricProvider
     /// <param name="processes">The process list; null reads the real one.</param>
     /// <param name="options">Tuning; null uses the defaults.</param>
     /// <param name="engineOptions">The options of the metric engine, so that intervals are computed the same way; null uses the defaults.</param>
+    /// <param name="handlers">The sensor types that the platform adds (<c>perf_counter</c>, <c>cim_query</c>, <c>service_state</c> on Windows); null for none.</param>
     public CustomSensorProvider(
         IConfigStore config,
         PowerShellRunner powerShell,
@@ -99,7 +103,8 @@ public sealed class CustomSensorProvider : IMetricProvider
         TimeProvider time,
         IProcessNameSource? processes = null,
         CustomSensorOptions? options = null,
-        MetricEngineOptions? engineOptions = null)
+        MetricEngineOptions? engineOptions = null,
+        IEnumerable<ISensorSourceHandler>? handlers = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(powerShell);
@@ -114,7 +119,14 @@ public sealed class CustomSensorProvider : IMetricProvider
         _options = options ?? new CustomSensorOptions();
         _options.Validate();
         _engineOptions = engineOptions ?? new MetricEngineOptions();
+        _support = new SensorTypeSupport(handlers);
     }
+
+    /// <summary>
+    /// Which sensor types this agent can sample. The agent validates sensors against it when they are saved and tested, so
+    /// that a Windows-only type on another platform is refused with <see cref="QoffeeAutomat.Core.Validation.ValidationCodes.Unsupported"/>.
+    /// </summary>
+    public SensorTypeSupport TypeSupport => _support;
 
     /// <summary>Describes the metrics of the sensors that exist now (<c>custom.&lt;id&gt;</c>), with the interval that really applies.</summary>
     /// <returns>The descriptors, ordered by id.</returns>
@@ -196,7 +208,7 @@ public sealed class CustomSensorProvider : IMetricProvider
             {
                 PowerShellSensorSource script => await RunScriptAsync(sensor, script, cancellationToken),
                 ProcessRunningSensorSource process => CheckProcess(process, processNames, processListFailure),
-                _ => SampleResult.Fail($"The sensor type '{sensor.Source.Type}' is not supported by this agent."),
+                _ => await RunHandlerAsync(sensor, cancellationToken),
             };
         }
 #pragma warning disable CA1031 // A failing sensor is reported to the editor, whatever it throws.
@@ -274,7 +286,7 @@ public sealed class CustomSensorProvider : IMetricProvider
             {
                 PowerShellSensorSource script => await RunScriptAsync(sensor, script, cancellationToken),
                 ProcessRunningSensorSource process => CheckProcess(process, processNames, processListFailure),
-                _ => SampleResult.Fail($"The sensor type '{sensor.Source.Type}' is not supported by this agent."),
+                _ => await RunHandlerAsync(sensor, cancellationToken),
             };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -298,6 +310,32 @@ public sealed class CustomSensorProvider : IMetricProvider
         return names is null
             ? SampleResult.Fail(listFailure ?? "The process list is not available.")
             : SampleResult.Success(ProcessNames.IsRunning(names, source.Process));
+    }
+
+    /// <summary>Samples a sensor of a platform type through its handler; a type without handler is unavailable with an explanation.</summary>
+    private async Task<SampleResult> RunHandlerAsync(SensorDocument sensor, CancellationToken cancellationToken)
+    {
+        ISensorSourceHandler? handler = _support.HandlerFor(sensor.Source.Type);
+        if (handler is null)
+        {
+            return SampleResult.Fail($"The sensor type '{sensor.Source.Type}' is not supported by this agent.");
+        }
+
+        TimeSpan timeout = _options.MaxScriptTimeout;
+        using var timeoutSource = new CancellationTokenSource(timeout, _time);
+        using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
+
+        SensorParseResult reading;
+        try
+        {
+            reading = await handler.SampleAsync(sensor, linked.Token).AsTask().WaitAsync(timeout, _time, cancellationToken);
+        }
+        catch (Exception exception) when (exception is TimeoutException || (exception is OperationCanceledException && timeoutSource.IsCancellationRequested && !cancellationToken.IsCancellationRequested))
+        {
+            return SampleResult.Fail($"The sensor did not finish within {Math.Ceiling(timeout.TotalSeconds).ToString("0", CultureInfo.InvariantCulture)} seconds.");
+        }
+
+        return reading.IsValid ? SampleResult.Success(reading.Value!) : SampleResult.Fail(reading.Failure!);
     }
 
     private async Task<SampleResult> RunScriptAsync(SensorDocument sensor, PowerShellSensorSource source, CancellationToken cancellationToken)

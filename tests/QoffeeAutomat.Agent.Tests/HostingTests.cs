@@ -107,8 +107,8 @@ public sealed class HostingTests : IDisposable
     {
         var options = new AgentOptions(Platform: "windows", DataDir: _data.Path);
 
-        // Off Windows the platform needs a Windows system; on Windows its providers arrive with M3.
-        // Either way the simulated platform is not substituted silently when windows is requested.
+        // Off Windows the platform needs a Windows system; the net10.0 build of the agent (this test project) has no
+        // Windows platform at all (T301). Either way the simulated platform is not substituted silently when windows is requested.
         Assert.Throws<AgentStartupException>(() => AgentHost.Build(options));
     }
 

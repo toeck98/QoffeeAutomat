@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "launch_simhub",
+  "name": "Launch SimHub",
+  "description": "Starts SimHub. Adjust the path to your installation.",
+  "icon": "mdi:car-sports",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": {
+    "type": "process",
+    "file": "C:\\Program Files (x86)\\SimHub\\SimHubWPF.exe",
+    "waitForExit": false
+  },
+  "haControl": { "type": "none" },
+  "timeoutSeconds": 30,
+  "concurrency": "single"
+}

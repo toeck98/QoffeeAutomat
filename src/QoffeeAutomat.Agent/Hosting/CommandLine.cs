@@ -11,7 +11,7 @@ public enum AgentVerb
     /// <summary>Prints the version and exits.</summary>
     Version,
 
-    /// <summary>Installs, removes and controls the Windows service (stub until T301).</summary>
+    /// <summary>Installs, removes and controls the Windows service (the Windows build only, PLAN.md T301).</summary>
     Service,
 
     /// <summary>Sends a custom event to the running agent: <c>emit &lt;name&gt; [--data &lt;json&gt;]</c> (PLAN.md T217).</summary>
@@ -65,7 +65,9 @@ public static class CommandLine
         Verbs:
           run                  Run the agent (default).
           version              Print the version and exit.
-          service ...          Install or control the Windows service (not available yet).
+          service <install|uninstall|start|stop|status>
+                               Install or control the Windows service (Windows build only);
+                               'service --help' lists the options.
           emit <name> [--data <json>]
                                Send a custom event to the running agent, for example from a script
                                that the agent started. <json> must be an object.
