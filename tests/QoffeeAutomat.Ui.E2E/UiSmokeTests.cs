@@ -188,6 +188,9 @@ public sealed class UiSmokeTests : IClassFixture<AgentFixture>
         await Expect(code).ToHaveTextAsync(new Regex(@"\S{4,}"));
         string text = (await code.InnerTextAsync()).Trim();
         Assert.False(string.IsNullOrWhiteSpace(text), "The pairing code is empty.");
+
+        await page.GetByTestId("pairing-close").ClickAsync();
+        await Expect(page.GetByTestId("pairing-panel")).ToBeHiddenAsync();
     }
 
     private static async Task ExportConfigurationAsync(IPage page)

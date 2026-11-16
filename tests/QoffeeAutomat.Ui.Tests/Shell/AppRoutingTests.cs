@@ -115,7 +115,7 @@ public sealed class AppRoutingTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public void Signing_out_ends_the_session_closes_the_stream_and_shows_the_login_page()
+    public async Task Signing_out_ends_the_session_closes_the_stream_and_shows_the_login_page()
     {
         _api.SignedIn();
         IRenderedComponent<App> cut = Render<App>();
@@ -126,7 +126,13 @@ public sealed class AppRoutingTests : BunitContext, IAsyncLifetime
         cut.WaitForAssertion(() => Assert.Contains("Sign in to manage this PC.", cut.Markup, StringComparison.Ordinal), Patience);
         Assert.Equal(1, _api.LogOutCalls);
         Assert.Equal("http://localhost/login", Navigation.Uri);
-        cut.WaitForAssertion(() => Assert.Equal(0, _api.StreamsActive), Patience);
+        DateTime deadline = DateTime.UtcNow + Patience;
+        while (_api.StreamsActive != 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.Equal(0, _api.StreamsActive);
     }
 
     [Fact]
