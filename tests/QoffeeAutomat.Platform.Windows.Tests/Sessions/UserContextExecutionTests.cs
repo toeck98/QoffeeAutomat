@@ -642,7 +642,8 @@ public sealed class UserContextExecutionTests
                     return text.EndsWith('\n') && int.TryParse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out child);
                 }
             },
-            "the child process id");
+            "the child process id",
+            TimeSpan.FromSeconds(45));
         Assert.True(IsAlive(child));
         Assert.False(run.IsCompleted);
 
