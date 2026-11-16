@@ -296,17 +296,16 @@ public sealed class SessionFrameCodecTests
     [Fact]
     public async Task Frames_travel_in_both_directions_through_a_named_pipe_in_the_same_process()
     {
+        using var cts = new CancellationTokenSource(TestWait.Patience);
         string name = "qa-test-" + Guid.NewGuid().ToString("N");
         await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         await using var client = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
-        await Task.WhenAll(server.WaitForConnectionAsync(), client.ConnectAsync(10_000)).WaitAsync(TestWait.Patience);
+        await Task.WhenAll(server.WaitForConnectionAsync(cts.Token), client.ConnectAsync(10_000, cts.Token)).WaitAsync(TestWait.Patience, cts.Token);
 
-        // The client talks first, as the SessionHost does; the server answers; both directions work at the same time.
-        Task send = SessionFrameCodec.WriteAsync(client, new SessionHelloMessage(1, SessionRoles.SessionHost, 1, 3, "0.1.0", "alice")).AsTask();
-        SessionMessage? atServer = await SessionFrameCodec.ReadAsync(server).AsTask().WaitAsync(TestWait.Patience);
-        await send;
-        await SessionFrameCodec.WriteAsync(server, new SessionRunMessage("r1", SessionRunKinds.Process, 1000, Process: new SessionProcessSpec("tool", ["x"], new Dictionary<string, string>())));
-        SessionMessage? atClient = await SessionFrameCodec.ReadAsync(client).AsTask().WaitAsync(TestWait.Patience);
+        await SessionFrameCodec.WriteAsync(client, new SessionHelloMessage(1, SessionRoles.SessionHost, 1, 3, "0.1.0", "alice"), cts.Token);
+        SessionMessage? atServer = await SessionFrameCodec.ReadAsync(server, cts.Token);
+        await SessionFrameCodec.WriteAsync(server, new SessionRunMessage("r1", SessionRunKinds.Process, 1000, Process: new SessionProcessSpec("tool", ["x"], new Dictionary<string, string>())), cts.Token);
+        SessionMessage? atClient = await SessionFrameCodec.ReadAsync(client, cts.Token);
 
         Assert.Equal(3, Assert.IsType<SessionHelloMessage>(atServer).SessionId);
         Assert.Equal("r1", Assert.IsType<SessionRunMessage>(atClient).RunId);
