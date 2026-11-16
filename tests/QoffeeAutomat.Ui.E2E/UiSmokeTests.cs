@@ -169,7 +169,7 @@ public sealed class UiSmokeTests : IClassFixture<AgentFixture>
 
         await page.GetByTestId("sensor-test").ClickAsync();
         await Expect(page.GetByTestId("sensor-test-success")).ToBeVisibleAsync();
-        await Expect(page.GetByTestId("sensor-test-value")).ToContainTextAsync("wrapper.ps1");
+        await Expect(page.GetByTestId("sensor-test-value")).ToContainTextAsync("42");
 
         await page.GetByTestId("sensor-save").ClickAsync();
         await Expect(page.GetByTestId("sensor-saved")).ToBeVisibleAsync();
