@@ -290,18 +290,19 @@ public sealed class CommandEditorPageTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public void The_button_offers_itself_only_when_no_required_parameter_lacks_a_default()
+    public async Task The_button_offers_itself_only_when_no_required_parameter_lacks_a_default()
     {
         IRenderedComponent<CommandEditorPage> cut = RenderEditor(out _);
         Assert.Equal([HaControlTypes.None, HaControlTypes.Button], OptionValues(cut, "ha-type"));
 
         cut.Find("[data-testid=add-parameter]").Click();
         cut.Find("[data-testid=param-0-name] input").Input("Flag");
+        await cut.InvokeAsync(() => { });
         cut.Find("[data-testid=param-0-type]").Change(ParameterTypes.Flag);
-        Assert.Equal([HaControlTypes.None, HaControlTypes.Button, HaControlTypes.Switch], OptionValues(cut, "ha-type"));
+        cut.WaitForAssertion(() => Assert.Equal([HaControlTypes.None, HaControlTypes.Button, HaControlTypes.Switch], OptionValues(cut, "ha-type")), Patience);
 
         cut.Find("[data-testid=param-0-required]").Change(true);
-        Assert.Equal([HaControlTypes.None, HaControlTypes.Switch], OptionValues(cut, "ha-type"));
+        cut.WaitForAssertion(() => Assert.Equal([HaControlTypes.None, HaControlTypes.Switch], OptionValues(cut, "ha-type")), Patience);
     }
 
     [Fact]
@@ -374,12 +375,14 @@ public sealed class CommandEditorPageTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public void A_sequence_runs_the_commands_that_exist_with_waits_between()
+    public async Task A_sequence_runs_the_commands_that_exist_with_waits_between()
     {
         IRenderedComponent<CommandEditorPage> cut = RenderEditor(out _);
         cut.Find("[data-testid=field-name] input").Input("Good night");
+        await cut.InvokeAsync(() => { });
         cut.Find("[data-testid=field-action-type]").Change(ActionTypes.Sequence);
 
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=add-step-command]")), Patience);
         cut.Find("[data-testid=add-step-command]").Click();
         cut.Find("[data-testid=step-command-0]").Change("lock_screen");
         cut.Find("[data-testid=add-step-delay]").Click();
