@@ -1194,7 +1194,7 @@
         ]
       }
     },
-    "/api/v1/config/revisions/{kind}/{id}/{revision:int}/restore": {
+    "/api/v1/config/revisions/{kind}/{id}/{revision}/restore": {
       "post": {
         "tags": [
           "Configuration"

@@ -73,7 +73,7 @@ public static class RevisionEndpoints
     {
         if (!int.TryParse(revision, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int parsedRevision))
         {
-            return Task.FromResult(ApiResults.Problem(StatusCodes.Status400BadRequest, "invalid_revision", "Invalid revision.", "The revision must be a non-negative integer."));
+            return Task.FromResult(ApiResults.Problem(StatusCodes.Status400BadRequest, "invalid_revision", "The revision must be a non-negative integer."));
         }
 
         IResult? header = ApiETag.ReadRevision(context.Request, out int? expected);
