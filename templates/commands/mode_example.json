@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "mode_example",
+  "name": "Racing mode (example)",
+  "description": "Example of a mode: applies the TV display profile, starts the racing programs and Steam Big Picture with a pause in between. Equivalent to TV-Rennsport-Mode of the prototype.",
+  "icon": "mdi:racing-helmet",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "user",
+  "action": {
+    "type": "sequence",
+    "onError": "stop",
+    "steps": [
+      { "command": "set_display_profile", "vars": { "Profile": "TV-Mode" } },
+      { "command": "launch_moza_pit_house" },
+      { "command": "launch_simhub" },
+      { "delaySeconds": 10 },
+      { "command": "launch_steam_big_picture" }
+    ]
+  },
+  "haControl": { "type": "button" },
+  "timeoutSeconds": 300,
+  "concurrency": "single",
+  "cooldownSeconds": 0,
+  "captureOutput": false
+}

@@ -31,8 +31,13 @@ public sealed record PlatformSelection(PlatformKind Kind, string? Warning = null
 /// </summary>
 public static class PlatformSelector
 {
-    /// <summary>The platforms that this build implements. Windows joins in milestone M3, Linux in M8.</summary>
-    public static IReadOnlySet<PlatformKind> Implemented { get; } = new HashSet<PlatformKind> { PlatformKind.Simulated };
+    /// <summary>
+    /// The platforms that this build implements: the simulated one everywhere, Windows in the <c>net10.0-windows</c>
+    /// build of the agent (T301, see <see cref="WindowsHostIntegration"/>), Linux in milestone M8.
+    /// </summary>
+    public static IReadOnlySet<PlatformKind> Implemented { get; } = WindowsHostIntegration.IsAvailable
+        ? new HashSet<PlatformKind> { PlatformKind.Simulated, PlatformKind.Windows }
+        : new HashSet<PlatformKind> { PlatformKind.Simulated };
 
     /// <summary>The host operating system of the running process.</summary>
     /// <returns>The operating system family.</returns>

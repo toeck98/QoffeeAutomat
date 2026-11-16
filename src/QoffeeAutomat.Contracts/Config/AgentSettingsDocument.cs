@@ -12,6 +12,7 @@ namespace QoffeeAutomat.Contracts.Config;
 /// <param name="LinkPort">Port of the HTTPS listener for QoffeeLink and pairing.</param>
 /// <param name="RemoteUi">Whether the UI and API are also served on the link listener.</param>
 /// <param name="Zeroconf">Whether the agent announces itself on the local network (mDNS/DNS-SD, T216); absent means on.</param>
+/// <param name="TrayIcon">Whether the SessionHost shows the tray icon (T310); absent means on.</param>
 /// <param name="Logging">Logging settings.</param>
 /// <param name="Retention">Retention settings.</param>
 /// <param name="Revision">Revision, incremented on every save.</param>
@@ -24,6 +25,7 @@ public sealed record AgentSettingsDocument(
     int? LinkPort = null,
     bool? RemoteUi = null,
     bool? Zeroconf = null,
+    bool? TrayIcon = null,
     LoggingSettings? Logging = null,
     RetentionSettings? Retention = null,
     int? Revision = null,
@@ -37,6 +39,10 @@ public sealed record AgentSettingsDocument(
     /// <summary>Whether the zeroconf advertisement is on (the default).</summary>
     [JsonIgnore]
     public bool EffectiveZeroconf => Zeroconf ?? true;
+
+    /// <summary>Whether the tray icon is shown (the default).</summary>
+    [JsonIgnore]
+    public bool EffectiveTrayIcon => TrayIcon ?? true;
 
     /// <summary>The port of the link listener, or the default.</summary>
     [JsonIgnore]

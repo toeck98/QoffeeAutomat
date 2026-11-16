@@ -45,9 +45,11 @@ public static class AgentHost
     /// <summary>The time the host waits for work to finish after a stop request.</summary>
     public static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(30);
 
+    /// <summary>The name of the file in the data directory that keeps the agent id.</summary>
+    internal const string AgentIdFileName = "agent-id.txt";
+
     private const string SecretKeyFileName = "secrets.key";
     private const string SecretsFileName = "secrets.json";
-    private const string AgentIdFileName = "agent-id.txt";
     private const string EventsDatabaseFileName = "events.db";
     private const string RunsDatabaseFileName = "runs.db";
 
@@ -66,10 +68,15 @@ public static class AgentHost
             throw new AgentStartupException(platform.Error!);
         }
 
+        // Windows (T301): the data directories must be protected before anything is written to them, including the
+        // log files that the first logger creates.
+        WindowsHostIntegration.PrepareDirectories(options, platform);
+
         // Options the agent does not know (--environment, --contentRoot and so on) belong to ASP.NET Core.
         string[] hostArguments = options.PassThrough is null ? [] : [.. options.PassThrough];
-        WebApplicationBuilder builder = WebApplication.CreateBuilder(hostArguments);
+        WebApplicationBuilder builder = WindowsHostIntegration.CreateBuilder(hostArguments);
         ConfigureLogging(builder.Logging);
+        WindowsHostIntegration.ConfigureLogging(builder.Logging, platform);
         ConfigureServices(builder.Services, options, platform);
         configureServices?.Invoke(builder.Services);
 
@@ -121,6 +128,7 @@ public static class AgentHost
         AddStores(services);
         services.AddAgentSecurity();
         AddSimulatedPlatform(services);
+        WindowsHostIntegration.ConfigureServices(services, platform);
         AddEngines(services);
 
         // The management API (T213, T214): the uptime for /status and the published OpenAPI document.
@@ -129,6 +137,7 @@ public static class AgentHost
         services.AddSingleton<OpenApiDocumentProvider>();
 
         services.AddHostedService<ConfigLoadService>();
+        WindowsHostIntegration.ConfigureServicesAfterConfigLoad(services, platform);
         services.AddHostedService<EngineStartService>();
         services.AddHostedService<LocalChannelService>();
         services.AddHostedService<AgentLifecycleService>();
@@ -175,6 +184,9 @@ public static class AgentHost
         services.AddSingleton<AgentPause>();
         services.AddSingleton<IAgentPause>(provider => provider.GetRequiredService<AgentPause>());
 
+        // What the tray icon of the SessionHost shows (T310); only the Windows platform sends it anywhere.
+        services.AddSingleton<ITrayStatusSource, AgentTrayStatusSource>();
+
         // The live output of the runs that have not finished (T214, GET /runs/{id}/stream).
         services.AddSingleton(new RunOutputHub());
         services.AddSingleton<IProcessRunner>(provider => new ProcessRunner(provider.GetRequiredService<TimeProvider>()));
@@ -186,7 +198,16 @@ public static class AgentHost
         services.AddSingleton<IPowerShellEngineLocator, PowerShellEngineLocator>();
         services.AddSingleton(provider => new PowerShellRunner(
             provider.GetRequiredService<IPowerShellEngineLocator>(),
-            new PowerShellOptions { ScriptsDirectory = provider.GetRequiredService<IAppPaths>().ScriptsDirectory },
+            new PowerShellOptions
+            {
+                ScriptsDirectory = provider.GetRequiredService<IAppPaths>().ScriptsDirectory,
+
+                // Registered by the Windows platform (T301): refuses system scripts that standard users can change.
+                ScriptGuard = provider.GetService<IScriptAccessGuard>(),
+
+                // Registered by the Windows platform (T302/T303): PowerShell of runAs user runs inside the user's session.
+                UserSession = provider.GetService<IUserContextPowerShell>(),
+            },
             provider.GetRequiredService<TimeProvider>()));
         services.AddSingleton<IActionHandler>(provider => new PowerShellActionHandler(provider.GetRequiredService<PowerShellRunner>()));
         services.AddSingleton<IActionHandler>(provider => new BuiltinActionHandler(
@@ -224,7 +245,8 @@ public static class AgentHost
             provider.GetRequiredService<IConfigStore>(),
             provider.GetRequiredService<PowerShellRunner>(),
             provider.GetRequiredService<IProcessLauncher>(),
-            provider.GetRequiredService<TimeProvider>()));
+            provider.GetRequiredService<TimeProvider>(),
+            handlers: provider.GetServices<ISensorSourceHandler>()));
         services.AddSingleton(provider =>
         {
             var engine = new MetricEngine(
@@ -263,7 +285,7 @@ public static class AgentHost
         });
         services.AddSingleton<IConfigStore>(provider => provider.GetRequiredService<ConfigStore>());
 
-        // The file key serves every platform until the DPAPI protector arrives with T301.
+        // The file key serves the simulated platform and Linux; the Windows platform replaces it by DPAPI (T301).
         services.AddSingleton<ISecretProtector>(provider =>
             new FileKeyProtector(Path.Combine(provider.GetRequiredService<IAppPaths>().SecretsDirectory, SecretKeyFileName)));
         services.AddSingleton<ISecretStore>(provider =>

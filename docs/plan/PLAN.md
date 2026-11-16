@@ -494,7 +494,7 @@ creating a document whose id exists returns 409.
 | `/link/pairing`, `/link/clients`, `/link/clients/{id}` | Start pairing (returns code, expiry, fingerprint), list and revoke clients. |
 | `/events` | Recent events. |
 | `/templates` | Template gallery (T701). |
-| `/settings` | Agent name, ports, remote UI, logging, retention. |
+| `/settings` | Agent name, ports, remote UI, zeroconf, tray icon, logging, retention. |
 | `/config/export`, `/config/import` | Zip export of all documents and scripts (no secrets) and import with validation: the whole archive is validated before anything is written; items with the same id are replaced, settings are imported only on request (`?settings=true`). |
 | `/logs`, `/diagnostics` | Log tail and a redacted diagnostics bundle. |
 
@@ -619,7 +619,32 @@ malicious values arriving from Home Assistant, stolen link tokens.
   logs off. Automations wait for this signal before sending `runAs: user`
   commands after a start. IPC is length-prefixed JSON over the named pipe
   `QoffeeAutomat.Session`. Messages: `hello`, `run`, `run_output`, `run_result`,
-  `cancel`, `metrics_subscribe`, `metrics_state`, `notify`, `event`, `shutdown`.
+  `cancel`, `metrics_subscribe`, `metrics_state`, `notify`, `event`, `shutdown`,
+  `tray_state` (agent to SessionHost, T310) and `set_pause` (SessionHost to agent, T310).
+* Session pipe details (T302, T303). A frame is the length of the payload as an
+  unsigned 32-bit little-endian integer followed by a UTF-8 JSON object (at most
+  4 MiB); the member `t` names the message and all members use snake_case. The
+  records are in `QoffeeAutomat.Contracts.Session`. Handshake: the SessionHost
+  connects and sends `hello` (protocol version 1, its session id, user name,
+  administrator flag); before it reads anything the agent asks the operating
+  system who the client is and accepts it only when its image is the
+  `QoffeeAutomat.SessionHost.exe` next to the agent executable and it runs in a
+  non-zero session that matches the one it claims; the agent answers with its own
+  `hello`, which carries the scripts directory. The SessionHost has checked first
+  that the server runs in session 0 from the agent executable (and, where it can
+  read the token, as SYSTEM). The handshake is complete when the SessionHost has
+  the agent's `hello`; only then is the session ready. One connection per
+  session; a newer one replaces the older. `run` has `kind` `process`,
+  `powershell` or `builtin`; the SessionHost executes it with the same
+  `ProcessRunner` and PowerShell wrapper as the agent (a `runAs: user` PowerShell
+  action is handed to the session as a whole, so its parameter file lives in the
+  user's own temporary directory), streams `run_output` and ends every run with
+  one `run_result` in the common result shape. `cancel` kills the process tree;
+  the timeout is enforced in the session. The agent starts a SessionHost with
+  `--session <id>`, restarts it with a backoff of 1 s doubling up to 60 s (reset
+  after 30 s of healthy running), and the SessionHost exits with code 3 when
+  another instance already runs in the session. A SessionHost whose connection
+  breaks kills the processes of the runs in flight and connects again.
 * `runAs: user_elevated` (D-036): the agent obtains the token of the active
   console session, takes its linked elevated token and starts the process
   with `CreateProcessAsUser` on the user's desktop, capturing output itself.
@@ -637,7 +662,21 @@ malicious values arriving from Home Assistant, stolen link tokens.
   variables `DelaySeconds` and `Message` on the power and session actions
   (countdown dialog with a cancel button on the desktop).
 * Tray icon (WinForms `NotifyIcon`) in the SessionHost: connection status,
-  open UI, pause and resume commands.
+  open UI, pause and resume commands (T310). The icon is the brand icon
+  (`assets/brand/app.ico`) with a status badge: green connected, amber not paired, red
+  paused, grey agent not reachable; the tooltip holds the agent name and the link
+  status. The agent pushes `tray_state` (agent name, `paused`, paired clients, open
+  link connections, `show_tray_icon`, loopback UI address) after the handshake and
+  whenever a value changes (the paired and connected counts are re-read every 5 s).
+  The menu entries Pause commands and Resume commands send `set_pause`; the agent
+  applies it to the global pause flag only when it comes from the SessionHost of
+  the active console session. While the flag is set, the command engine rejects
+  runs from every source (`ha`, `ui`, `hub`, `cli`, `sequence`, `test`) with the
+  error `paused`; runs that already started continue; `/status` reports `paused`.
+  The pause is not persisted: it ends when the agent restarts. Open UI opens only a
+  loopback `http` address from `tray_state` in the default browser. The setting
+  `trayIcon` in `settings.json` (default `true`) hides the icon; the icon stays hidden
+  until the first `tray_state` arrives and disappears when the SessionHost exits.
 
 ## S12 GitHub setup
 

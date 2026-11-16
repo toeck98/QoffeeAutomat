@@ -8,6 +8,7 @@
   "linkPort": 8481,
   "remoteUi": false,
   "zeroconf": true,
+  "trayIcon": true,
   "logging": { "level": "information" },
   "retention": { "runHistoryDays": 30, "auditLogDays": 365 }
 }

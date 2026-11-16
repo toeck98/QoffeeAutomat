@@ -2702,6 +2702,13 @@
             ],
             "default": null
           },
+          "trayIcon": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "default": null
+          },
           "logging": {
             "type": [
               "object",

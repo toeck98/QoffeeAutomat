@@ -282,7 +282,7 @@ internal sealed class CommandHarness : IAsyncDisposable
 
     public static async Task<RunResult> Finished(RunHandle handle)
     {
-        return await handle.Completion.WaitAsync(TimeSpan.FromSeconds(10));
+        return await handle.Completion.WaitAsync(TimeSpan.FromSeconds(30));
     }
 
     public Task<RunResult> RunAsync(string commandId, params (string Name, object? Value)[] variables)

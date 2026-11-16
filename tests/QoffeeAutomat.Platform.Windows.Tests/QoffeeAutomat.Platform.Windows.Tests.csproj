@@ -1,14 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Windows-only tests run on windows-latest in CI (PLAN.md S01, S14). The project also builds
-       on Linux because Directory.Build.props sets EnableWindowsTargeting. -->
+       on Linux because Directory.Build.props sets EnableWindowsTargeting; tests that need Windows skip themselves
+       elsewhere, the others (ACL logic, command-line logic, power and session mapping) run on every system. -->
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <IsTestProject Condition="!$([MSBuild]::IsOSPlatform('Windows'))">false</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\QoffeeAutomat.Platform.Windows\QoffeeAutomat.Platform.Windows.csproj" />
+    <!-- The net10.0-windows build of the agent: the service tests start its executable (service install, start, /healthz)
+         and the wiring tests build its host. -->
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Agent\QoffeeAutomat.Agent.csproj" />
+    <!-- The session helper: the session tests (T302, T303) connect its client to the agent's pipe server in one process. -->
+    <ProjectReference Include="..\..\src\QoffeeAutomat.SessionHost\QoffeeAutomat.SessionHost.csproj" />
   </ItemGroup>
 
 </Project>

@@ -24,6 +24,17 @@ public interface IMetricProvider
         CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// A metric provider whose set of metrics changes while the agent runs, for example one metric set per drive letter
+/// (PLAN.md S06, T304). The metric engine asks it to <see cref="IMetricProvider.Describe"/> again whenever
+/// <see cref="DescriptorsChanged"/> is raised and rebuilds its catalog, so that the manifest revision follows.
+/// </summary>
+public interface IDynamicMetricProvider : IMetricProvider
+{
+    /// <summary>Raised after the result of <see cref="IMetricProvider.Describe"/> changed. Handlers return quickly; <c>Describe</c> must not block.</summary>
+    event EventHandler? DescriptorsChanged;
+}
+
 /// <summary>A built-in action as offered by a platform (PLAN.md S11), for example <c>power.shutdown</c>.</summary>
 /// <param name="Name">The action name used in <c>action.name</c> of a command, for example <c>power.shutdown</c>.</param>
 /// <param name="Title">A short English title for the UI.</param>

@@ -1,12 +1,30 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <!-- Host, Kestrel listeners, management API and QoffeeLink server (PLAN.md S04). The Windows
-       platform project is referenced here in milestone M3. -->
+  <!-- Host, Kestrel listeners, management API and QoffeeLink server (PLAN.md S04).
+
+       The agent is built twice. net10.0 has no Windows code: tests, Linux and development use it, and every
+       project that targets net10.0 picks it. net10.0-windows references QoffeeAutomat.Platform.Windows (which targets
+       net10.0-windows, so a net10.0 project cannot reference it), defines QOFFEE_WINDOWS and is what the installer
+       and the Windows service run (PLAN.md T301). Directory.Build.props sets TargetFramework for single-target
+       projects; it is cleared here so that TargetFrameworks takes effect. -->
+
+  <PropertyGroup>
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <DefineConstants>$(DefineConstants);QOFFEE_WINDOWS</DefineConstants>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
     <ProjectReference Include="..\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
     <ProjectReference Include="..\QoffeeAutomat.Platform.Simulated\QoffeeAutomat.Platform.Simulated.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <ProjectReference Include="..\QoffeeAutomat.Platform.Windows\QoffeeAutomat.Platform.Windows.csproj" />
   </ItemGroup>
 
 </Project>

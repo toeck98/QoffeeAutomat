@@ -1,15 +1,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Runs inside each interactive user session and talks to the agent over a named pipe
-       (D-009). The tray icon (Windows Forms) is added in milestone M3. -->
+       (D-009, S11). A WinExe has no console window; the agent starts it with the token of the user
+       (WTSQueryUserToken, CreateProcessAsUser). It runs user-context commands with the runners of Core
+       (T303). The tray icon (Windows Forms NotifyIcon, T310) lives in Tray/. -->
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>QoffeeAutomat.SessionHost</AssemblyName>
+    <RootNamespace>QoffeeAutomat.SessionHost</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>..\..\assets\brand\app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!-- Windows Forms adds System.Windows.Forms and System.Drawing to the implicit usings; their names (Timer, Size, ...)
+       would collide with the System.* types that the rest of the project uses, so the tray code imports them itself. -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
+    <!-- The same process runner and PowerShell wrapper as the agent uses (PLAN.md T303). -->
+    <ProjectReference Include="..\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The base of the tray icons (assets/brand is the single source of all icons, PLAN.md S05). -->
+    <EmbeddedResource Include="..\..\assets\brand\app.ico" LogicalName="QoffeeAutomat.SessionHost.app.ico" />
   </ItemGroup>
 
 </Project>

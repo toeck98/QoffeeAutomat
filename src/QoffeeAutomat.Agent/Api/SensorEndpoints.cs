@@ -71,7 +71,11 @@ public static class SensorEndpoints
         return ApiResults.Json(sensor, ApiDocumentJsonContext.Default.SensorDocument);
     }
 
-    private static async Task<IResult> CreateSensorAsync(HttpContext context, IConfigStore config, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateSensorAsync(
+        HttpContext context,
+        IConfigStore config,
+        CustomSensorProvider sensors,
+        CancellationToken cancellationToken)
     {
         (SensorDocument? sensor, IResult? failure) = await ApiResults.ReadBodyAsync(
             context.Request, ApiDocumentJsonContext.Default.SensorDocument, MaxBodyBytes, cancellationToken).ConfigureAwait(false);
@@ -80,11 +84,22 @@ public static class SensorEndpoints
             return failure!;
         }
 
+        IResult? unsupported = CheckPlatformSupport(sensors, sensor);
+        if (unsupported is not null)
+        {
+            return unsupported;
+        }
+
         SaveResult<SensorDocument> saved = await config.Local.SaveAsync(sensor, 0, cancellationToken).ConfigureAwait(false);
         return ApiDocuments.SaveOutcome(saved, ApiDocumentJsonContext.Default.SensorDocument, context, created: true, "/api/v1/sensors/" + sensor.Id);
     }
 
-    private static async Task<IResult> ReplaceSensorAsync(string id, HttpContext context, IConfigStore config, CancellationToken cancellationToken)
+    private static async Task<IResult> ReplaceSensorAsync(
+        string id,
+        HttpContext context,
+        IConfigStore config,
+        CustomSensorProvider sensors,
+        CancellationToken cancellationToken)
     {
         IResult? header = ApiETag.ReadRevision(context.Request, out int? expected);
         if (header is not null)
@@ -107,6 +122,12 @@ public static class SensorEndpoints
         if (config.Local.GetDocument<SensorDocument>(id) is null)
         {
             return UnknownSensor();
+        }
+
+        IResult? unsupported = CheckPlatformSupport(sensors, sensor);
+        if (unsupported is not null)
+        {
+            return unsupported;
         }
 
         SaveResult<SensorDocument> saved = await config.Local.SaveAsync(sensor, expected, cancellationToken).ConfigureAwait(false);
@@ -149,10 +170,27 @@ public static class SensorEndpoints
             return ApiResults.ValidationFailed(validation.Errors);
         }
 
+        IResult? unsupported = CheckPlatformSupport(sensors, normalized);
+        if (unsupported is not null)
+        {
+            return unsupported;
+        }
+
         SensorTestOutcome outcome = await sensors.TestAsync(normalized, cancellationToken).ConfigureAwait(false);
         return ApiResults.Json(
             new SensorTestResult(outcome.Succeeded, ApiJson.ElementOrNull(outcome.Value), outcome.Error, (long)outcome.Duration.TotalMilliseconds),
             ApiJsonContext.Default.SensorTestResult);
+    }
+
+    /// <summary>
+    /// Refuses a sensor type that this platform cannot sample (<c>perf_counter</c>, <c>cim_query</c> and <c>service_state</c>
+    /// off Windows, code <c>unsupported</c>) and the definitions that the Windows handlers find malformed, so that the editor
+    /// learns about it when the sensor is saved or tested and not from a sensor that stays unavailable.
+    /// </summary>
+    private static IResult? CheckPlatformSupport(CustomSensorProvider sensors, SensorDocument sensor)
+    {
+        IReadOnlyList<ValidationError> problems = sensors.TypeSupport.Validate(sensor);
+        return problems.Count == 0 ? null : ApiResults.ValidationFailed(problems);
     }
 
     private static IResult UnknownSensor()

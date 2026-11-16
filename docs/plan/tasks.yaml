@@ -1026,7 +1026,7 @@ tasks:
     verify:
       - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=Service"
     human_verify: true
-    status: todo
+    status: done
 
   - id: T302
     title: Build the SessionHost and its IPC
@@ -1058,7 +1058,7 @@ tasks:
     verify:
       - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=SessionIpc"
     human_verify: true
-    status: todo
+    status: done
 
   - id: T303
     title: Run user-context commands through the SessionHost
@@ -1084,7 +1084,7 @@ tasks:
     verify:
       - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=SessionExec"
     human_verify: true
-    status: todo
+    status: done
 
   - id: T304
     title: Implement Windows system metric providers
@@ -1113,7 +1113,7 @@ tasks:
       - "Sampling 20 metrics once per interval stays within the CPU budget of S14."
     verify:
       - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=SystemMetrics"
-    status: todo
+    status: done
 
   - id: T305
     title: Implement Windows session metric providers
@@ -1143,7 +1143,7 @@ tasks:
     verify:
       - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=SessionMetrics"
     human_verify: true
-    status: todo
+    status: done
 
   - id: T306
     title: Implement Windows built-in actions
@@ -1170,7 +1170,7 @@ tasks:
     verify:
       - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=Actions"
     human_verify: true
-    status: todo
+    status: done
 
   - id: T307
     title: Implement Windows custom sensor types
@@ -1193,7 +1193,7 @@ tasks:
       - "On other platforms these types are reported as unsupported by validation instead of failing at runtime."
     verify:
       - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=CustomSensors"
-    status: todo
+    status: done
 
   - id: T309
     title: Port the prototype features as command templates
@@ -1220,7 +1220,7 @@ tasks:
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Templates"
     human_verify: true
-    status: todo
+    status: done
 
   - id: T310
     title: Add the tray icon
@@ -1244,7 +1244,7 @@ tasks:
     verify:
       - "dotnet build src/QoffeeAutomat.SessionHost"
     human_verify: true
-    status: todo
+    status: done
 
   - id: T311
     title: Run desktop commands with administrator rights
@@ -1274,7 +1274,7 @@ tasks:
     verify:
       - "dotnet test tests/QoffeeAutomat.Platform.Windows.Tests --filter Category=Elevated"
     human_verify: true
-    status: todo
+    status: done
 
   # ─────────────────────────────── M4 Web UI ───────────────────────────────
   - id: T401

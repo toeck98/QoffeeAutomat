@@ -146,6 +146,20 @@ public class ConfigDocumentTests
         Assert.Equal(AgentSettingsDefaults.LinkPort, settings.EffectiveLinkPort);
         Assert.Equal("information", settings.Logging!.Level);
         Assert.Equal(365, settings.Retention!.AuditLogDays);
+        Assert.True(settings.TrayIcon);
+        Assert.True(settings.EffectiveTrayIcon);
+    }
+
+    [Fact]
+    public void The_tray_icon_is_shown_unless_the_settings_hide_it()
+    {
+        var absent = new AgentSettingsDocument(DocumentSchema.CurrentVersion, "Gaming-PC");
+        var hidden = absent with { TrayIcon = false };
+
+        Assert.True(absent.EffectiveTrayIcon);
+        Assert.False(hidden.EffectiveTrayIcon);
+        using JsonDocument written = JsonDocument.Parse(JsonSerializer.Serialize(hidden, ConfigJsonContext.Default.AgentSettingsDocument));
+        Assert.False(written.RootElement.GetProperty("trayIcon").GetBoolean());
     }
 
     [Fact]

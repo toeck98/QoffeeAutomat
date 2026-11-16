@@ -24,6 +24,7 @@ public sealed class MetricEngine : IAsyncDisposable, IDisposable
     private readonly TimeProvider _time;
     private readonly MetricEngineOptions _options;
     private readonly List<(MetricDescriptor Descriptor, IMetricProvider Owner)> _builtIns = [];
+    private readonly List<IDynamicMetricProvider> _dynamicProviders = [];
     private readonly ISessionBridge? _session;
     private readonly IMetricProvider? _customSensors;
     private readonly ConfigSubscription _configSubscription;
@@ -68,6 +69,11 @@ public sealed class MetricEngine : IAsyncDisposable, IDisposable
         foreach (IMetricProvider provider in providers)
         {
             AddBuiltIns(provider);
+            if (provider is IDynamicMetricProvider dynamicProvider)
+            {
+                _dynamicProviders.Add(dynamicProvider);
+                dynamicProvider.DescriptorsChanged += OnDescriptorsChanged;
+            }
         }
 
         if (session is not null)
@@ -234,6 +240,11 @@ public sealed class MetricEngine : IAsyncDisposable, IDisposable
             _session.StateChanged -= OnSessionStateChanged;
         }
 
+        foreach (IDynamicMetricProvider dynamicProvider in _dynamicProviders)
+        {
+            dynamicProvider.DescriptorsChanged -= OnDescriptorsChanged;
+        }
+
         await _stop.CancelAsync();
         if (loop is not null)
         {
@@ -326,6 +337,45 @@ public sealed class MetricEngine : IAsyncDisposable, IDisposable
         {
             RequestSample(descriptor.Id);
         }
+    }
+
+    /// <summary>
+    /// A dynamic provider reports a different set of metrics (a volume appeared or disappeared): describe it again and
+    /// rebuild the catalog at the next poll, which also raises <see cref="CatalogChanged"/> so that the manifest follows.
+    /// </summary>
+    private void OnDescriptorsChanged(object? sender, EventArgs e)
+    {
+        if (sender is not IDynamicMetricProvider provider)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            List<(MetricDescriptor Descriptor, IMetricProvider Owner)> fresh;
+            try
+            {
+                fresh = [.. provider.Describe().Select(descriptor => (descriptor, (IMetricProvider)provider))];
+            }
+#pragma warning disable CA1031 // A provider that cannot describe itself keeps its previous metrics; the next change event retries.
+            catch (Exception)
+#pragma warning restore CA1031
+            {
+                return;
+            }
+
+            int index = _builtIns.FindIndex(entry => ReferenceEquals(entry.Owner, provider));
+            _builtIns.RemoveAll(entry => ReferenceEquals(entry.Owner, provider));
+            _builtIns.InsertRange(index < 0 ? _builtIns.Count : index, fresh);
+            _catalogDirty = true;
+        }
+
+        SignalWake();
     }
 
     private void AddBuiltIns(IMetricProvider provider)
