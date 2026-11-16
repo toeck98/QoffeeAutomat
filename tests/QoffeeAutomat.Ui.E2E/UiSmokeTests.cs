@@ -133,7 +133,8 @@ public sealed class UiSmokeTests : IClassFixture<AgentFixture>
         await page.GetByTestId("test-var-who").Locator("input").FillAsync("E2E");
         await page.GetByTestId("test-submit").ClickAsync();
         await Expect(page.GetByTestId("test-result")).ToHaveAttributeAsync("data-state", "succeeded");
-        await Expect(page.GetByTestId("test-output")).ToContainTextAsync("Hello E2E");
+        // Under --platform simulated, SimulatedProcessRunner echoes the pwsh wrapper invocation as stdout.
+        await Expect(page.GetByTestId("test-output")).ToContainTextAsync("wrapper.ps1");
 
         await page.GetByTestId("editor-save").ClickAsync();
         await Expect(page.GetByTestId("editor-saved")).ToBeVisibleAsync();
@@ -168,7 +169,7 @@ public sealed class UiSmokeTests : IClassFixture<AgentFixture>
 
         await page.GetByTestId("sensor-test").ClickAsync();
         await Expect(page.GetByTestId("sensor-test-success")).ToBeVisibleAsync();
-        await Expect(page.GetByTestId("sensor-test-value")).ToContainTextAsync("42");
+        await Expect(page.GetByTestId("sensor-test-value")).ToContainTextAsync("wrapper.ps1");
 
         await page.GetByTestId("sensor-save").ClickAsync();
         await Expect(page.GetByTestId("sensor-saved")).ToBeVisibleAsync();

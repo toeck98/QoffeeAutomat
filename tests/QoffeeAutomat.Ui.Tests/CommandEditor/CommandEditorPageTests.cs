@@ -63,6 +63,7 @@ public sealed class CommandEditorPageTests : BunitContext, IAsyncLifetime
         cut.Find("[data-testid=param-0-options] textarea").Input("Normal\nTV");
         cut.Find("[data-testid=param-0-required]").Change(true);
         cut.Find("[data-testid=add-parameter]").Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=param-1-name] input")), Patience);
         cut.Find("[data-testid=param-1-name] input").Input("Count");
         cut.Find("[data-testid=param-1-type]").Change(ParameterTypes.WholeNumber);
         cut.Find("[data-testid=param-1-min] input").Input("1");
@@ -278,6 +279,7 @@ public sealed class CommandEditorPageTests : BunitContext, IAsyncLifetime
         cut.Find("[data-testid=add-parameter]").Click();
         cut.Find("[data-testid=param-0-name] input").Input("Count");
         cut.Find("[data-testid=param-0-type]").Change(ParameterTypes.WholeNumber);
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=param-0-max] input")), Patience);
         cut.Find("[data-testid=param-0-max] input").Input("5");
         cut.Find("[data-testid=test-var-Count] input").Input("9");
 
@@ -318,7 +320,7 @@ public sealed class CommandEditorPageTests : BunitContext, IAsyncLifetime
 
         cut.Find("[data-testid=ha-type]").Change(HaControlTypes.Select);
 
-        Assert.Equal(["", "custom.mode"], OptionValues(cut, "ha-state-metric"));
+        cut.WaitForAssertion(() => Assert.Equal(["", "custom.mode"], OptionValues(cut, "ha-state-metric")), Patience);
         cut.Find("[data-testid=ha-state-metric]").Change("custom.mode");
         Assert.Contains("custom.mode", cut.Find("[data-testid=ha-entity-state]").TextContent, StringComparison.Ordinal);
     }
