@@ -1,0 +1,215 @@
+@page "/commands"
+@using QoffeeAutomat.Contracts.Config
+@using QoffeeAutomat.Ui.Components.Pages.Dashboard
+@inherits LocalizedComponentBase
+
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@L["Commands.Title"]</MudText>
+  <MudButton Variant="Variant.Filled"
+             Color="Color.Primary"
+             StartIcon="@Icons.Material.Filled.Add"
+             Href="/commands/new"
+             data-testid="command-new">@L["Commands.New"]</MudButton>
+</div>
+
+<ErrorDisplay Error="_listError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_actionError is not null)
+{
+  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="action-failed">@_actionFailure</MudAlert>
+  <ErrorDisplay Error="_actionError" Class="mb-4" />
+}
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="notice">@_notice</MudAlert>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_commands.Count == 0)
+{
+  // Without commands there is nothing to filter. When the list could not be read, the error above says so instead.
+  if (_listError is null)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="commands-none">@L["Commands.None"]</MudText>
+    </MudPaper>
+  }
+}
+else
+{
+  <MudPaper Class="pa-3 mb-4 qa-card" Elevation="1" data-testid="command-filters">
+    <MudGrid Spacing="2">
+      <MudItem xs="12" md="4">
+        <div data-testid="filter-search">
+          <MudTextField T="string"
+                        @bind-Value="_search"
+                        Immediate="true"
+                        Clearable="true"
+                        Label="@L["Commands.Filter.Search"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Adornment="Adornment.Start"
+                        AdornmentIcon="@Icons.Material.Filled.Search" />
+        </div>
+      </MudItem>
+      <MudItem xs="6" md="2">
+        <div data-testid="filter-enabled">
+          <MudSelect T="SwitchFilter" @bind-Value="_enabledFilter" Label="@L["Commands.Filter.Enabled"]" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelectItem T="SwitchFilter" Value="SwitchFilter.Any">@L["Commands.Filter.Any"]</MudSelectItem>
+            <MudSelectItem T="SwitchFilter" Value="SwitchFilter.On">@L["Commands.Filter.EnabledOnly"]</MudSelectItem>
+            <MudSelectItem T="SwitchFilter" Value="SwitchFilter.Off">@L["Commands.Filter.DisabledOnly"]</MudSelectItem>
+          </MudSelect>
+        </div>
+      </MudItem>
+      <MudItem xs="6" md="2">
+        <div data-testid="filter-expose">
+          <MudSelect T="SwitchFilter" @bind-Value="_exposeFilter" Label="@L["Commands.Filter.Expose"]" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelectItem T="SwitchFilter" Value="SwitchFilter.Any">@L["Commands.Filter.Any"]</MudSelectItem>
+            <MudSelectItem T="SwitchFilter" Value="SwitchFilter.On">@L["Commands.Filter.ExposedOnly"]</MudSelectItem>
+            <MudSelectItem T="SwitchFilter" Value="SwitchFilter.Off">@L["Commands.Filter.HiddenOnly"]</MudSelectItem>
+          </MudSelect>
+        </div>
+      </MudItem>
+      <MudItem xs="6" md="2">
+        <div data-testid="filter-action">
+          <MudSelect T="string" @bind-Value="_actionFilter" Label="@L["Commands.Filter.Action"]" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelectItem T="string" Value="@CommandFilter.All">@L["Commands.Filter.Any"]</MudSelectItem>
+            <MudSelectItem T="string" Value="@ActionTypes.PowerShell">@L["Commands.Action.PowerShell"]</MudSelectItem>
+            <MudSelectItem T="string" Value="@ActionTypes.Process">@L["Commands.Action.Process"]</MudSelectItem>
+            <MudSelectItem T="string" Value="@ActionTypes.Builtin">@L["Commands.Action.Builtin"]</MudSelectItem>
+            <MudSelectItem T="string" Value="@ActionTypes.Sequence">@L["Commands.Action.Sequence"]</MudSelectItem>
+          </MudSelect>
+        </div>
+      </MudItem>
+      <MudItem xs="6" md="2">
+        <div data-testid="filter-runas">
+          <MudSelect T="string" @bind-Value="_runAsFilter" Label="@L["Commands.Filter.RunAs"]" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelectItem T="string" Value="@CommandFilter.All">@L["Commands.Filter.Any"]</MudSelectItem>
+            <MudSelectItem T="string" Value="@RunAsValues.System">@L["Commands.RunAs.System"]</MudSelectItem>
+            <MudSelectItem T="string" Value="@RunAsValues.User">@L["Commands.RunAs.User"]</MudSelectItem>
+            <MudSelectItem T="string" Value="@RunAsValues.UserElevated">@L["Commands.RunAs.UserElevated"]</MudSelectItem>
+          </MudSelect>
+        </div>
+      </MudItem>
+    </MudGrid>
+    <div class="qa-card-header mt-2">
+      <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="command-count">@L.Format("Commands.Count", Visible.Count, _commands.Count)</MudText>
+      @if (Filter.IsActive)
+      {
+        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters" data-testid="filter-clear">@L["Commands.Filter.Clear"]</MudButton>
+      }
+    </div>
+  </MudPaper>
+
+  @if (Visible.Count == 0)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="commands-no-match">@L["Commands.NoMatch"]</MudText>
+    </MudPaper>
+  }
+  else
+  {
+    <MudPaper Class="qa-card" Elevation="1">
+      <MudSimpleTable Dense="true" Hover="true" data-testid="command-table">
+        <thead>
+          <tr>
+            <th>@L["Commands.Column.Command"]</th>
+            <th>@L["Commands.Column.Enabled"]</th>
+            <th>@L["Commands.Column.Expose"]</th>
+            <th>@L["Commands.Column.Action"]</th>
+            <th>@L["Commands.Column.RunAs"]</th>
+            <th>@L["Commands.Column.LastRun"]</th>
+            <th>@L["Commands.Column.Actions"]</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (CommandDocument command in Visible)
+          {
+            <tr @key="command.Id" data-testid="@($"command-{command.Id}")" data-enabled="@(command.Enabled ? "true" : "false")">
+              <td>
+                <div class="qa-command-name">@command.Name</div>
+                <div class="qa-muted"><code>@command.Id</code></div>
+                @if (!string.IsNullOrWhiteSpace(command.Description))
+                {
+                  <div class="qa-muted">@command.Description</div>
+                }
+              </td>
+              <td>
+                <span data-testid="@($"enabled-{command.Id}")" data-checked="@(IsEnabled(command) ? "true" : "false")">
+                  <MudSwitch @key="EnabledKey(command)"
+                             T="bool"
+                             Value="IsEnabled(command)"
+                             ValueChanged="@((bool value) => SetEnabledAsync(command, value))"
+                             Color="Color.Primary"
+                             Disabled="IsBusy(command)"
+                             aria-label="@Aria(L["Commands.Column.Enabled"], command)" />
+                </span>
+              </td>
+              <td>
+                <span data-testid="@($"expose-{command.Id}")" data-checked="@(IsExposed(command) ? "true" : "false")">
+                  <MudSwitch @key="ExposeKey(command)"
+                             T="bool"
+                             Value="IsExposed(command)"
+                             ValueChanged="@((bool value) => SetExposedAsync(command, value))"
+                             Color="Color.Primary"
+                             Disabled="IsBusy(command)"
+                             aria-label="@Aria(L["Commands.Column.Expose"], command)" />
+                </span>
+              </td>
+              <td data-testid="@($"action-{command.Id}")" data-value="@command.Action.Type">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">@ActionText(command)</MudChip>
+              </td>
+              <td data-testid="@($"runas-{command.Id}")" data-value="@command.RunAs">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@RunAsColor(command)">@RunAsText(command)</MudChip>
+              </td>
+              <td data-testid="@($"lastrun-{command.Id}")" data-state="@LastRunState(command)">
+                @if (LastRunOf(command) is { } run)
+                {
+                  <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@LastRunColor(run)">@LastRunText(run)</MudChip>
+                  <div class="qa-muted">@DashboardFormat.LocalTime(run.StartedAt, L.Culture)</div>
+                }
+                else
+                {
+                  <span class="qa-muted">@L["Common.Never"]</span>
+                }
+              </td>
+              <td class="qa-row-actions">
+                <MudIconButton Icon="@Icons.Material.Filled.PlayArrow"
+                               Size="Size.Small"
+                               Color="Color.Primary"
+                               Disabled="@(!command.Enabled)"
+                               OnClick="@(() => RunAsync(command))"
+                               aria-label="@Aria(L["Commands.Run"], command)"
+                               title="@(command.Enabled ? L["Commands.Run"] : L["Commands.Run.Disabled"])"
+                               data-testid="@($"run-{command.Id}")" />
+                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                               Size="Size.Small"
+                               Href="@EditHref(command)"
+                               aria-label="@Aria(L["Commands.Edit"], command)"
+                               title="@L["Commands.Edit"]"
+                               data-testid="@($"edit-{command.Id}")" />
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                               Size="Size.Small"
+                               Disabled="IsBusy(command)"
+                               OnClick="@(() => DuplicateAsync(command))"
+                               aria-label="@Aria(L["Commands.Duplicate"], command)"
+                               title="@L["Commands.Duplicate"]"
+                               data-testid="@($"duplicate-{command.Id}")" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Size="Size.Small"
+                               Color="Color.Error"
+                               Disabled="IsBusy(command)"
+                               OnClick="@(() => DeleteAsync(command))"
+                               aria-label="@Aria(L["Commands.Delete"], command)"
+                               title="@L["Commands.Delete"]"
+                               data-testid="@($"delete-{command.Id}")" />
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    </MudPaper>
+  }
+}

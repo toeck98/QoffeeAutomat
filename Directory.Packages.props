@@ -40,6 +40,23 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.15" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.15" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.15" />
+    <!-- Serves the published WebAssembly files (_framework, with the right media types) from the agent (T401). -->
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.15" />
+    <!-- Component library of the UI (D-015). All its CSS, JavaScript and fonts ship inside the package and are served
+         from the agent; nothing is loaded from a CDN. Dependabot keeps it current. -->
+    <PackageVersion Include="MudBlazor" Version="8.15.0" />
+    <!-- The Monaco editor for PowerShell in the command editor (T404). The package carries Monaco itself under
+         _content/BlazorMonaco/, so the agent serves it and nothing is loaded from a CDN. Dependabot keeps it current. -->
+    <PackageVersion Include="BlazorMonaco" Version="3.5.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="UI tests">
+    <!-- Component tests of Ui.Components (T401). -->
+    <PackageVersion Include="bunit" Version="2.15.2" />
+    <!-- Transitive pin above GHSA-pgww-w46g-26qg. -->
+    <PackageVersion Include="AngleSharp" Version="1.10.4" />
+    <!-- Headless Chromium for the browser smoke test of the UI (T408); CI installs the browser with playwright.ps1. -->
+    <PackageVersion Include="Microsoft.Playwright" Version="1.64.1" />
   </ItemGroup>
 
 </Project>

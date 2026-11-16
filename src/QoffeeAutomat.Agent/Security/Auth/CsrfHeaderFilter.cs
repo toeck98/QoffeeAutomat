@@ -1,4 +1,5 @@
 using QoffeeAutomat.Agent.Api;
+using QoffeeAutomat.Contracts.Api;
 
 namespace QoffeeAutomat.Agent.Security.Auth;
 
@@ -14,10 +15,10 @@ namespace QoffeeAutomat.Agent.Security.Auth;
 public sealed class CsrfHeaderFilter : IEndpointFilter
 {
     /// <summary>The name of the required header.</summary>
-    public const string HeaderName = "X-QoffeeAutomat-Csrf";
+    public const string HeaderName = ApiHeaders.CsrfName;
 
     /// <summary>The required header value.</summary>
-    public const string HeaderValue = "1";
+    public const string HeaderValue = ApiHeaders.CsrfValue;
 
     /// <inheritdoc />
     public ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)

@@ -1,0 +1,375 @@
+@page "/sensors/new"
+@page "/sensors/{Id}"
+@using QoffeeAutomat.Contracts.Config
+@using QoffeeAutomat.Ui.Components.Pages.CommandEditor
+@inherits LocalizedComponentBase
+
+@* The sensor editor (PLAN.md T405): creates a custom sensor or changes one, tests it against the real source without saving,
+   and offers only the source types of this platform and the Home Assistant attributes that are valid for the value type. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true" data-testid="sensor-editor-title">@TitleText</MudText>
+  <span class="qa-editor-actions">
+    <MudButton Variant="Variant.Text" Href="/sensors" data-testid="sensor-editor-back">@L["Sensors.Editor.Back"]</MudButton>
+    <MudButton Variant="Variant.Outlined"
+               StartIcon="@Icons.Material.Filled.Science"
+               OnClick="TestAsync"
+               Disabled="@(_testing || _saving || _loading || _notFound || _loadError is not null)"
+               data-testid="sensor-test">@L["Sensors.Editor.Test"]</MudButton>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Save"
+               OnClick="SaveAsync"
+               Disabled="@(_saving || _loading || _notFound || _loadError is not null)"
+               data-testid="sensor-save">@L["Sensors.Editor.Save"]</MudButton>
+  </span>
+</div>
+
+<ErrorDisplay Error="_loadError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_notFound)
+{
+  <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4" data-testid="sensor-not-found">@L["Sensors.Editor.NotFound"]</MudAlert>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_loadError is null && !_notFound)
+{
+  <ErrorDisplay Error="_saveError" Class="mb-4" />
+  @if (_notice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="sensor-saved">@_notice</MudAlert>
+  }
+
+  @if (_errors.Count > 0)
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4" data-testid="sensor-validation-summary">
+      <div>@L.Format("Sensors.Editor.Validation.Summary", _errors.Count)</div>
+      <ul class="qa-error-list">
+        @foreach (ApiValidationError error in _errors.All)
+        {
+          <li><code>@error.Path</code> @TextOf(error)</li>
+        }
+      </ul>
+    </MudAlert>
+  }
+
+  <MudGrid Spacing="3">
+    <MudItem xs="12" lg="7">
+      <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="sensor-section-general">
+        <MudText Typo="Typo.h6" Class="mb-3">@L["Sensors.Editor.General"]</MudText>
+        <MudGrid Spacing="2">
+          <MudItem xs="12" md="6">
+            <div data-testid="sensor-field-name">
+              <MudTextField T="string"
+                            @bind-Value="_draft.Name"
+                            @bind-Value:after="OnNameChanged"
+                            Immediate="true"
+                            Label="@L["Sensors.Field.Name"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            Required="true"
+                            Error="@_errors.Has("/name")" />
+            </div>
+            <FieldError Errors="_errors" Path="/name" />
+          </MudItem>
+          <MudItem xs="12" md="6">
+            <div data-testid="sensor-field-id">
+              <MudTextField T="string"
+                            @bind-Value="_draft.Id"
+                            @bind-Value:after="OnIdChanged"
+                            Immediate="true"
+                            TextUpdateSuppression="false"
+                            Label="@L["Sensors.Field.Id"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            Disabled="@(!_draft.IsNew)"
+                            HelperText="@(_draft.IsNew ? L["Sensors.Field.Id.Help"] : L["Sensors.Field.Id.Fixed"])"
+                            Error="@_errors.Has("/id")"
+                            spellcheck="false" />
+            </div>
+            <FieldError Errors="_errors" Path="/id" />
+          </MudItem>
+          <MudItem xs="12">
+            <div data-testid="sensor-field-description">
+              <MudTextField T="string"
+                            @bind-Value="_draft.Description"
+                            Immediate="true"
+                            Lines="2"
+                            Label="@L["Sensors.Field.Description"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            Error="@_errors.Has("/description")" />
+            </div>
+            <FieldError Errors="_errors" Path="/description" />
+          </MudItem>
+          <MudItem xs="12" md="6">
+            <MudSwitch T="bool" @bind-Value="_draft.Enabled" Label="@L["Sensors.Field.Enabled"]" Color="Color.Primary" data-testid="sensor-field-enabled" />
+          </MudItem>
+          <MudItem xs="12" md="6">
+            <MudSwitch T="bool" @bind-Value="_draft.ExposeToHa" Label="@L["Sensors.Field.Expose"]" Color="Color.Primary" data-testid="sensor-field-expose" />
+          </MudItem>
+          <MudItem xs="12" md="6">
+            <div data-testid="sensor-field-interval">
+              <MudTextField T="string"
+                            @bind-Value="_draft.IntervalText"
+                            Immediate="true"
+                            InputType="InputType.Number"
+                            Label="@L["Sensors.Field.Interval"]"
+                            HelperText="@L["Sensors.Field.Interval.Help"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            Error="@_errors.Has("/intervalSeconds")" />
+            </div>
+            <FieldError Errors="_errors" Path="/intervalSeconds" />
+          </MudItem>
+          @if (SensorAttributeRules.AllowsPrecision(_draft.ValueType))
+          {
+            <MudItem xs="12" md="6">
+              <div data-testid="sensor-field-deadband">
+                <MudTextField T="string"
+                              @bind-Value="_draft.DeadbandText"
+                              Immediate="true"
+                              InputType="InputType.Number"
+                              Label="@L["Sensors.Field.Deadband"]"
+                              HelperText="@L["Sensors.Field.Deadband.Help"]"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Error="@_errors.Has("/deadband")" />
+              </div>
+              <FieldError Errors="_errors" Path="/deadband" />
+            </MudItem>
+          }
+        </MudGrid>
+      </MudPaper>
+
+      <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="sensor-section-source">
+        <MudText Typo="Typo.h6" Class="mb-3">@L["Sensors.Editor.Source"]</MudText>
+        <SelectBox Label="@L["Sensors.Field.SourceType"]"
+                   @bind-Value="_draft.SourceType"
+                   Error="@_errors.Has("/source/type")"
+                   TestId="sensor-field-source-type">
+          @foreach (string type in SourceTypeChoices)
+          {
+            <option value="@type">@L.Find("Sensors.Type." + type)</option>
+          }
+        </SelectBox>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="sensor-source-help">@(L.Find("Sensors.Type." + _draft.SourceType + ".Help") ?? string.Empty)</MudText>
+        <FieldError Errors="_errors" Path="/source/type" />
+
+        @switch (_draft.SourceType)
+        {
+          case SensorSourceTypes.PowerShell:
+            <SelectBox Label="@L["Sensors.Field.ScriptSource"]" @bind-Value="_draft.ScriptSource" TestId="sensor-field-script-source">
+              <option value="@PowerShellSources.Inline">@L["Sensors.ScriptSource.Inline"]</option>
+              <option value="@PowerShellSources.File">@L["Sensors.ScriptSource.File"]</option>
+            </SelectBox>
+            @if (_draft.ScriptSource == PowerShellSources.File)
+            {
+              <SelectBox Label="@L["Sensors.Field.ScriptFile"]" @bind-Value="_draft.Script" Error="@_errors.Has("/source/script")" TestId="sensor-field-script-file">
+                <option value="">@L["Sensors.Field.ScriptFile.None"]</option>
+                @foreach (string name in With(_scripts, _draft.Script))
+                {
+                  <option value="@name">@name</option>
+                }
+              </SelectBox>
+              <FieldError Errors="_errors" Path="/source/script" />
+            }
+            else
+            {
+              <div data-testid="sensor-field-code" class="qa-code-text">
+                <MudTextField T="string"
+                              @bind-Value="_draft.Code"
+                              Immediate="true"
+                              Lines="6"
+                              Label="@L["Sensors.Field.Code"]"
+                              HelperText="@L["Sensors.Field.Code.Help"]"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Error="@_errors.Has("/source/code")"
+                              spellcheck="false" />
+              </div>
+              <FieldError Errors="_errors" Path="/source/code" />
+            }
+            <SelectBox Label="@L["Sensors.Field.Engine"]" @bind-Value="_draft.Engine" Error="@_errors.Has("/source/engine")" TestId="sensor-field-engine">
+              <option value="@PowerShellEngines.Auto">@L["Sensors.Engine.auto"]</option>
+              <option value="@PowerShellEngines.Pwsh">@L["Sensors.Engine.pwsh"]</option>
+              <option value="@PowerShellEngines.PowerShell">@L["Sensors.Engine.powershell"]</option>
+            </SelectBox>
+            break;
+          case SensorSourceTypes.ProcessRunning:
+            @TextField(L["Sensors.Field.Process"], _draft.Process, value => _draft.Process = value, "/source/process", "sensor-field-process")
+            break;
+          case SensorSourceTypes.PerfCounter:
+            @TextField(L["Sensors.Field.Category"], _draft.Category, value => _draft.Category = value, "/source/category", "sensor-field-category")
+            @TextField(L["Sensors.Field.Counter"], _draft.Counter, value => _draft.Counter = value, "/source/counter", "sensor-field-counter")
+            @TextField(L["Sensors.Field.Instance"], _draft.Instance, value => _draft.Instance = value, "/source/instance", "sensor-field-instance")
+            break;
+          case SensorSourceTypes.CimQuery:
+            @TextField(L["Sensors.Field.CimNamespace"], _draft.CimNamespace, value => _draft.CimNamespace = value, "/source/namespace", "sensor-field-cim-namespace")
+            @TextField(L["Sensors.Field.CimClass"], _draft.CimClass, value => _draft.CimClass = value, "/source/class", "sensor-field-cim-class")
+            @TextField(L["Sensors.Field.CimProperty"], _draft.CimProperty, value => _draft.CimProperty = value, "/source/property", "sensor-field-cim-property")
+            @TextField(L["Sensors.Field.CimFilter"], _draft.CimFilter, value => _draft.CimFilter = value, "/source/filter", "sensor-field-cim-filter")
+            break;
+          case SensorSourceTypes.ServiceState:
+            @TextField(L["Sensors.Field.Service"], _draft.Service, value => _draft.Service = value, "/source/service", "sensor-field-service")
+            break;
+        }
+      </MudPaper>
+
+      <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="sensor-section-ha">
+        <MudText Typo="Typo.h6" Class="mb-1">@L["Sensors.Editor.Ha"]</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">@L["Sensors.Editor.Ha.Help"]</MudText>
+        <MudGrid Spacing="2">
+          <MudItem xs="12" md="6">
+            <SelectBox Label="@L["Sensors.Field.ValueType"]"
+                       Value="@_draft.ValueType"
+                       ValueChanged="OnValueTypeChanged"
+                       Error="@_errors.Has("/valueType")"
+                       TestId="sensor-field-value-type">
+              @foreach (string valueType in SensorAttributeRules.ValueTypes)
+              {
+                <option value="@valueType">@L["Sensors.ValueType." + valueType]</option>
+              }
+            </SelectBox>
+            <FieldError Errors="_errors" Path="/valueType" />
+          </MudItem>
+          @if (SensorAttributeRules.AllowsUnit(_draft.ValueType))
+          {
+            <MudItem xs="12" md="6">
+              <SelectBox Label="@L["Sensors.Field.Unit"]" @bind-Value="_draft.Unit" Error="@_errors.Has("/unit")" TestId="sensor-field-unit">
+                <option value="">@L["Sensors.Field.None"]</option>
+                @foreach (string unit in With(SensorAttributeRules.Units, _draft.Unit))
+                {
+                  <option value="@unit">@unit</option>
+                }
+              </SelectBox>
+              <FieldError Errors="_errors" Path="/unit" />
+            </MudItem>
+          }
+          @if (SensorAttributeRules.DeviceClassesFor(_draft.ValueType).Count > 0)
+          {
+            <MudItem xs="12" md="6">
+              <SelectBox Label="@L["Sensors.Field.DeviceClass"]" @bind-Value="_draft.DeviceClass" Error="@_errors.Has("/deviceClass")" TestId="sensor-field-device-class">
+                <option value="">@L["Sensors.Field.None"]</option>
+                @foreach (string deviceClass in With(SensorAttributeRules.DeviceClassesFor(_draft.ValueType), _draft.DeviceClass))
+                {
+                  <option value="@deviceClass">@deviceClass</option>
+                }
+              </SelectBox>
+              <FieldError Errors="_errors" Path="/deviceClass" />
+            </MudItem>
+          }
+          @if (SensorAttributeRules.AllowsStateClass(_draft.ValueType))
+          {
+            <MudItem xs="12" md="6">
+              <SelectBox Label="@L["Sensors.Field.StateClass"]" @bind-Value="_draft.StateClass" Error="@_errors.Has("/stateClass")" TestId="sensor-field-state-class">
+                <option value="">@L["Sensors.Field.None"]</option>
+                @foreach (string stateClass in With(SensorAttributeRules.StateClasses, _draft.StateClass))
+                {
+                  <option value="@stateClass">@stateClass</option>
+                }
+              </SelectBox>
+              <FieldError Errors="_errors" Path="/stateClass" />
+            </MudItem>
+          }
+          <MudItem xs="12" md="6">
+            <SelectBox Label="@L["Sensors.Field.EntityCategory"]" @bind-Value="_draft.EntityCategory" Error="@_errors.Has("/entityCategory")" TestId="sensor-field-entity-category">
+              <option value="">@L["Sensors.Field.None"]</option>
+              @foreach (string category in With(SensorAttributeRules.EntityCategories, _draft.EntityCategory))
+              {
+                <option value="@category">@category</option>
+              }
+            </SelectBox>
+            <FieldError Errors="_errors" Path="/entityCategory" />
+          </MudItem>
+          @if (SensorAttributeRules.AllowsPrecision(_draft.ValueType))
+          {
+            <MudItem xs="12" md="6">
+              <div data-testid="sensor-field-precision">
+                <MudTextField T="string"
+                              @bind-Value="_draft.PrecisionText"
+                              Immediate="true"
+                              InputType="InputType.Number"
+                              Label="@L["Sensors.Field.Precision"]"
+                              HelperText="@L["Sensors.Field.Precision.Help"]"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Error="@_errors.Has("/precision")" />
+              </div>
+              <FieldError Errors="_errors" Path="/precision" />
+            </MudItem>
+          }
+          @if (SensorAttributeRules.UsesOptions(_draft.ValueType))
+          {
+            <MudItem xs="12">
+              <div data-testid="sensor-field-options">
+                <MudTextField T="string"
+                              @bind-Value="_draft.OptionsText"
+                              Immediate="true"
+                              Lines="4"
+                              Label="@L["Sensors.Field.Options"]"
+                              HelperText="@L["Sensors.Field.Options.Help"]"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Error="@_errors.Has("/options")" />
+              </div>
+              <FieldError Errors="_errors" Path="/options" />
+            </MudItem>
+          }
+        </MudGrid>
+      </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" lg="5">
+      <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="sensor-test-panel" data-state="@TestState">
+        <MudText Typo="Typo.h6" Class="mb-1">@L["Sensors.Test.Title"]</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Sensors.Test.Help"]</MudText>
+        @if (_testing)
+        {
+          <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-2" aria-label="@L["Sensors.Test.Running"]" />
+        }
+
+        @if (_testError is not null)
+        {
+          <ErrorDisplay Error="_testError" Class="qa-sensor-result" />
+        }
+
+        @if (_testResult is { Succeeded: true } success)
+        {
+          <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="qa-sensor-result" data-testid="sensor-test-success">
+            <div>@L["Sensors.Test.Value"]: <strong data-testid="sensor-test-value">@SensorFormat.Value(_tested ?? _draft.Build().Document, success.Value, L)</strong></div>
+            <div class="qa-muted">@L.Format("Sensors.Test.Duration", success.DurationMs)</div>
+          </MudAlert>
+        }
+        else if (_testResult is { } failure)
+        {
+          <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="qa-sensor-result" data-testid="sensor-test-failure">
+            <div>@L["Sensors.Test.Failed"]</div>
+            <div data-testid="sensor-test-error">@failure.Error</div>
+          </MudAlert>
+        }
+      </MudPaper>
+    </MudItem>
+  </MudGrid>
+}
+
+@code {
+  /// <summary>A text field of the source with the problems of its path under it.</summary>
+  private RenderFragment TextField(string label, string value, Action<string> set, string path, string testId) => __builder =>
+  {
+    <div data-testid="@testId">
+      <MudTextField T="string"
+                    Value="value"
+                    ValueChanged="@((string text) => set(text))"
+                    Immediate="true"
+                    Label="@label"
+                    Variant="Variant.Outlined"
+                    Margin="Margin.Dense"
+                    Error="@_errors.Has(path)"
+                    spellcheck="false" />
+    </div>
+    <FieldError Errors="_errors" Path="@path" />
+  };
+}

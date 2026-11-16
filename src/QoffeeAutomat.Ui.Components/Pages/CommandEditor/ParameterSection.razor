@@ -1,0 +1,220 @@
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The parameter table: the variables that a run takes. Every row has the fields that its type has (range for numbers,
+   pattern and length for text, options for a choice). *@
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="section-parameters">
+  <div class="qa-card-header">
+    <MudText Typo="Typo.h6">@L["Editor.Params.Title"]</MudText>
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddAsync" data-testid="add-parameter">@L["Editor.Params.Add"]</MudButton>
+  </div>
+  <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">@L["Editor.Params.Help"]</MudText>
+
+  @if (Draft.Parameters.Count == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="params-none">@L["Editor.Params.None"]</MudText>
+  }
+
+  @for (int index = 0; index < Draft.Parameters.Count; index++)
+  {
+    int position = index;
+    ParameterDraft row = Draft.Parameters[position];
+    string path = "/parameters/" + position;
+    <div class="qa-param" @key="row.Key" data-testid="@($"param-{position}")" data-type="@row.Type">
+      <div class="qa-step-header">
+        <MudText Typo="Typo.subtitle2">@L.Format("Editor.Params.Row", position + 1)</MudText>
+        <span>
+          <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="@(position == 0)" OnClick="@(() => MoveAsync(position, -1))" aria-label="@L["Editor.Move.Up"]" data-testid="@($"param-up-{position}")" />
+          <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="@(position == Draft.Parameters.Count - 1)" OnClick="@(() => MoveAsync(position, 1))" aria-label="@L["Editor.Move.Down"]" data-testid="@($"param-down-{position}")" />
+          <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveAsync(row))" aria-label="@L["Editor.Remove"]" data-testid="@($"param-remove-{position}")" />
+        </span>
+      </div>
+      <MudGrid Spacing="2">
+        <MudItem xs="12" md="4">
+          <div data-testid="@($"param-{position}-name")">
+            <MudTextField T="string"
+                          Value="row.Name"
+                          ValueChanged="@((string? value) => RenameAsync(row, value))"
+                          Immediate="true"
+                          Label="@L["Editor.Params.Name"]"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Error="@Errors.Has(path + "/name")"
+                          spellcheck="false" />
+          </div>
+          <FieldError Errors="Errors" Path="@(path + "/name")" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+          <SelectBox Label="@L["Editor.Params.Type"]"
+                     Value="row.Type"
+                     ValueChanged="@((string value) => SetTypeAsync(row, value))"
+                     Error="@Errors.Has(path + "/type")"
+                     TestId="@($"param-{position}-type")">
+            <option value="@ParameterTypes.Text">@L["Editor.Param.Type.string"]</option>
+            <option value="@ParameterTypes.WholeNumber">@L["Editor.Param.Type.int"]</option>
+            <option value="@ParameterTypes.Real">@L["Editor.Param.Type.float"]</option>
+            <option value="@ParameterTypes.Flag">@L["Editor.Param.Type.bool"]</option>
+            <option value="@ParameterTypes.Choice">@L["Editor.Param.Type.enum"]</option>
+          </SelectBox>
+          <FieldError Errors="Errors" Path="@(path + "/type")" />
+        </MudItem>
+        <MudItem xs="6" md="2">
+          <MudSwitch T="bool" @bind-Value="row.Required" @bind-Value:after="NotifyAsync" Label="@L["Editor.Params.Required"]" Color="Color.Primary" data-testid="@($"param-{position}-required")" />
+        </MudItem>
+        <MudItem xs="6" md="3">
+          <MudSwitch T="bool" @bind-Value="row.Secret" @bind-Value:after="NotifyAsync" Label="@L["Editor.Params.Secret"]" Color="Color.Primary" data-testid="@($"param-{position}-secret")" />
+        </MudItem>
+
+        @if (row.Type == ParameterTypes.WholeNumber || row.Type == ParameterTypes.Real)
+        {
+          <MudItem xs="12" md="3">
+            <div data-testid="@($"param-{position}-min")">
+              <MudTextField T="string" @bind-Value="row.Min" @bind-Value:after="NotifyAsync" Immediate="true" Label="@L["Editor.Params.Min"]" Variant="Variant.Outlined" Margin="Margin.Dense" Error="@Errors.Has(path + "/min")" />
+            </div>
+            <FieldError Errors="Errors" Path="@(path + "/min")" />
+          </MudItem>
+          <MudItem xs="12" md="3">
+            <div data-testid="@($"param-{position}-max")">
+              <MudTextField T="string" @bind-Value="row.Max" @bind-Value:after="NotifyAsync" Immediate="true" Label="@L["Editor.Params.Max"]" Variant="Variant.Outlined" Margin="Margin.Dense" Error="@Errors.Has(path + "/max")" />
+            </div>
+            <FieldError Errors="Errors" Path="@(path + "/max")" />
+          </MudItem>
+          <MudItem xs="12" md="3">
+            <div data-testid="@($"param-{position}-step")">
+              <MudTextField T="string" @bind-Value="row.Step" @bind-Value:after="NotifyAsync" Immediate="true" Label="@L["Editor.Params.Step"]" Variant="Variant.Outlined" Margin="Margin.Dense" Error="@Errors.Has(path + "/step")" />
+            </div>
+            <FieldError Errors="Errors" Path="@(path + "/step")" />
+          </MudItem>
+        }
+        else if (row.Type == ParameterTypes.Text)
+        {
+          <MudItem xs="12" md="6">
+            <div data-testid="@($"param-{position}-pattern")">
+              <MudTextField T="string" @bind-Value="row.Pattern" @bind-Value:after="NotifyAsync" Immediate="true" Label="@L["Editor.Params.Pattern"]" HelperText="@L["Editor.Params.Pattern.Help"]" Variant="Variant.Outlined" Margin="Margin.Dense" Error="@Errors.Has(path + "/pattern")" spellcheck="false" />
+            </div>
+            <FieldError Errors="Errors" Path="@(path + "/pattern")" />
+          </MudItem>
+          <MudItem xs="12" md="3">
+            <div data-testid="@($"param-{position}-maxlength")">
+              <MudTextField T="string" @bind-Value="row.MaxLength" @bind-Value:after="NotifyAsync" Immediate="true" Label="@L["Editor.Params.MaxLength"]" Variant="Variant.Outlined" Margin="Margin.Dense" Error="@Errors.Has(path + "/maxLength")" />
+            </div>
+            <FieldError Errors="Errors" Path="@(path + "/maxLength")" />
+          </MudItem>
+        }
+        else if (row.Type == ParameterTypes.Choice)
+        {
+          <MudItem xs="12" md="6">
+            <div data-testid="@($"param-{position}-options")">
+              <MudTextField T="string" @bind-Value="row.OptionsText" @bind-Value:after="NotifyAsync" Immediate="true" Lines="3" Label="@L["Editor.Params.Options"]" HelperText="@L["Editor.Params.Options.Help"]" Variant="Variant.Outlined" Margin="Margin.Dense" Error="@Errors.Has(path + "/options")" />
+            </div>
+            <FieldError Errors="Errors" Path="@(path + "/options")" />
+          </MudItem>
+        }
+
+        <MudItem xs="12" md="3">
+          @if (row.Type == ParameterTypes.Flag)
+          {
+            <SelectBox Label="@L["Editor.Params.Default"]" Value="row.DefaultText" ValueChanged="@((string value) => SetDefaultAsync(row, value))" Error="@Errors.Has(path + "/default")" TestId="@($"param-{position}-default")">
+              <option value="">@L["Editor.Params.Default.None"]</option>
+              <option value="true">@L["Common.On"]</option>
+              <option value="false">@L["Common.Off"]</option>
+            </SelectBox>
+          }
+          else if (row.Type == ParameterTypes.Choice)
+          {
+            <SelectBox Label="@L["Editor.Params.Default"]" Value="row.DefaultText" ValueChanged="@((string value) => SetDefaultAsync(row, value))" Error="@Errors.Has(path + "/default")" TestId="@($"param-{position}-default")">
+              <option value="">@L["Editor.Params.Default.None"]</option>
+              @if (row.DefaultText.Length > 0 && !row.Options.Contains(row.DefaultText))
+              {
+                <option value="@row.DefaultText">@row.DefaultText</option>
+              }
+              @foreach (string option in row.Options)
+              {
+                <option value="@option">@option</option>
+              }
+            </SelectBox>
+          }
+          else
+          {
+            <div data-testid="@($"param-{position}-default")">
+              <MudTextField T="string" Value="row.DefaultText" ValueChanged="@((string? value) => SetDefaultAsync(row, value))" Immediate="true" Label="@L["Editor.Params.Default"]" Variant="Variant.Outlined" Margin="Margin.Dense" Error="@Errors.Has(path + "/default")" />
+            </div>
+          }
+          <FieldError Errors="Errors" Path="@(path + "/default")" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+          <div data-testid="@($"param-{position}-unit")">
+            <MudTextField T="string" @bind-Value="row.Unit" @bind-Value:after="NotifyAsync" Immediate="true" Label="@L["Editor.Params.Unit"]" Variant="Variant.Outlined" Margin="Margin.Dense" Error="@Errors.Has(path + "/unit")" />
+          </div>
+          <FieldError Errors="Errors" Path="@(path + "/unit")" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+          <div data-testid="@($"param-{position}-description")">
+            <MudTextField T="string" @bind-Value="row.Description" @bind-Value:after="NotifyAsync" Immediate="true" Label="@L["Editor.Params.Description"]" Variant="Variant.Outlined" Margin="Margin.Dense" Error="@Errors.Has(path + "/description")" />
+          </div>
+          <FieldError Errors="Errors" Path="@(path + "/description")" />
+        </MudItem>
+      </MudGrid>
+      <FieldError Errors="Errors" Path="@path" />
+    </div>
+  }
+  <FieldError Errors="Errors" Path="/parameters" />
+</MudPaper>
+
+@code {
+  /// <summary>The draft.</summary>
+  [Parameter]
+  [EditorRequired]
+  public CommandDraft Draft { get; set; } = null!;
+
+  /// <summary>The problems of the draft.</summary>
+  [Parameter]
+  public DraftErrors Errors { get; set; } = DraftErrors.Empty;
+
+  /// <summary>Raised after every change of the draft.</summary>
+  [Parameter]
+  public EventCallback OnChanged { get; set; }
+
+  private Task NotifyAsync() => OnChanged.InvokeAsync();
+
+  private Task AddAsync()
+  {
+    Draft.Parameters.Add(new ParameterDraft { Name = Draft.NextParameterName() });
+    return NotifyAsync();
+  }
+
+  private Task RemoveAsync(ParameterDraft row)
+  {
+    Draft.RemoveParameter(row);
+    return NotifyAsync();
+  }
+
+  private Task MoveAsync(int index, int offset)
+  {
+    int target = index + offset;
+    if (target >= 0 && target < Draft.Parameters.Count)
+    {
+      (Draft.Parameters[index], Draft.Parameters[target]) = (Draft.Parameters[target], Draft.Parameters[index]);
+    }
+
+    return NotifyAsync();
+  }
+
+  private Task RenameAsync(ParameterDraft row, string? name)
+  {
+    Draft.RenameParameter(row, name ?? string.Empty);
+    return NotifyAsync();
+  }
+
+  private Task SetTypeAsync(ParameterDraft row, string type)
+  {
+    row.Type = type;
+    return NotifyAsync();
+  }
+
+  private Task SetDefaultAsync(ParameterDraft row, string? value)
+  {
+    row.DefaultText = value ?? string.Empty;
+    return NotifyAsync();
+  }
+}

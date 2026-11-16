@@ -1,0 +1,108 @@
+@page "/sensors"
+@using System.Text.Json
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The custom sensors (PLAN.md T405): the list with the live value of each, and the way into the editor. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@L["Sensors.Title"]</MudText>
+  <MudButton Variant="Variant.Filled"
+             Color="Color.Primary"
+             StartIcon="@Icons.Material.Filled.Add"
+             Href="/sensors/new"
+             data-testid="sensor-new">@L["Sensors.New"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Sensors.Intro"]</MudText>
+
+<ErrorDisplay Error="_listError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_actionError is not null)
+{
+  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="action-failed">@_actionFailure</MudAlert>
+  <ErrorDisplay Error="_actionError" Class="mb-4" />
+}
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="notice">@_notice</MudAlert>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_sensors.Count == 0)
+{
+  if (_listError is null)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="sensors-none">@L["Sensors.None"]</MudText>
+    </MudPaper>
+  }
+}
+else
+{
+  <MudPaper Class="qa-card" Elevation="1">
+    <MudSimpleTable Dense="true" Hover="true" data-testid="sensor-table">
+      <thead>
+        <tr>
+          <th>@L["Sensors.Column.Sensor"]</th>
+          <th>@L["Sensors.Column.Type"]</th>
+          <th>@L["Sensors.Column.Value"]</th>
+          <th>@L["Sensors.Column.Enabled"]</th>
+          <th>@L["Sensors.Column.Expose"]</th>
+          <th>@L["Sensors.Column.Actions"]</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (SensorDocument sensor in _sensors)
+        {
+          <tr @key="sensor.Id" data-testid="@($"sensor-{sensor.Id}")" data-enabled="@(sensor.Enabled ? "true" : "false")">
+            <td>
+              <div class="qa-command-name">@sensor.Name</div>
+              <div class="qa-muted"><code>@sensor.Id</code></div>
+              @if (!string.IsNullOrWhiteSpace(sensor.Description))
+              {
+                <div class="qa-muted">@sensor.Description</div>
+              }
+            </td>
+            <td data-testid="@($"type-{sensor.Id}")" data-value="@sensor.Source.Type">
+              <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">@TypeText(sensor.Source.Type)</MudChip>
+              @if (!IsOffered(sensor))
+              {
+                <div class="qa-muted" data-testid="@($"unsupported-{sensor.Id}")">@L["Sensors.Unsupported"]</div>
+              }
+            </td>
+            <td data-testid="@($"value-{sensor.Id}")" data-has-value="@(ValueOf(sensor) is null ? "false" : "true")">
+              @if (!sensor.Enabled)
+              {
+                <span class="qa-muted">@L["Sensors.Disabled"]</span>
+              }
+              else
+              {
+                @SensorFormat.Value(sensor, ValueOf(sensor), L)
+              }
+            </td>
+            <td>@(sensor.Enabled ? L["Common.On"] : L["Common.Off"])</td>
+            <td>@(sensor.ExposeToHa ? L["Common.On"] : L["Common.Off"])</td>
+            <td class="qa-row-actions">
+              <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                             Size="Size.Small"
+                             Href="@EditHref(sensor)"
+                             Disabled="@(!IsOffered(sensor))"
+                             aria-label="@Aria(L["Sensors.Edit"], sensor)"
+                             title="@L["Sensors.Edit"]"
+                             data-testid="@($"edit-{sensor.Id}")" />
+              <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                             Size="Size.Small"
+                             Color="Color.Error"
+                             Disabled="IsBusy(sensor)"
+                             OnClick="@(() => DeleteAsync(sensor))"
+                             aria-label="@Aria(L["Sensors.Delete"], sensor)"
+                             title="@L["Sensors.Delete"]"
+                             data-testid="@($"delete-{sensor.Id}")" />
+            </td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  </MudPaper>
+}

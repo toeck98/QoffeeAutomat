@@ -4,12 +4,44 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#17424F" />
   <title>QoffeeAutomat</title>
   <base href="/" />
+  <!-- Icons come from assets/brand/ and are served by the agent; nothing is loaded from another host. -->
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="icon" type="image/png" href="icon.png" />
+  <link rel="apple-touch-icon" href="icon@2x.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+  <link rel="stylesheet" href="_content/QoffeeAutomat.Ui.Components/qoffeeautomat.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <!-- Filled in by the build with the file names of the framework files (fingerprinted, all local). -->
+  <link rel="preload" id="webassembly" />
+  <script type="importmap"></script>
 </head>
 
 <body>
-  <div id="app">Loading...</div>
+  <div id="app">
+    <div class="app-loading">
+      <img src="icon.svg" alt="" width="64" height="64" />
+      <p>QoffeeAutomat</p>
+    </div>
+  </div>
+
+  <div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss" role="button" aria-label="Dismiss">×</a>
+  </div>
+
+  <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+  <!-- Monaco, the editor of the PowerShell code, ships inside the BlazorMonaco package and is served by the agent. -->
+  <script src="_content/BlazorMonaco/jsInterop.js"></script>
+  <script src="_content/BlazorMonaco/lib/monaco-editor/min/vs/loader.js"></script>
+  <script src="_content/QoffeeAutomat.Ui.Components/monaco-config.js"></script>
+  <script src="_content/BlazorMonaco/lib/monaco-editor/min/vs/editor/editor.main.js"></script>
   <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

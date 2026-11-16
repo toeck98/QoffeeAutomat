@@ -1,0 +1,84 @@
+@using System.Text.Json
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+@inject IBrowserInterop Browser
+
+@* What Home Assistant will show for the command, and the YAML of an action that calls it with variables. *@
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="ha-preview">
+  <MudText Typo="Typo.h6" Class="mb-2">@L["Editor.Preview.Title"]</MudText>
+
+  @if (Entity is { } entity)
+  {
+    <div data-testid="ha-entity" data-platform="@entity.Platform">
+      <MudText Typo="Typo.subtitle1" data-testid="ha-entity-text">@L.Format("Editor.Preview.Entity." + entity.Platform, entity.Name, entity.Parameter ?? string.Empty)</MudText>
+      @if (entity.Options.Count > 0)
+      {
+        <MudText Typo="Typo.body2" data-testid="ha-entity-options">@L.Format("Editor.Preview.Options", string.Join(", ", entity.Options))</MudText>
+      }
+      @if (entity.Min is not null || entity.Max is not null)
+      {
+        <MudText Typo="Typo.body2" data-testid="ha-entity-range">@L.Format("Editor.Preview.Range", Format(entity.Min), Format(entity.Max), Format(entity.Step))</MudText>
+      }
+      <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="ha-entity-state">
+        @(entity.IsOptimistic ? L["Editor.Preview.Optimistic"] : L.Format("Editor.Preview.StateFrom", entity.StateMetric ?? string.Empty))
+      </MudText>
+    </div>
+  }
+  else
+  {
+    <MudText Color="Color.Secondary" data-testid="ha-no-entity">@NoEntityText</MudText>
+  }
+
+  <MudDivider Class="my-3" />
+  <div class="qa-card-header">
+    <MudText Typo="Typo.subtitle2">@L["Editor.Preview.Yaml"]</MudText>
+    <MudButton Size="Size.Small"
+               Variant="Variant.Outlined"
+               StartIcon="@Icons.Material.Filled.ContentCopy"
+               OnClick="CopyAsync"
+               data-testid="copy-yaml">@L["Editor.Preview.Copy"]</MudButton>
+  </div>
+  <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">@L["Editor.Preview.Yaml.Help"]</MudText>
+  <pre class="qa-yaml" data-testid="ha-yaml">@Yaml</pre>
+  @if (_copied is { } copied)
+  {
+    <MudText Typo="Typo.caption" Color="@(copied ? Color.Success : Color.Error)" role="status" data-testid="copy-result">@(copied ? L["Editor.Preview.Copied"] : L["Editor.Preview.CopyFailed"])</MudText>
+  }
+</MudPaper>
+
+@code {
+  private bool? _copied;
+
+  /// <summary>The command as it is drafted.</summary>
+  [Parameter]
+  [EditorRequired]
+  public CommandDocument Document { get; set; } = null!;
+
+  /// <summary>Variable values that were entered in the test panel; they replace the examples in the YAML.</summary>
+  [Parameter]
+  public IReadOnlyDictionary<string, JsonElement>? Entered { get; set; }
+
+  private HaEntityPreview? Entity => HaPreview.Entity(Document);
+
+  private string Yaml => HaPreview.Snippet(Document, Entered);
+
+  private string NoEntityText
+  {
+    get
+    {
+      if (Document.HaControl is null || Document.HaControl.Type == HaControlTypes.None)
+      {
+        return L["Editor.Preview.NoEntity"];
+      }
+
+      return Document.Enabled ? L["Editor.Preview.Hidden"] : L["Editor.Preview.Disabled"];
+    }
+  }
+
+  private string Format(double? value) => value?.ToString("G", L.Culture) ?? "–";
+
+  private async Task CopyAsync()
+  {
+    _copied = await Browser.CopyTextAsync(Yaml);
+  }
+}

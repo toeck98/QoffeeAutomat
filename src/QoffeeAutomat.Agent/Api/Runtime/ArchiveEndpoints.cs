@@ -46,6 +46,12 @@ public static class ArchiveEndpoints
             .TakesFile(ZipContentType)
             .Returns<ConfigImportResult>()
             .Fails(StatusCodes.Status400BadRequest, StatusCodes.Status413PayloadTooLarge, ApiResults.UnprocessableContent);
+        api.MapPost("/config/import/preview", PreviewAsync)
+            .Describe(Tag, "previewImportConfig", "Validates a zip file made by the export and tells what an import would do to each item. Nothing is changed; an invalid archive is answered with valid false and the errors.")
+            .Query("settings", "boolean", "True also reads the settings; they belong to one PC, so the default is false.")
+            .TakesFile(ZipContentType)
+            .Returns<ConfigImportPreview>()
+            .Fails(StatusCodes.Status400BadRequest, StatusCodes.Status413PayloadTooLarge);
         api.MapGet("/diagnostics", DiagnosticsAsync)
             .Describe("Diagnostics", "downloadDiagnostics", "Downloads a zip file with redacted settings, versions, counters and the recent log lines. It contains no token, password hash or private key.")
             .ReturnsFile(ZipContentType);
@@ -124,6 +130,80 @@ public static class ArchiveEndpoints
         return ApiResults.Json(
             new ConfigImportResult(commands, sensors, scripts, metrics > 0, appliedSettings > 0),
             ApiJsonContext.Default.ConfigImportResult);
+    }
+
+    private static async Task<IResult> PreviewAsync(HttpContext context, IConfigStore config, bool? settings, CancellationToken cancellationToken)
+    {
+        (byte[]? bytes, IResult? failure) = await ApiResults.ReadBytesAsync(context.Request, MaxImportBytes, cancellationToken).ConfigureAwait(false);
+        if (bytes is null)
+        {
+            return failure!;
+        }
+
+        if (bytes.Length == 0)
+        {
+            return ApiResults.Problem(StatusCodes.Status400BadRequest, "bad_request", "The request body is empty. Send the zip file that the export made.");
+        }
+
+        // The same reading and validation as the import, and nothing is written: only the effective view is read.
+        ArchiveReadResult read = ConfigArchive.Read(bytes, settings ?? false, config.Effective);
+        if (read.Contents is not { } contents)
+        {
+            ApiValidationError[] errors = [.. read.Errors.Select(error => new ApiValidationError(error.Path, error.Code, error.Message))];
+            return ApiResults.Json(new ConfigImportPreview(false, [], errors), ApiJsonContext.Default.ConfigImportPreview);
+        }
+
+        IConfigView view = config.Effective;
+        var items = new List<ImportPreviewItem>();
+        foreach (CommandDocument command in contents.Commands)
+        {
+            CommandDocument? stored = view.GetDocument<CommandDocument>(command.Id);
+            items.Add(new ImportPreviewItem("command", command.Id, Change(stored is null, stored is not null && Same(ApiDocuments.Normalize(command), ApiDocuments.Normalize(stored), ConfigJsonContext.Default.CommandDocument))));
+        }
+
+        foreach (SensorDocument sensor in contents.Sensors)
+        {
+            SensorDocument? stored = view.GetDocument<SensorDocument>(sensor.Id);
+            items.Add(new ImportPreviewItem("sensor", sensor.Id, Change(stored is null, stored is not null && Same(ApiDocuments.Normalize(sensor), ApiDocuments.Normalize(stored), ConfigJsonContext.Default.SensorDocument))));
+        }
+
+        foreach (ArchiveScript script in contents.Scripts)
+        {
+            ScriptFile? stored = await view.GetScriptAsync(script.Name, cancellationToken).ConfigureAwait(false);
+            items.Add(new ImportPreviewItem("script", script.Name, Change(stored is null, stored is not null && string.Equals(stored.Content, script.Content, StringComparison.Ordinal))));
+        }
+
+        if (contents.Metrics is { } metrics)
+        {
+            MetricOverridesDocument? stored = view.GetDocument<MetricOverridesDocument>(ConfigIds.MetricOverrides);
+            items.Add(new ImportPreviewItem("metrics", ConfigIds.MetricOverrides, Change(stored is null, stored is not null && Same(Strip(metrics), Strip(stored), ConfigJsonContext.Default.MetricOverridesDocument))));
+        }
+
+        if (contents.Settings is { } importedSettings)
+        {
+            AgentSettingsDocument? stored = view.GetDocument<AgentSettingsDocument>(ConfigIds.Settings);
+            items.Add(new ImportPreviewItem("settings", ConfigIds.Settings, Change(stored is null, stored is not null && Same(Strip(importedSettings), Strip(stored), ConfigJsonContext.Default.AgentSettingsDocument))));
+        }
+
+        return ApiResults.Json(new ConfigImportPreview(true, items, []), ApiJsonContext.Default.ConfigImportPreview);
+    }
+
+    private static string Change(bool isNew, bool unchanged)
+    {
+        return isNew ? "new" : unchanged ? "unchanged" : "changed";
+    }
+
+    // The members that the store owns (revision, time, origin) differ between an archive and the disk without a real change.
+    private static MetricOverridesDocument Strip(MetricOverridesDocument document) =>
+        document with { SchemaVersion = DocumentSchema.CurrentVersion, Revision = null, UpdatedAt = null, Origin = null };
+
+    private static AgentSettingsDocument Strip(AgentSettingsDocument document) =>
+        document with { SchemaVersion = DocumentSchema.CurrentVersion, Revision = null, UpdatedAt = null, Origin = null };
+
+    private static bool Same<T>(T left, T right, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo)
+    {
+        // The documents hold lists, so record equality would compare references; the JSON text is the comparison.
+        return string.Equals(JsonSerializer.Serialize(left, typeInfo), JsonSerializer.Serialize(right, typeInfo), StringComparison.Ordinal);
     }
 
     private static async Task<IResult> DiagnosticsAsync(

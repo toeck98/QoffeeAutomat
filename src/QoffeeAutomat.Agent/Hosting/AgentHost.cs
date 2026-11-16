@@ -90,6 +90,9 @@ public static class AgentHost
         // below /api/v1 needs a session except the documented ones, and the pairing endpoint of QoffeeLink
         // needs only a one-time code.
         app.UseMiddleware<RemoteAccessGate>();
+
+        // The web UI (T401): static files behind the gate, so other PCs get them only while remote UI is on.
+        UiHosting.UseFiles(app);
         app.UseAuthentication();
         app.UseAuthorization();
         ManagementApi.MapEndpoints(app);
@@ -98,6 +101,10 @@ public static class AgentHost
         // QoffeeLink (T210): the WebSocket endpoint authenticates the bearer token itself, before the upgrade.
         app.UseWebSockets(LinkEndpoint.CreateWebSocketOptions(app.Services.GetRequiredService<LinkOptions>()));
         LinkEndpoint.Map(app);
+
+        // Client routes of the single-page UI answer with index.html; mapped last, it has the lowest order and never
+        // shadows /api, /link or /healthz.
+        UiHosting.MapFallback(app);
         return app;
     }
 
@@ -135,6 +142,7 @@ public static class AgentHost
         services.AddSingleton<AgentUptime>();
         services.AddHostedService(provider => provider.GetRequiredService<AgentUptime>());
         services.AddSingleton<OpenApiDocumentProvider>();
+        services.TryAddSingleton<IAgentRestarter, HostAgentRestarter>();
 
         services.AddHostedService<ConfigLoadService>();
         WindowsHostIntegration.ConfigureServicesAfterConfigLoad(services, platform);

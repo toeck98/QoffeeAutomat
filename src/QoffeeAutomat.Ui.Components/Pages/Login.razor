@@ -1,0 +1,100 @@
+@page "/login"
+@layout AuthLayout
+@inherits LocalizedComponentBase
+@inject SessionState Session
+@inject NavigationManager Navigation
+
+<MudText Typo="Typo.h5" GutterBottom="true">@L["Login.Title"]</MudText>
+<MudText Class="mb-4">@L["Login.Intro"]</MudText>
+
+<ErrorDisplay Error="_error" Class="mb-4" />
+
+<form @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+  <MudTextField T="string"
+                @bind-Value="_password"
+                Label="@L["Login.Password"]"
+                InputType="InputType.Password"
+                Immediate="true"
+                AutoFocus="true"
+                Class="mb-2" />
+  @if (_validation is not null)
+  {
+    <MudText Color="Color.Error" Typo="Typo.caption" data-testid="validation-message">@_validation</MudText>
+  }
+  <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="_busy" Class="mt-4">
+    @L["Login.Submit"]
+  </MudButton>
+</form>
+
+@if (_setupAvailable)
+{
+  <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="mt-4" data-testid="setup-hint">
+    <MudLink Href="setup">@L["Login.SetupAvailable"]</MudLink>
+  </MudAlert>
+}
+
+@code {
+  private string? _password;
+  private string? _validation;
+  private ApiException? _error;
+  private bool _busy;
+  private bool _setupAvailable;
+
+  /// <summary>The page the user wanted before the session guard sent them here.</summary>
+  [Parameter]
+  [SupplyParameterFromQuery(Name = "returnUrl")]
+  public string? ReturnUrl { get; set; }
+
+  protected override async Task OnInitializedAsync()
+  {
+    try
+    {
+      SignInStatus status = await Session.RefreshAsync();
+      if (status == SignInStatus.SignedIn)
+      {
+        Navigation.NavigateTo(ReturnTarget.Resolve(ReturnUrl), replace: true);
+        return;
+      }
+
+      // A reset of the password writes a new setup token; the old password keeps working until it is used.
+      _setupAvailable = status == SignInStatus.SetupRequired;
+    }
+    catch (ApiException exception)
+    {
+      _error = exception;
+    }
+  }
+
+  private async Task SubmitAsync()
+  {
+    if (_busy)
+    {
+      return;
+    }
+
+    _error = null;
+    _validation = null;
+    if (string.IsNullOrEmpty(_password))
+    {
+      _validation = L["Login.PasswordRequired"];
+      return;
+    }
+
+    _busy = true;
+    try
+    {
+      await Session.LogInAsync(_password);
+      _password = null;
+      Navigation.NavigateTo(ReturnTarget.Resolve(ReturnUrl), replace: true);
+    }
+    catch (ApiException exception)
+    {
+      _error = exception;
+      _password = null;
+    }
+    finally
+    {
+      _busy = false;
+    }
+  }
+}

@@ -1,0 +1,134 @@
+@page "/link"
+@using QoffeeAutomat.Ui.Components.Pages.Dashboard
+@inherits LocalizedComponentBase
+
+@* The Home Assistant link (PLAN.md T406): pairing with a one-time code, the paired clients with revoke, and the switch for
+   the announcement on the local network. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@L["Link.Title"]</MudText>
+  <MudButton Variant="Variant.Filled"
+             Color="Color.Primary"
+             StartIcon="@Icons.Material.Filled.Link"
+             OnClick="PairAsync"
+             data-testid="link-pair">@L["Link.Pair"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Link.Intro"]</MudText>
+
+@if (_actionError is not null)
+{
+  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="action-failed">@_actionFailure</MudAlert>
+  <ErrorDisplay Error="_actionError" Class="mb-4" />
+}
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="notice">@_notice</MudAlert>
+}
+
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="link-instructions">
+  <MudText Typo="Typo.h6" Class="mb-2">@L["Link.Instructions.Title"]</MudText>
+  <ol>
+    <li>@L["Link.Instructions.Step1"]</li>
+    <li>@L["Link.Instructions.Step2"]</li>
+    <li>@L["Link.Instructions.Step3"]</li>
+    <li>@L["Link.Instructions.Step4"]</li>
+  </ol>
+  @if (_linkPort is { } port)
+  {
+    <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="link-port">@L.Format("Link.Instructions.Port", port)</MudText>
+  }
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="link-zeroconf">
+  <ErrorDisplay Error="_settingsError" OnRetry="ReloadSettingsAsync" Class="mb-2" />
+  @if (_settings is not null)
+  {
+    <span data-testid="zeroconf-switch" data-checked="@(IsZeroconf ? "true" : "false")">
+      <MudSwitch @key="ZeroconfKey"
+                 T="bool"
+                 Value="IsZeroconf"
+                 ValueChanged="SetZeroconfAsync"
+                 Color="Color.Primary"
+                 Disabled="_savingSettings"
+                 Label="@L["Link.Zeroconf"]" />
+    </span>
+    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Link.Zeroconf.Help"]</MudText>
+  }
+</MudPaper>
+
+<MudText Typo="Typo.h6" Class="mb-2">@L["Link.Clients.Title"]</MudText>
+<ErrorDisplay Error="_listError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_clients.Count == 0)
+{
+  if (_listError is null)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="clients-none">@L["Link.Clients.None"]</MudText>
+    </MudPaper>
+  }
+}
+else
+{
+  <MudPaper Class="qa-card" Elevation="1">
+    <MudSimpleTable Dense="true" Hover="true" data-testid="client-table">
+      <thead>
+        <tr>
+          <th>@L["Link.Column.Name"]</th>
+          <th>@L["Link.Column.Kind"]</th>
+          <th>@L["Link.Column.Created"]</th>
+          <th>@L["Link.Column.LastSeen"]</th>
+          <th>@L["Link.Column.Connected"]</th>
+          <th>@L["Link.Column.Actions"]</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (LinkClientInfo client in _clients)
+        {
+          <tr @key="client.Id" data-testid="@($"client-{client.Id}")" data-connected="@(client.Connections > 0 ? "true" : "false")">
+            <td>
+              <div class="qa-command-name">@client.Name</div>
+              <div class="qa-muted"><code>@client.Id</code></div>
+            </td>
+            <td data-testid="@($"kind-{client.Id}")" data-value="@client.Kind">
+              <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">@KindText(client.Kind)</MudChip>
+            </td>
+            <td data-testid="@($"created-{client.Id}")">@DashboardFormat.LocalTime(client.CreatedAt, L.Culture)</td>
+            <td data-testid="@($"lastseen-{client.Id}")">
+              @if (client.LastSeenAt is { } seen)
+              {
+                @DashboardFormat.LocalTime(seen, L.Culture)
+              }
+              else
+              {
+                <span class="qa-muted">@L["Common.Never"]</span>
+              }
+            </td>
+            <td data-testid="@($"connected-{client.Id}")" data-connections="@client.Connections">
+              @if (client.Connections > 0)
+              {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Success">@L.Format("Link.Connected.Yes", client.Connections)</MudChip>
+              }
+              else
+              {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@L["Link.Connected.No"]</MudChip>
+              }
+            </td>
+            <td class="qa-row-actions">
+              <MudIconButton Icon="@Icons.Material.Filled.LinkOff"
+                             Size="Size.Small"
+                             Color="Color.Error"
+                             Disabled="IsBusy(client)"
+                             OnClick="@(() => RevokeAsync(client))"
+                             aria-label="@(L["Link.Revoke"] + ": " + client.Name)"
+                             title="@L["Link.Revoke"]"
+                             data-testid="@($"revoke-{client.Id}")" />
+            </td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  </MudPaper>
+}

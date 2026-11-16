@@ -1,0 +1,25 @@
+@using QoffeeAutomat.Contracts.Config
+
+@* The dialog around the run form (T403); the title is given by whoever shows the dialog. *@
+<MudDialog>
+  <DialogContent>
+    <RunCommandForm Command="Command" OnClose="CloseAsync" />
+  </DialogContent>
+</MudDialog>
+
+@code {
+  /// <summary>The dialog that shows this component.</summary>
+  [CascadingParameter]
+  private IMudDialogInstance MudDialog { get; set; } = null!;
+
+  /// <summary>The command to run.</summary>
+  [Parameter]
+  [EditorRequired]
+  public CommandDocument Command { get; set; } = null!;
+
+  private Task CloseAsync()
+  {
+    MudDialog.Close();
+    return Task.CompletedTask;
+  }
+}

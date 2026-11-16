@@ -1,0 +1,54 @@
+@page "/"
+@inherits LocalizedComponentBase
+
+<MudText Typo="Typo.h4" GutterBottom="true">@L["Dashboard.Title"]</MudText>
+
+<ErrorDisplay Error="_error" OnRetry="ReloadAsync" Class="mb-4" />
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else
+{
+  <MudGrid>
+    <MudItem xs="12" md="6">
+      <AgentStatusCard Status="_status" />
+    </MudItem>
+    <MudItem xs="12" md="6">
+      <LinkStatusCard Status="_status" Clients="_clients" />
+    </MudItem>
+    <MudItem xs="12">
+      <MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="metrics">
+        <div class="qa-card-header">
+          <MudText Typo="Typo.h6">@L["Dashboard.Metrics"]</MudText>
+          <span class="qa-live" data-testid="live-state" data-state="@LiveStateName">
+            <MudIcon Icon="@Icons.Material.Filled.FiberManualRecord" Size="Size.Small" Color="@LiveColor" />
+            @LiveText
+          </span>
+        </div>
+        @if (_tiles.Count == 0)
+        {
+          <MudText Color="Color.Secondary" data-testid="metrics-none">@L["Dashboard.Metrics.None"]</MudText>
+        }
+        else
+        {
+          <MudGrid>
+            @foreach (MetricTileModel tile in _tiles)
+            {
+              <MudItem xs="12" sm="6" md="4" @key="tile.Info.Id">
+                <MetricTile Tile="tile" HistoryMinutes="HistoryMinutes" />
+              </MudItem>
+            }
+          </MudGrid>
+        }
+      </MudPaper>
+    </MudItem>
+    <MudItem xs="12" lg="6">
+      <RecentRuns Runs="_runs" />
+    </MudItem>
+    <MudItem xs="12" lg="6">
+      <RecentEvents Events="_events" />
+    </MudItem>
+  </MudGrid>
+}

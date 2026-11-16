@@ -1,0 +1,219 @@
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The general data of a command (name, id, description, icon, run context) and its limits (timeout, concurrency,
+   cooldown, output). Every change tells the editor, which validates the draft after a short rest. *@
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="section-general">
+  <MudText Typo="Typo.h6" Class="mb-3">@L["Editor.General.Title"]</MudText>
+  <MudGrid Spacing="2">
+    <MudItem xs="12" md="6">
+      <div data-testid="field-name">
+        <MudTextField T="string"
+                      @bind-Value="Draft.Name"
+                      @bind-Value:after="NotifyAsync"
+                      Immediate="true"
+                      Label="@L["Editor.Field.Name"]"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Required="true"
+                      Error="@Errors.Has("/name")" />
+      </div>
+      <FieldError Errors="Errors" Path="/name" />
+    </MudItem>
+    <MudItem xs="12" md="6">
+      <div data-testid="field-id">
+        <MudTextField T="string"
+                      @bind-Value="Draft.Id"
+                      @bind-Value:after="NotifyAsync"
+                      Immediate="true"
+                      TextUpdateSuppression="false"
+                      Label="@L["Editor.Field.Id"]"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Disabled="@(!Draft.IsNew)"
+                      HelperText="@(Draft.IsNew ? L["Editor.Field.Id.Help"] : L["Editor.Field.Id.Fixed"])"
+                      Error="@Errors.Has("/id")"
+                      spellcheck="false" />
+      </div>
+      <FieldError Errors="Errors" Path="/id" />
+    </MudItem>
+    <MudItem xs="12">
+      <div data-testid="field-description">
+        <MudTextField T="string"
+                      @bind-Value="Draft.Description"
+                      @bind-Value:after="NotifyAsync"
+                      Immediate="true"
+                      Lines="2"
+                      Label="@L["Editor.Field.Description"]"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Error="@Errors.Has("/description")" />
+      </div>
+      <FieldError Errors="Errors" Path="/description" />
+    </MudItem>
+    <MudItem xs="12">
+      <MudText Typo="Typo.subtitle2">@L["Editor.Field.Icon"]</MudText>
+      <div class="qa-icon-picker" role="group" aria-label="@L["Editor.Field.Icon"]" data-testid="icon-picker">
+        <MudIconButton Icon="@Icons.Material.Filled.Block"
+                       Size="Size.Small"
+                       Color="@(string.IsNullOrEmpty(Draft.Icon) ? Color.Primary : Color.Default)"
+                       OnClick="@(() => PickIconAsync(string.Empty))"
+                       aria-label="@L["Editor.Icon.None"]"
+                       title="@L["Editor.Icon.None"]"
+                       data-testid="icon-none" />
+        @foreach ((string name, string icon) in IconChoices)
+        {
+          <MudIconButton @key="name"
+                         Icon="@icon"
+                         Size="Size.Small"
+                         Color="@(string.Equals(Draft.Icon, name, StringComparison.Ordinal) ? Color.Primary : Color.Default)"
+                         OnClick="@(() => PickIconAsync(name))"
+                         aria-label="@name"
+                         title="@name"
+                         data-testid="@($"icon-{name}")" />
+        }
+      </div>
+      <div data-testid="field-icon">
+        <MudTextField T="string"
+                      @bind-Value="Draft.Icon"
+                      @bind-Value:after="NotifyAsync"
+                      Immediate="true"
+                      Label="@L["Editor.Field.IconName"]"
+                      HelperText="@L["Editor.Field.IconName.Help"]"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Error="@Errors.Has("/icon")"
+                      spellcheck="false" />
+      </div>
+      <FieldError Errors="Errors" Path="/icon" />
+    </MudItem>
+    <MudItem xs="12" md="6">
+      <MudSwitch T="bool" @bind-Value="Draft.Enabled" @bind-Value:after="NotifyAsync" Label="@L["Editor.Field.Enabled"]" Color="Color.Primary" data-testid="field-enabled" />
+    </MudItem>
+    <MudItem xs="12" md="6">
+      <MudSwitch T="bool" @bind-Value="Draft.ExposeToHa" @bind-Value:after="NotifyAsync" Label="@L["Editor.Field.Expose"]" Color="Color.Primary" data-testid="field-expose" />
+    </MudItem>
+    <MudItem xs="12">
+      <SelectBox Label="@L["Editor.Field.RunAs"]"
+                 @bind-Value="Draft.RunAs"
+                 @bind-Value:after="NotifyAsync"
+                 Error="@Errors.Has("/runAs")"
+                 TestId="field-runas">
+        <option value="@RunAsValues.System">@L["Commands.RunAs.System"]</option>
+        <option value="@RunAsValues.User">@L["Commands.RunAs.User"]</option>
+        <option value="@RunAsValues.UserElevated">@L["Commands.RunAs.UserElevated"]</option>
+      </SelectBox>
+      <FieldError Errors="Errors" Path="/runAs" />
+      <ul class="qa-runas-help" data-testid="runas-help">
+        <li data-testid="runas-help-system" data-selected="@Selected(RunAsValues.System)"><strong>@L["Commands.RunAs.System"]:</strong> @L["Editor.RunAs.System.Help"]</li>
+        <li data-testid="runas-help-user" data-selected="@Selected(RunAsValues.User)"><strong>@L["Commands.RunAs.User"]:</strong> @L["Editor.RunAs.User.Help"]</li>
+        <li data-testid="runas-help-user_elevated" data-selected="@Selected(RunAsValues.UserElevated)"><strong>@L["Commands.RunAs.UserElevated"]:</strong> @L["Editor.RunAs.UserElevated.Help"]</li>
+      </ul>
+      @if (Draft.RunAs == RunAsValues.UserElevated && Session is { Ready: true, UserIsAdministrator: false })
+      {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" data-testid="runas-not-admin">@L["Editor.RunAs.NotAdmin"]</MudAlert>
+      }
+    </MudItem>
+  </MudGrid>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="section-limits">
+  <MudText Typo="Typo.h6" Class="mb-3">@L["Editor.Limits.Title"]</MudText>
+  <MudGrid Spacing="2">
+    <MudItem xs="12" md="4">
+      <div data-testid="field-timeout">
+        <MudTextField T="string"
+                      @bind-Value="Draft.TimeoutText"
+                      @bind-Value:after="NotifyAsync"
+                      Immediate="true"
+                      InputType="InputType.Number"
+                      Label="@L["Editor.Field.Timeout"]"
+                      HelperText="@L["Editor.Field.Timeout.Help"]"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Error="@Errors.Has("/timeoutSeconds")" />
+      </div>
+      <FieldError Errors="Errors" Path="/timeoutSeconds" />
+    </MudItem>
+    <MudItem xs="12" md="4">
+      <SelectBox Label="@L["Editor.Field.Concurrency"]"
+                 @bind-Value="Draft.Concurrency"
+                 @bind-Value:after="NotifyAsync"
+                 Error="@Errors.Has("/concurrency")"
+                 TestId="field-concurrency">
+        <option value="@ConcurrencyModes.Exclusive">@L["Editor.Concurrency.single"]</option>
+        <option value="@ConcurrencyModes.Queue">@L["Editor.Concurrency.queue"]</option>
+        <option value="@ConcurrencyModes.Parallel">@L["Editor.Concurrency.parallel"]</option>
+        <option value="@ConcurrencyModes.Restart">@L["Editor.Concurrency.restart"]</option>
+      </SelectBox>
+      <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="concurrency-help">@L["Editor.Concurrency." + Draft.Concurrency + ".Help"]</MudText>
+      <FieldError Errors="Errors" Path="/concurrency" />
+    </MudItem>
+    <MudItem xs="12" md="4">
+      <div data-testid="field-cooldown">
+        <MudTextField T="string"
+                      @bind-Value="Draft.CooldownText"
+                      @bind-Value:after="NotifyAsync"
+                      Immediate="true"
+                      InputType="InputType.Number"
+                      Label="@L["Editor.Field.Cooldown"]"
+                      HelperText="@L["Editor.Field.Cooldown.Help"]"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Error="@Errors.Has("/cooldownSeconds")" />
+      </div>
+      <FieldError Errors="Errors" Path="/cooldownSeconds" />
+    </MudItem>
+    <MudItem xs="12">
+      <MudSwitch T="bool" @bind-Value="Draft.CaptureOutput" @bind-Value:after="NotifyAsync" Label="@L["Editor.Field.Capture"]" Color="Color.Primary" data-testid="field-capture" />
+    </MudItem>
+  </MudGrid>
+</MudPaper>
+
+@code {
+  /// <summary>The icons that the picker offers: the Home Assistant name and the icon that stands for it here.</summary>
+  private static readonly (string Name, string Icon)[] IconChoices =
+  [
+    ("mdi:power", Icons.Material.Filled.PowerSettingsNew),
+    ("mdi:restart", Icons.Material.Filled.RestartAlt),
+    ("mdi:lock", Icons.Material.Filled.Lock),
+    ("mdi:volume-high", Icons.Material.Filled.VolumeUp),
+    ("mdi:monitor", Icons.Material.Filled.DesktopWindows),
+    ("mdi:television", Icons.Material.Filled.Tv),
+    ("mdi:laptop", Icons.Material.Filled.Laptop),
+    ("mdi:console", Icons.Material.Filled.Terminal),
+    ("mdi:cog", Icons.Material.Filled.Settings),
+    ("mdi:bell", Icons.Material.Filled.Notifications),
+    ("mdi:lightbulb", Icons.Material.Filled.Lightbulb),
+    ("mdi:play", Icons.Material.Filled.PlayArrow),
+    ("mdi:stop", Icons.Material.Filled.Stop),
+    ("mdi:folder-open", Icons.Material.Filled.FolderOpen),
+  ];
+
+  /// <summary>The draft.</summary>
+  [Parameter]
+  [EditorRequired]
+  public CommandDraft Draft { get; set; } = null!;
+
+  /// <summary>The problems of the draft.</summary>
+  [Parameter]
+  public DraftErrors Errors { get; set; } = DraftErrors.Empty;
+
+  /// <summary>The session of the PC, to warn when the user is no administrator; <c>null</c> when it is not known.</summary>
+  [Parameter]
+  public SessionStatus? Session { get; set; }
+
+  /// <summary>Raised after every change of the draft.</summary>
+  [Parameter]
+  public EventCallback OnChanged { get; set; }
+
+  private string Selected(string runAs) => Draft.RunAs == runAs ? "true" : "false";
+
+  private Task NotifyAsync() => OnChanged.InvokeAsync();
+
+  private Task PickIconAsync(string name)
+  {
+    Draft.Icon = name;
+    return NotifyAsync();
+  }
+}

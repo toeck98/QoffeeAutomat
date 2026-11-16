@@ -1,0 +1,113 @@
+@using BlazorMonaco
+@using BlazorMonaco.Editor
+@inherits LocalizedComponentBase
+
+@* The editor of PowerShell code: Monaco from the BlazorMonaco package (served by the agent, no CDN), or a text area when
+   Monaco is switched off, which is how a component test runs without a browser. *@
+@if (Options.UseMonaco)
+{
+  <div class="qa-code-editor" data-testid="code-editor" data-editor="monaco" role="group" aria-label="@Label">
+    <StandaloneCodeEditor @ref="_editor"
+                          Id="@_id"
+                          CssClass="qa-monaco"
+                          ConstructionOptions="CreateOptions"
+                          OnDidInit="OnInitAsync"
+                          OnDidChangeModelContent="OnContentChangedAsync" />
+  </div>
+}
+else
+{
+  <div data-testid="code-editor" data-editor="text">
+    <MudTextField T="string"
+                  Value="Value"
+                  ValueChanged="OnTextChangedAsync"
+                  Immediate="true"
+                  Lines="@Lines"
+                  Label="@Label"
+                  Variant="MudBlazor.Variant.Outlined"
+                  Margin="MudBlazor.Margin.Dense"
+                  Class="qa-code-text"
+                  spellcheck="false" />
+  </div>
+}
+
+@code {
+  private readonly string _id = "qa-monaco-" + Guid.NewGuid().ToString("N");
+  private StandaloneCodeEditor? _editor;
+  private string _known = string.Empty;
+  private bool _ready;
+
+  [Inject]
+  private CommandEditorOptions Options { get; set; } = null!;
+
+  /// <summary>The code.</summary>
+  [Parameter]
+  public string Value { get; set; } = string.Empty;
+
+  /// <summary>Raised with the code after every change.</summary>
+  [Parameter]
+  public EventCallback<string> ValueChanged { get; set; }
+
+  /// <summary>The language of the highlighting.</summary>
+  [Parameter]
+  public string Language { get; set; } = "powershell";
+
+  /// <summary>The label of the editor.</summary>
+  [Parameter]
+  public string? Label { get; set; }
+
+  /// <summary>The number of lines of the text area that replaces Monaco.</summary>
+  [Parameter]
+  public int Lines { get; set; } = 14;
+
+  /// <inheritdoc />
+  protected override async Task OnParametersSetAsync()
+  {
+    // The code was changed from outside (the button that writes the param block): the editor shows it.
+    if (_ready && _editor is not null && !string.Equals(Value, _known, StringComparison.Ordinal))
+    {
+      _known = Value;
+      await _editor.SetValue(Value);
+    }
+  }
+
+  private StandaloneEditorConstructionOptions CreateOptions(StandaloneCodeEditor editor)
+  {
+    _known = Value;
+    return new StandaloneEditorConstructionOptions
+    {
+      AutomaticLayout = true,
+      Language = Language,
+      Value = Value,
+      Theme = "vs",
+    };
+  }
+
+  private Task OnInitAsync()
+  {
+    _ready = true;
+    return Task.CompletedTask;
+  }
+
+  private async Task OnContentChangedAsync(ModelContentChangedEvent change)
+  {
+    if (_editor is null)
+    {
+      return;
+    }
+
+    string text = await _editor.GetValue();
+    if (string.Equals(text, _known, StringComparison.Ordinal))
+    {
+      return;
+    }
+
+    _known = text;
+    await ValueChanged.InvokeAsync(text);
+  }
+
+  private Task OnTextChangedAsync(string? text)
+  {
+    return ValueChanged.InvokeAsync(text ?? string.Empty);
+  }
+}

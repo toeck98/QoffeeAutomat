@@ -1,0 +1,86 @@
+@inherits LocalizedComponentBase
+
+<MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="agent-status">
+  <MudText Typo="Typo.h6" GutterBottom="true">@L["Dashboard.Agent"]</MudText>
+  @if (Status is null)
+  {
+    <MudText Color="Color.Secondary">@L["Common.Unavailable"]</MudText>
+  }
+  else
+  {
+    <dl class="qa-facts">
+      <dt>@L["Dashboard.Version"]</dt>
+      <dd data-testid="agent-version">@Status.Version</dd>
+      <dt>@L["Dashboard.Uptime"]</dt>
+      <dd data-testid="agent-uptime">@DashboardFormat.Uptime(Status.UptimeSeconds)</dd>
+      <dt>@L["Dashboard.Platform"]</dt>
+      <dd data-testid="agent-platform">@PlatformText</dd>
+      <dt>@L["Dashboard.Host"]</dt>
+      <dd data-testid="agent-host">@Status.Platform.Hostname</dd>
+      <dt>@L["Dashboard.SessionHost"]</dt>
+      <dd data-testid="agent-session">@SessionText</dd>
+      <dt>@L["Dashboard.State"]</dt>
+      <dd data-testid="agent-paused" data-paused="@(Status.Paused ? "true" : "false")">
+        <MudIcon Icon="@(Status.Paused ? Icons.Material.Filled.PauseCircle : Icons.Material.Filled.PlayCircle)"
+                 Color="@(Status.Paused ? Color.Warning : Color.Success)"
+                 Size="Size.Small" />
+        @(Status.Paused ? L["Dashboard.PausedYes"] : L["Dashboard.Running"])
+      </dd>
+      <dt>@L["Dashboard.ActiveRuns"]</dt>
+      <dd data-testid="agent-active-runs">@Status.ActiveRuns</dd>
+    </dl>
+    @if (Status.ConfigProblems > 0)
+    {
+      <MudAlert Severity="Severity.Warning" Variant="Variant.Text" Dense="true" data-testid="agent-config-problems">
+        @L.Format("Dashboard.ConfigProblems", Status.ConfigProblems)
+      </MudAlert>
+    }
+  }
+</MudPaper>
+
+@code {
+  /// <summary>The status; null while it is not known.</summary>
+  [Parameter]
+  public AgentStatus? Status { get; set; }
+
+  private string PlatformText => Status is null
+    ? string.Empty
+    : $"{Status.Platform.Kind} ({Status.Platform.Os} {Status.Platform.OsVersion}, {Status.Platform.Architecture})";
+
+  private string SessionText
+  {
+    get
+    {
+      if (Status is null)
+      {
+        return string.Empty;
+      }
+
+      SessionStatus session = Status.Session;
+      if (!session.Ready)
+      {
+        return string.IsNullOrEmpty(session.UserName)
+          ? L["Dashboard.SessionHost.NotReady"]
+          : $"{L["Dashboard.SessionHost.NotReady"]} ({session.UserName})";
+      }
+
+      var parts = new List<string> { L["Dashboard.SessionHost.Ready"] };
+      if (!string.IsNullOrEmpty(session.UserName))
+      {
+        parts.Add(session.UserName);
+      }
+
+      if (session.Locked)
+      {
+        parts.Add(L["Dashboard.SessionHost.Locked"]);
+      }
+
+      if (session.UserIsAdministrator)
+      {
+        parts.Add(L["Dashboard.SessionHost.Admin"]);
+      }
+
+      return string.Join(", ", parts);
+    }
+  }
+}

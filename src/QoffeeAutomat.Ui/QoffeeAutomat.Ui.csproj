@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
-  <!-- Thin Blazor WebAssembly shell that hosts the component library (D-015). -->
+  <!-- Thin Blazor WebAssembly shell that hosts the component library (D-015). It implements IAgentApi over
+       HttpClient and registers the services; every page lives in QoffeeAutomat.Ui.Components. The agent serves the
+       published files as static assets (T401). -->
+
+  <PropertyGroup>
+    <!-- German needs its ICU data; the data is bundled, nothing is fetched at run time (D-015). -->
+    <BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />

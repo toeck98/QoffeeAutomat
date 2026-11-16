@@ -98,8 +98,10 @@ jobs:
       - name: Build with warnings as errors
         run: dotnet build --no-restore --configuration Release -warnaserror
       - name: Test with coverage
+        # The browser smoke test (Category=E2E) needs the published agent and Chromium; the ui-e2e job runs it.
         run: >-
           dotnet test --no-build --configuration Release
+          --filter "Category!=E2E"
           --blame-hang-timeout 180s
           --collect:"XPlat Code Coverage"
           --results-directory TestResults
@@ -129,6 +131,56 @@ jobs:
         with:
           name: test-results-${{ matrix.os }}
           path: TestResults/
+          if-no-files-found: warn
+          retention-days: 14
+
+  ui-e2e:
+    # Browser smoke test of the UI (PLAN.md S14, T408): the published agent with the simulated platform, driven by headless
+    # Chromium through Playwright. Traces of a failed run are uploaded as an artifact.
+    name: ui smoke test
+    needs: changes
+    if: needs.changes.outputs.dotnet == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET (version from global.json) with NuGet cache
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            Directory.Packages.props
+            global.json
+      - name: Publish the agent
+        run: dotnet publish src/QoffeeAutomat.Agent -c Release -f net10.0 -o artifacts/agent
+      - name: Build the smoke test
+        run: dotnet build tests/QoffeeAutomat.Ui.E2E -c Release
+      - name: Install Chromium for Playwright
+        run: pwsh tests/QoffeeAutomat.Ui.E2E/bin/Release/net10.0/playwright.ps1 install chromium --with-deps
+      - name: Run the smoke test
+        env:
+          QOFFEE_E2E_AGENT_DIR: ${{ github.workspace }}/artifacts/agent
+        run: >-
+          dotnet test tests/QoffeeAutomat.Ui.E2E -c Release --no-build
+          --blame-hang-timeout 240s
+          --results-directory TestResults
+          --logger "trx;LogFileName=ui-e2e.trx"
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-traces
+          path: |
+            playwright-traces/
+            TestResults/
           if-no-files-found: warn
           retention-days: 14
 
@@ -168,7 +220,7 @@ jobs:
     name: dotnet ci passed
     # Require this job in the branch ruleset: it is green when the build passed or was
     # skipped because no relevant file changed, and red when anything failed.
-    needs: [changes, build, benchmark]
+    needs: [changes, build, ui-e2e, benchmark]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

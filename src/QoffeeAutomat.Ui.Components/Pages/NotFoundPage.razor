@@ -1,0 +1,13 @@
+@page "/{*path}"
+@inherits LocalizedComponentBase
+
+@* The catch-all route with the lowest precedence: every address that no page claims ends here. *@
+<MudText Typo="Typo.h5" GutterBottom="true">@L["NotFound.Title"]</MudText>
+<MudText Class="mb-4">@L["NotFound.Text"]</MudText>
+<MudLink Href="/">@L["Nav.Dashboard"]</MudLink>
+
+@code {
+  /// <summary>The path that matched nothing.</summary>
+  [Parameter]
+  public string? Path { get; set; }
+}

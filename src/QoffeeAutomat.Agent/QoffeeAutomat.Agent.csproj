@@ -18,9 +18,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Serves the published Blazor WebAssembly files of the UI (T401). -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
     <ProjectReference Include="..\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
     <ProjectReference Include="..\QoffeeAutomat.Platform.Simulated\QoffeeAutomat.Platform.Simulated.csproj" />
+    <!-- The UI is built and published with the agent: its files (the _framework folder, the icons, the MudBlazor assets
+         of the component library) become static web assets of the agent, so `dotnet publish` of the agent puts the whole
+         UI into wwwroot. Nothing of it is referenced from code. -->
+    <ProjectReference Include="..\QoffeeAutomat.Ui\QoffeeAutomat.Ui.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">

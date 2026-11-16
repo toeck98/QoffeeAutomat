@@ -1,0 +1,276 @@
+/* Styles of QoffeeAutomat.Ui.Components. Served as _content/QoffeeAutomat.Ui.Components/qoffeeautomat.css.
+   Colours come from the MudBlazor palette variables, so the light and the dark theme both work. */
+
+.qa-error-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.qa-muted {
+  color: var(--mud-palette-text-secondary);
+}
+
+.qa-appbar-logo {
+  border-radius: 4px;
+}
+
+.qa-auth {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100vh;
+  justify-content: center;
+}
+
+.qa-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.qa-auth-language {
+  display: flex;
+  justify-content: center;
+}
+
+.qa-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.qa-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--mud-palette-text-secondary);
+}
+
+.qa-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+}
+
+.qa-facts dt {
+  color: var(--mud-palette-text-secondary);
+}
+
+.qa-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.qa-tile-chart {
+  color: var(--mud-palette-primary);
+  height: 3rem;
+  margin-top: 0.5rem;
+}
+
+.qa-linechart {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.qa-command-name {
+  font-weight: 500;
+}
+
+.qa-row-actions {
+  white-space: nowrap;
+}
+
+.qa-run-field {
+  margin-bottom: 1rem;
+}
+
+.qa-run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.qa-run-panel {
+  margin-top: 1rem;
+}
+
+.qa-run-output {
+  background: var(--mud-palette-background-gray);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+  margin: 0;
+  max-height: 20rem;
+  min-height: 3rem;
+  overflow: auto;
+  padding: 0.5rem 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.qa-stderr {
+  color: var(--mud-palette-error);
+}
+
+/* History, logs and backup (T407) */
+.qa-log {
+  max-height: 32rem;
+}
+
+.qa-log-line {
+  display: block;
+}
+
+.qa-log-warning {
+  color: var(--mud-palette-warning);
+}
+
+.qa-log-error,
+.qa-log-critical {
+  color: var(--mud-palette-error);
+}
+
+.qa-log-trace,
+.qa-log-debug {
+  color: var(--mud-palette-text-secondary);
+}
+
+.qa-log-exception {
+  display: block;
+  padding-left: 2rem;
+}
+
+/* Command editor (T404) */
+.qa-editor-actions {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.qa-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.25rem 0;
+}
+
+.qa-select-label {
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.75rem;
+}
+
+.qa-select-input {
+  background: var(--mud-palette-surface);
+  border: 1px solid var(--mud-palette-lines-inputs);
+  border-radius: 4px;
+  color: var(--mud-palette-text-primary);
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+}
+
+.qa-select-error .qa-select-input {
+  border-color: var(--mud-palette-error);
+}
+
+.qa-icon-picker,
+.qa-chip-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.qa-runas-help {
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.qa-runas-help li[data-selected="true"] {
+  color: var(--mud-palette-text-primary);
+}
+
+.qa-code-toolbar,
+.qa-step-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.qa-code-editor {
+  border: 1px solid var(--mud-palette-lines-inputs);
+  border-radius: 4px;
+  height: 20rem;
+  overflow: hidden;
+}
+
+.qa-code-editor .qa-monaco,
+.qa-code-editor > div {
+  height: 100%;
+}
+
+.qa-code-text textarea {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+}
+
+.qa-param,
+.qa-step {
+  border: 1px solid var(--mud-palette-lines-default);
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+}
+
+.qa-yaml {
+  background: var(--mud-palette-background-gray);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+  margin: 0;
+  overflow: auto;
+  padding: 0.5rem 0.75rem;
+  white-space: pre;
+}
+
+.qa-number {
+  background: transparent;
+  border: 1px solid var(--mud-palette-lines-inputs);
+  border-radius: 4px;
+  color: inherit;
+  font: inherit;
+  padding: 0.25rem 0.5rem;
+  width: 6rem;
+}
+
+.qa-number[aria-invalid="true"] {
+  border-color: var(--mud-palette-error);
+}
+
+.qa-pairing-code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 2.25rem;
+  letter-spacing: 0.35rem;
+  margin: 0.5rem 0;
+  text-align: center;
+}
+
+.qa-fingerprint {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  word-break: break-all;
+}
+
+.qa-sensor-result {
+  margin-top: 0.5rem;
+}

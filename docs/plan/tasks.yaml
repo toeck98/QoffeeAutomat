@@ -1305,7 +1305,7 @@ tasks:
     verify:
       - "dotnet test tests/QoffeeAutomat.Ui.Tests"
       - "dotnet publish src/QoffeeAutomat.Agent -c Release"
-    status: todo
+    status: done
 
   - id: T402
     title: Build the dashboard
@@ -1330,7 +1330,7 @@ tasks:
       - "Leaving the page closes the stream (asserted in a component test through the fake API)."
     verify:
       - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Dashboard"
-    status: todo
+    status: done
 
   - id: T403
     title: Build the command list
@@ -1354,7 +1354,7 @@ tasks:
       - "The run form refuses values outside the parameter rules before sending and shows server-side validation errors next to the fields."
     verify:
       - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Commands"
-    status: todo
+    status: done
 
   - id: T404
     title: Build the command editor
@@ -1386,7 +1386,7 @@ tasks:
       - "The Monaco assets are served by the agent itself."
     verify:
       - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=CommandEditor"
-    status: todo
+    status: done
 
   - id: T405
     title: Build the metrics and sensors pages
@@ -1410,7 +1410,7 @@ tasks:
       - "Sensor types unsupported on the current platform are not offered."
     verify:
       - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Sensors"
-    status: todo
+    status: done
 
   - id: T406
     title: Build the Home Assistant link page
@@ -1433,7 +1433,7 @@ tasks:
       - "Revoking a client asks for confirmation and removes it from the list."
     verify:
       - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Link"
-    status: todo
+    status: done
 
   - id: T407
     title: Build settings, history, logs and backup pages
@@ -1457,7 +1457,7 @@ tasks:
       - "Import shows validation errors and applies nothing when any document is invalid."
     verify:
       - "dotnet test tests/QoffeeAutomat.Ui.Tests --filter Category=Settings"
-    status: todo
+    status: done
 
   - id: T408
     title: Add a browser smoke test for the UI
@@ -1480,7 +1480,7 @@ tasks:
       - "The smoke test passes headless in CI in under five minutes."
     verify:
       - "dotnet test tests/QoffeeAutomat.Ui.E2E"
-    status: todo
+    status: done
 
   # ─────────────────────── M5 Home Assistant integration ───────────────────────
   - id: T501

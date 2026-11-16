@@ -1,0 +1,59 @@
+@inherits LocalizedComponentBase
+
+<MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="recent-runs">
+  <MudText Typo="Typo.h6" GutterBottom="true">@L["Dashboard.Runs"]</MudText>
+  @if (Runs.Count == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="runs-none">@L["Dashboard.Runs.None"]</MudText>
+  }
+  else
+  {
+    <MudSimpleTable Dense="true" Hover="true">
+      <thead>
+        <tr>
+          <th>@L["Dashboard.Runs.Command"]</th>
+          <th>@L["Dashboard.Runs.Source"]</th>
+          <th>@L["Dashboard.Runs.Started"]</th>
+          <th>@L["Dashboard.Runs.Duration"]</th>
+          <th>@L["Dashboard.Runs.Result"]</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (RunSummary run in Runs)
+        {
+          <tr data-testid="@($"run-{run.Id}")">
+            <td>@run.Command</td>
+            <td>@run.Source</td>
+            <td>@DashboardFormat.LocalTime(run.StartedAt, L.Culture)</td>
+            <td>@DashboardFormat.Duration(run.DurationMs, L.Culture)</td>
+            <td data-result="@ResultKey(run)">@ResultText(run)</td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  }
+</MudPaper>
+
+@code {
+  /// <summary>The runs, newest first.</summary>
+  [Parameter]
+  public IReadOnlyList<RunSummary> Runs { get; set; } = [];
+
+  private static string ResultKey(RunSummary run) => run.State switch
+  {
+    "waiting" => "waiting",
+    "running" => "running",
+    _ => run.Succeeded ? "succeeded" : "failed",
+  };
+
+  private string ResultText(RunSummary run)
+  {
+    return ResultKey(run) switch
+    {
+      "waiting" => L["Dashboard.Runs.Waiting"],
+      "running" => L["Dashboard.Runs.Running"],
+      "succeeded" => L["Dashboard.Runs.Succeeded"],
+      _ => string.IsNullOrEmpty(run.ErrorCode) ? L["Dashboard.Runs.Failed"] : $"{L["Dashboard.Runs.Failed"]} ({run.ErrorCode})",
+    };
+  }
+}

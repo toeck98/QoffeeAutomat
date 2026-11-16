@@ -1,0 +1,29 @@
+@inherits LocalizedComponentBase
+@inject IBrowserInterop Browser
+
+<MudStack Row="true" Spacing="0" role="group" aria-label="@L["Nav.Language"]">
+  @foreach (string language in Localizer.SupportedLanguages)
+  {
+    string culture = language;
+    <MudButton Size="Size.Small"
+               Color="@(OnAppBar ? Color.Inherit : Color.Default)"
+               Variant="@(L.Language == culture ? Variant.Outlined : Variant.Text)"
+               OnClick="@(() => SelectAsync(culture))"
+               data-language="@culture">@culture.ToUpperInvariant()</MudButton>
+  }
+</MudStack>
+
+@code {
+  /// <summary>The key under which the chosen language is remembered in the browser.</summary>
+  public const string StorageKey = "qoffeeautomat.language";
+
+  /// <summary>True when the switch sits on the coloured app bar (inherits its text colour).</summary>
+  [Parameter]
+  public bool OnAppBar { get; set; }
+
+  private async Task SelectAsync(string language)
+  {
+    L.SetLanguage(language);
+    await Browser.SetStoredAsync(StorageKey, language);
+  }
+}

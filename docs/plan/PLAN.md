@@ -497,6 +497,9 @@ creating a document whose id exists returns 409.
 | `/settings` | Agent name, ports, remote UI, zeroconf, tray icon, logging, retention. |
 | `/config/export`, `/config/import` | Zip export of all documents and scripts (no secrets) and import with validation: the whole archive is validated before anything is written; items with the same id are replaced, settings are imported only on request (`?settings=true`). |
 | `/logs`, `/diagnostics` | Log tail and a redacted diagnostics bundle. |
+| `POST /config/import/preview` | Same body and `?settings=` query as the import; answers 200 with `{valid, items[{kind,id,change}], errors[]}` (`change` is `new`, `changed` or `unchanged`) and writes nothing. Used by the backup page (T407). |
+| `GET /config/revisions/{kind}/{id}`, `POST /config/revisions/{kind}/{id}/{revision}/restore` | Kept revisions of a command, sensor (`kind` is `command` or `sensor`) or the settings (`kind` `settings`, id `settings`), newest first, and the restore of one as a new revision (`If-Match` honoured). Used by the backup page (T407). |
+| `POST /agent/restart` | Answers 202 and restarts the agent a moment later, so that ports and remote UI take effect. Used by the settings page (T407). |
 
 Unauthenticated endpoints: `/healthz`, `/auth/setup` (only while the setup
 token file exists, that is until the first password is set or after

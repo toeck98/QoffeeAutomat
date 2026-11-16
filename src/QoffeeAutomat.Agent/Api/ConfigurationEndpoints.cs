@@ -18,5 +18,7 @@ public static class ConfigurationEndpoints
         SensorEndpoints.Map(api);
         MetricEndpoints.Map(api);
         SettingsAndStatusEndpoints.Map(api);
+        RevisionEndpoints.Map(api);
+        AgentEndpoints.Map(api);
     }
 }

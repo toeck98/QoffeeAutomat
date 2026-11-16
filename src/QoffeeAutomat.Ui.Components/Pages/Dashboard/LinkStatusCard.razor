@@ -1,0 +1,56 @@
+@inherits LocalizedComponentBase
+
+<MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="link-status">
+  <MudText Typo="Typo.h6" GutterBottom="true">@L["Dashboard.Link"]</MudText>
+  @if (Status is not null)
+  {
+    <dl class="qa-facts">
+      <dt>@L["Dashboard.Link.Paired"]</dt>
+      <dd data-testid="link-paired">@Status.Link.PairedClients</dd>
+      <dt>@L["Dashboard.Link.Connections"]</dt>
+      <dd data-testid="link-connections">@Status.Link.Connections</dd>
+    </dl>
+  }
+  @if (Clients.Count == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="link-none">@L["Dashboard.Link.NoClients"]</MudText>
+  }
+  else
+  {
+    <MudSimpleTable Dense="true" Hover="true">
+      <thead>
+        <tr>
+          <th>@L["Dashboard.Link.Client"]</th>
+          <th>@L["Dashboard.Link.State"]</th>
+          <th>@L["Dashboard.Link.LastSeen"]</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (LinkClientInfo client in Clients)
+        {
+          bool connected = client.Connections > 0;
+          <tr data-testid="@($"link-client-{client.Id}")" data-connected="@(connected ? "true" : "false")">
+            <td>@client.Name <span class="qa-muted">(@client.Kind)</span></td>
+            <td>
+              <MudIcon Icon="@(connected ? Icons.Material.Filled.Link : Icons.Material.Filled.LinkOff)"
+                       Color="@(connected ? Color.Success : Color.Default)"
+                       Size="Size.Small" />
+              @(connected ? L["Dashboard.Link.Connected"] : L["Dashboard.Link.Disconnected"])
+            </td>
+            <td>@(client.LastSeenAt is { } seen ? DashboardFormat.LocalTime(seen, L.Culture) : L["Common.Never"])</td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  }
+</MudPaper>
+
+@code {
+  /// <summary>The status with the link counters; null while it is not known.</summary>
+  [Parameter]
+  public AgentStatus? Status { get; set; }
+
+  /// <summary>The paired clients.</summary>
+  [Parameter]
+  public IReadOnlyList<LinkClientInfo> Clients { get; set; } = [];
+}

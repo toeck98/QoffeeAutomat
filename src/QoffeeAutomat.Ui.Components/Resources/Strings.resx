@@ -1,0 +1,711 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- English: the neutral language of the UI. Strings.de.resx must have exactly the same keys (a test checks this). -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="App.Name" xml:space="preserve"><value>QoffeeAutomat</value></data>
+  <data name="Nav.Dashboard" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Nav.Menu" xml:space="preserve"><value>Menu</value></data>
+  <data name="Nav.Language" xml:space="preserve"><value>Language</value></data>
+  <data name="Nav.SignOut" xml:space="preserve"><value>Sign out</value></data>
+
+  <data name="Common.Loading" xml:space="preserve"><value>Loading…</value></data>
+  <data name="Common.Retry" xml:space="preserve"><value>Try again</value></data>
+  <data name="Common.Unavailable" xml:space="preserve"><value>n/a</value></data>
+  <data name="Common.Never" xml:space="preserve"><value>never</value></data>
+  <data name="Common.On" xml:space="preserve"><value>on</value></data>
+  <data name="Common.Off" xml:space="preserve"><value>off</value></data>
+
+  <data name="Session.Checking" xml:space="preserve"><value>Checking the session…</value></data>
+
+  <data name="NotFound.Title" xml:space="preserve"><value>Page not found</value></data>
+  <data name="NotFound.Text" xml:space="preserve"><value>There is no page at this address.</value></data>
+
+  <data name="Setup.Title" xml:space="preserve"><value>First-run setup</value></data>
+  <data name="Setup.Intro" xml:space="preserve"><value>Set the password of this agent. Paste the setup token from the file secrets/setup-token.txt in the data directory of the agent.</value></data>
+  <data name="Setup.Token" xml:space="preserve"><value>Setup token</value></data>
+  <data name="Setup.Password" xml:space="preserve"><value>New password</value></data>
+  <data name="Setup.PasswordConfirm" xml:space="preserve"><value>Repeat the password</value></data>
+  <data name="Setup.Submit" xml:space="preserve"><value>Set password and sign in</value></data>
+  <data name="Setup.TokenRequired" xml:space="preserve"><value>Enter the setup token.</value></data>
+  <data name="Setup.PasswordRequired" xml:space="preserve"><value>Enter a password.</value></data>
+  <data name="Setup.Mismatch" xml:space="preserve"><value>The passwords do not match.</value></data>
+  <data name="Setup.HavePassword" xml:space="preserve"><value>I already have a password: sign in</value></data>
+
+  <data name="Login.Title" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Login.Intro" xml:space="preserve"><value>Sign in to manage this PC.</value></data>
+  <data name="Login.Password" xml:space="preserve"><value>Password</value></data>
+  <data name="Login.PasswordRequired" xml:space="preserve"><value>Enter the password.</value></data>
+  <data name="Login.Submit" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Login.SetupAvailable" xml:space="preserve"><value>A setup token is waiting. Set a new password instead.</value></data>
+
+  <data name="Error.network_error" xml:space="preserve"><value>The agent cannot be reached.</value></data>
+  <data name="Error.unauthorized" xml:space="preserve"><value>Your session has ended. Sign in again.</value></data>
+  <data name="Error.invalid_credentials" xml:space="preserve"><value>The password is wrong.</value></data>
+  <data name="Error.invalid_setup_token" xml:space="preserve"><value>The setup token is wrong.</value></data>
+  <data name="Error.locked_out" xml:space="preserve"><value>Too many failed attempts. Try again in {0} seconds.</value></data>
+  <data name="Error.remote_ui_disabled" xml:space="preserve"><value>The management UI is only available on the PC itself. Switch on remote UI in the agent settings to use it over the network.</value></data>
+  <data name="Error.setup_unavailable" xml:space="preserve"><value>First-run setup is not available: a password is already set.</value></data>
+  <data name="Error.validation_failed" xml:space="preserve"><value>The request has validation errors.</value></data>
+  <data name="Error.http" xml:space="preserve"><value>The agent answered with status {0}.</value></data>
+
+  <data name="Dashboard.Title" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Dashboard.Agent" xml:space="preserve"><value>Agent</value></data>
+  <data name="Dashboard.Version" xml:space="preserve"><value>Version</value></data>
+  <data name="Dashboard.Uptime" xml:space="preserve"><value>Uptime</value></data>
+  <data name="Dashboard.Platform" xml:space="preserve"><value>Platform</value></data>
+  <data name="Dashboard.Host" xml:space="preserve"><value>Host name</value></data>
+  <data name="Dashboard.SessionHost" xml:space="preserve"><value>Session host</value></data>
+  <data name="Dashboard.SessionHost.Ready" xml:space="preserve"><value>Ready</value></data>
+  <data name="Dashboard.SessionHost.NotReady" xml:space="preserve"><value>Not running</value></data>
+  <data name="Dashboard.SessionHost.Locked" xml:space="preserve"><value>locked</value></data>
+  <data name="Dashboard.SessionHost.Admin" xml:space="preserve"><value>administrator</value></data>
+  <data name="Dashboard.State" xml:space="preserve"><value>State</value></data>
+  <data name="Dashboard.Running" xml:space="preserve"><value>Running</value></data>
+  <data name="Dashboard.PausedYes" xml:space="preserve"><value>Paused: every run is rejected</value></data>
+  <data name="Dashboard.ActiveRuns" xml:space="preserve"><value>Active runs</value></data>
+  <data name="Dashboard.ConfigProblems" xml:space="preserve"><value>{0} configuration file(s) are skipped because they are invalid.</value></data>
+
+  <data name="Dashboard.Link" xml:space="preserve"><value>Home Assistant link</value></data>
+  <data name="Dashboard.Link.Paired" xml:space="preserve"><value>Paired clients</value></data>
+  <data name="Dashboard.Link.Connections" xml:space="preserve"><value>Open connections</value></data>
+  <data name="Dashboard.Link.NoClients" xml:space="preserve"><value>No client is paired yet.</value></data>
+  <data name="Dashboard.Link.Client" xml:space="preserve"><value>Client</value></data>
+  <data name="Dashboard.Link.State" xml:space="preserve"><value>Connection</value></data>
+  <data name="Dashboard.Link.Connected" xml:space="preserve"><value>Connected</value></data>
+  <data name="Dashboard.Link.Disconnected" xml:space="preserve"><value>Not connected</value></data>
+  <data name="Dashboard.Link.LastSeen" xml:space="preserve"><value>Last seen</value></data>
+
+  <data name="Dashboard.Metrics" xml:space="preserve"><value>Metrics</value></data>
+  <data name="Dashboard.Metrics.None" xml:space="preserve"><value>No numeric metric is enabled.</value></data>
+  <data name="Dashboard.Metrics.Live" xml:space="preserve"><value>Live</value></data>
+  <data name="Dashboard.Metrics.Connecting" xml:space="preserve"><value>Connecting…</value></data>
+  <data name="Dashboard.Metrics.Reconnecting" xml:space="preserve"><value>Reconnecting…</value></data>
+  <data name="Dashboard.Metrics.Paused" xml:space="preserve"><value>Not live (the page is hidden)</value></data>
+  <data name="Dashboard.ChartLabel" xml:space="preserve"><value>{0}, last {1} minutes</value></data>
+
+  <data name="Dashboard.Runs" xml:space="preserve"><value>Recent runs</value></data>
+  <data name="Dashboard.Runs.None" xml:space="preserve"><value>No command has run yet.</value></data>
+  <data name="Dashboard.Runs.Command" xml:space="preserve"><value>Command</value></data>
+  <data name="Dashboard.Runs.Source" xml:space="preserve"><value>Source</value></data>
+  <data name="Dashboard.Runs.Started" xml:space="preserve"><value>Started</value></data>
+  <data name="Dashboard.Runs.Duration" xml:space="preserve"><value>Duration</value></data>
+  <data name="Dashboard.Runs.Result" xml:space="preserve"><value>Result</value></data>
+  <data name="Dashboard.Runs.Waiting" xml:space="preserve"><value>Waiting</value></data>
+  <data name="Dashboard.Runs.Running" xml:space="preserve"><value>Running</value></data>
+  <data name="Dashboard.Runs.Succeeded" xml:space="preserve"><value>Succeeded</value></data>
+  <data name="Dashboard.Runs.Failed" xml:space="preserve"><value>Failed</value></data>
+
+  <data name="Dashboard.Events" xml:space="preserve"><value>Recent events</value></data>
+  <data name="Dashboard.Events.None" xml:space="preserve"><value>No event has been recorded yet.</value></data>
+  <data name="Dashboard.Events.Time" xml:space="preserve"><value>Time</value></data>
+  <data name="Dashboard.Events.Type" xml:space="preserve"><value>Event</value></data>
+  <data name="Dashboard.Events.Data" xml:space="preserve"><value>Data</value></data>
+
+  <data name="Nav.Commands" xml:space="preserve"><value>Commands</value></data>
+  <data name="Common.Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Common.Cancel" xml:space="preserve"><value>Cancel</value></data>
+
+  <data name="Error.invalid_vars" xml:space="preserve"><value>Some of the values are not valid for this command.</value></data>
+  <data name="Error.command_disabled" xml:space="preserve"><value>The command is switched off.</value></data>
+  <data name="Error.paused" xml:space="preserve"><value>The agent is paused, so no command can run now.</value></data>
+  <data name="Error.busy" xml:space="preserve"><value>The command is running already.</value></data>
+  <data name="Error.cooldown" xml:space="preserve"><value>The command ran a moment ago. Wait until its cooldown is over.</value></data>
+  <data name="Error.unknown_command" xml:space="preserve"><value>There is no command with this id (any more).</value></data>
+  <data name="Error.no_session" xml:space="preserve"><value>Nobody is signed in to the PC, so a command that needs a user session cannot run.</value></data>
+  <data name="Error.elevation_unavailable" xml:space="preserve"><value>The signed-in user is not an administrator, so the command cannot run elevated.</value></data>
+
+  <data name="Commands.Title" xml:space="preserve"><value>Commands</value></data>
+  <data name="Commands.None" xml:space="preserve"><value>There are no commands yet.</value></data>
+  <data name="Commands.NoMatch" xml:space="preserve"><value>No command matches the search and the filters.</value></data>
+  <data name="Commands.Count" xml:space="preserve"><value>{0} of {1} commands</value></data>
+
+  <data name="Commands.Filter.Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Commands.Filter.Any" xml:space="preserve"><value>All</value></data>
+  <data name="Commands.Filter.Enabled" xml:space="preserve"><value>State</value></data>
+  <data name="Commands.Filter.EnabledOnly" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Commands.Filter.DisabledOnly" xml:space="preserve"><value>Disabled</value></data>
+  <data name="Commands.Filter.Expose" xml:space="preserve"><value>Home Assistant</value></data>
+  <data name="Commands.Filter.ExposedOnly" xml:space="preserve"><value>Shown</value></data>
+  <data name="Commands.Filter.HiddenOnly" xml:space="preserve"><value>Hidden</value></data>
+  <data name="Commands.Filter.Action" xml:space="preserve"><value>Action</value></data>
+  <data name="Commands.Filter.RunAs" xml:space="preserve"><value>Runs as</value></data>
+  <data name="Commands.Filter.Clear" xml:space="preserve"><value>Clear filters</value></data>
+
+  <data name="Commands.Column.Command" xml:space="preserve"><value>Command</value></data>
+  <data name="Commands.Column.Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Commands.Column.Expose" xml:space="preserve"><value>In Home Assistant</value></data>
+  <data name="Commands.Column.Action" xml:space="preserve"><value>Action</value></data>
+  <data name="Commands.Column.RunAs" xml:space="preserve"><value>Runs as</value></data>
+  <data name="Commands.Column.LastRun" xml:space="preserve"><value>Last run</value></data>
+  <data name="Commands.Column.Actions" xml:space="preserve"><value>Actions</value></data>
+
+  <data name="Commands.Action.PowerShell" xml:space="preserve"><value>PowerShell</value></data>
+  <data name="Commands.Action.Process" xml:space="preserve"><value>Program</value></data>
+  <data name="Commands.Action.Builtin" xml:space="preserve"><value>Built-in</value></data>
+  <data name="Commands.Action.Sequence" xml:space="preserve"><value>Sequence</value></data>
+
+  <data name="Commands.RunAs.System" xml:space="preserve"><value>System</value></data>
+  <data name="Commands.RunAs.User" xml:space="preserve"><value>User session</value></data>
+  <data name="Commands.RunAs.UserElevated" xml:space="preserve"><value>User session, elevated</value></data>
+
+  <data name="Commands.Run" xml:space="preserve"><value>Run</value></data>
+  <data name="Commands.Run.Disabled" xml:space="preserve"><value>Switch the command on to run it</value></data>
+  <data name="Commands.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Commands.Duplicate" xml:space="preserve"><value>Duplicate</value></data>
+  <data name="Commands.Delete" xml:space="preserve"><value>Delete</value></data>
+
+  <data name="Commands.SaveFailed" xml:space="preserve"><value>{0} could not be saved. The switch is back to its saved state.</value></data>
+  <data name="Commands.DeleteFailed" xml:space="preserve"><value>{0} could not be deleted.</value></data>
+  <data name="Commands.DuplicateFailed" xml:space="preserve"><value>{0} could not be duplicated.</value></data>
+  <data name="Commands.Delete.Title" xml:space="preserve"><value>Delete command</value></data>
+  <data name="Commands.Delete.Message" xml:space="preserve"><value>Delete the command "{0}" ({1})? Its earlier revisions are kept, but Home Assistant loses the command at once.</value></data>
+  <data name="Commands.Deleted" xml:space="preserve"><value>{0} was deleted.</value></data>
+  <data name="Commands.CopyName" xml:space="preserve"><value>{0} (copy)</value></data>
+  <data name="Commands.Duplicated" xml:space="preserve"><value>{0} was created as {1}. The copy is switched off and hidden from Home Assistant until you switch it on.</value></data>
+
+  <data name="Commands.Run.Rejected" xml:space="preserve"><value>The agent did not accept the values marked below.</value></data>
+  <data name="Commands.Run.NoParameters" xml:space="preserve"><value>This command has no parameters.</value></data>
+  <data name="Commands.Run.Start" xml:space="preserve"><value>Run</value></data>
+  <data name="Commands.Run.Again" xml:space="preserve"><value>Run again</value></data>
+  <data name="Commands.Run.Output" xml:space="preserve"><value>Output</value></data>
+  <data name="Commands.Run.Running" xml:space="preserve"><value>Running…</value></data>
+  <data name="Commands.Run.WaitingForOutput" xml:space="preserve"><value>Waiting for output…</value></data>
+  <data name="Commands.Run.OutputClipped" xml:space="preserve"><value>The output is long; the rest is not shown here. The run history keeps it.</value></data>
+  <data name="Commands.Run.OutputTruncated" xml:space="preserve"><value>The agent cut the output of this run.</value></data>
+  <data name="Commands.Run.ConnectionLost" xml:space="preserve"><value>The connection to the output was lost. The run goes on at the agent; see the run history for its result.</value></data>
+  <data name="Commands.Run.Succeeded" xml:space="preserve"><value>The command finished successfully in {0}.</value></data>
+  <data name="Commands.Run.Failed" xml:space="preserve"><value>The command failed after {0}.</value></data>
+  <data name="Commands.Run.Details" xml:space="preserve"><value>Exit code: {0}, error code: {1}.</value></data>
+
+  <data name="Commands.Run.Hint.Range" xml:space="preserve"><value>{0} to {1}</value></data>
+  <data name="Commands.Run.Hint.AtLeast" xml:space="preserve"><value>At least {0}</value></data>
+  <data name="Commands.Run.Hint.AtMost" xml:space="preserve"><value>At most {0}</value></data>
+  <data name="Commands.Run.Hint.Step" xml:space="preserve"><value>in steps of {0}</value></data>
+  <data name="Commands.Run.Hint.MaxLength" xml:space="preserve"><value>Up to {0} characters</value></data>
+
+  <data name="Commands.Run.Error.Required" xml:space="preserve"><value>A value is required.</value></data>
+  <data name="Commands.Run.Error.NotANumber" xml:space="preserve"><value>Enter a number.</value></data>
+  <data name="Commands.Run.Error.NotAWholeNumber" xml:space="preserve"><value>Enter a whole number.</value></data>
+  <data name="Commands.Run.Error.BelowMinimum" xml:space="preserve"><value>The value must be at least {0}.</value></data>
+  <data name="Commands.Run.Error.AboveMaximum" xml:space="preserve"><value>The value must be at most {0}.</value></data>
+  <data name="Commands.Run.Error.NotOnStep" xml:space="preserve"><value>The value must be a multiple of {0}.</value></data>
+  <data name="Commands.Run.Error.TooLong" xml:space="preserve"><value>The text must have at most {0} characters.</value></data>
+  <data name="Commands.Run.Error.PatternMismatch" xml:space="preserve"><value>The text does not have the required form.</value></data>
+  <data name="Commands.Run.Error.NotAnOption" xml:space="preserve"><value>Choose one of the options.</value></data>
+  <data name="Commands.Run.Error.TypeMismatch" xml:space="preserve"><value>The value has the wrong type.</value></data>
+  <data name="Commands.Run.Error.Range" xml:space="preserve"><value>The value is outside the allowed range.</value></data>
+  <data name="Commands.Run.Error.Step" xml:space="preserve"><value>The value is not a multiple of the allowed step.</value></data>
+  <data name="Commands.Run.Error.TooLongHere" xml:space="preserve"><value>The text is too long.</value></data>
+
+  <data name="Commands.New" xml:space="preserve"><value>New command</value></data>
+
+  <data name="Editor.Title.New" xml:space="preserve"><value>New command</value></data>
+  <data name="Editor.Title.Edit" xml:space="preserve"><value>Edit command: {0}</value></data>
+  <data name="Editor.Back" xml:space="preserve"><value>Back to the list</value></data>
+  <data name="Editor.Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Editor.Saved" xml:space="preserve"><value>{0} was saved.</value></data>
+  <data name="Editor.NotFound" xml:space="preserve"><value>There is no command with this id (any more).</value></data>
+  <data name="Editor.Remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="Editor.Move.Up" xml:space="preserve"><value>Move up</value></data>
+  <data name="Editor.Move.Down" xml:space="preserve"><value>Move down</value></data>
+
+  <data name="Editor.Unsaved.Indicator" xml:space="preserve"><value>Unsaved changes</value></data>
+  <data name="Editor.Unsaved.Title" xml:space="preserve"><value>Leave without saving?</value></data>
+  <data name="Editor.Unsaved.Message" xml:space="preserve"><value>The command has changes that are not saved. If you leave now, they are lost.</value></data>
+  <data name="Editor.Unsaved.Leave" xml:space="preserve"><value>Leave</value></data>
+  <data name="Editor.Unsaved.Stay" xml:space="preserve"><value>Stay</value></data>
+
+  <data name="Editor.Validation.Title" xml:space="preserve"><value>Check by the agent</value></data>
+  <data name="Editor.Validation.None" xml:space="preserve"><value>The draft is checked while you type.</value></data>
+  <data name="Editor.Validation.Pending" xml:space="preserve"><value>Checking…</value></data>
+  <data name="Editor.Validation.Valid" xml:space="preserve"><value>The agent accepts this draft.</value></data>
+  <data name="Editor.Validation.Invalid" xml:space="preserve"><value>The agent found problems; they are marked at the fields.</value></data>
+  <data name="Editor.Validation.Failed" xml:space="preserve"><value>The draft could not be checked. Saving still checks it.</value></data>
+  <data name="Editor.Validation.Summary" xml:space="preserve"><value>{0} to fix before the command can be saved:</value></data>
+
+  <data name="Editor.Error.not_a_number" xml:space="preserve"><value>This is not a number.</value></data>
+  <data name="Editor.Error.invalid_json" xml:space="preserve"><value>This must be a JSON object, for example {"Name": "value"}.</value></data>
+  <data name="Editor.Error.already_exists" xml:space="preserve"><value>A command with this id exists already. Choose another id.</value></data>
+
+  <data name="Editor.General.Title" xml:space="preserve"><value>General</value></data>
+  <data name="Editor.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Editor.Field.Id" xml:space="preserve"><value>Id</value></data>
+  <data name="Editor.Field.Id.Help" xml:space="preserve"><value>Made from the name. You can change it until the command is saved; after that it is fixed.</value></data>
+  <data name="Editor.Field.Id.Fixed" xml:space="preserve"><value>The id of a saved command cannot change. Duplicate the command to get another id.</value></data>
+  <data name="Editor.Field.Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Editor.Field.Icon" xml:space="preserve"><value>Icon</value></data>
+  <data name="Editor.Field.IconName" xml:space="preserve"><value>Icon name</value></data>
+  <data name="Editor.Field.IconName.Help" xml:space="preserve"><value>Any Home Assistant icon, for example mdi:power.</value></data>
+  <data name="Editor.Icon.None" xml:space="preserve"><value>No icon</value></data>
+  <data name="Editor.Field.Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Editor.Field.Expose" xml:space="preserve"><value>Show in Home Assistant</value></data>
+  <data name="Editor.Field.RunAs" xml:space="preserve"><value>Runs as</value></data>
+  <data name="Editor.RunAs.System.Help" xml:space="preserve"><value>runs in the background as the service account of the agent, with no desktop. Use it for work that needs no user session, such as maintenance or network tasks.</value></data>
+  <data name="Editor.RunAs.User.Help" xml:space="preserve"><value>runs in the session of the user who is signed in, with the rights of that user and with access to the desktop. It fails with no_session when nobody is signed in.</value></data>
+  <data name="Editor.RunAs.UserElevated.Help" xml:space="preserve"><value>runs in the user's session with administrator rights. It only works when the signed-in user is an administrator; otherwise it fails with elevation_unavailable.</value></data>
+  <data name="Editor.RunAs.NotAdmin" xml:space="preserve"><value>The user who is signed in to this PC is not an administrator, so this command cannot run elevated now.</value></data>
+
+  <data name="Editor.Limits.Title" xml:space="preserve"><value>Limits</value></data>
+  <data name="Editor.Field.Timeout" xml:space="preserve"><value>Timeout (seconds)</value></data>
+  <data name="Editor.Field.Timeout.Help" xml:space="preserve"><value>1 to 86400. A run that takes longer is stopped with its child processes.</value></data>
+  <data name="Editor.Field.Concurrency" xml:space="preserve"><value>If it is already running</value></data>
+  <data name="Editor.Concurrency.single" xml:space="preserve"><value>Refuse the new run</value></data>
+  <data name="Editor.Concurrency.queue" xml:space="preserve"><value>Queue the new run</value></data>
+  <data name="Editor.Concurrency.parallel" xml:space="preserve"><value>Run in parallel</value></data>
+  <data name="Editor.Concurrency.restart" xml:space="preserve"><value>Stop the old run and start again</value></data>
+  <data name="Editor.Concurrency.single.Help" xml:space="preserve"><value>A new run is refused while one is running.</value></data>
+  <data name="Editor.Concurrency.queue.Help" xml:space="preserve"><value>A new run waits until the running one is done.</value></data>
+  <data name="Editor.Concurrency.parallel.Help" xml:space="preserve"><value>Runs may overlap.</value></data>
+  <data name="Editor.Concurrency.restart.Help" xml:space="preserve"><value>A new run cancels the running one.</value></data>
+  <data name="Editor.Field.Cooldown" xml:space="preserve"><value>Cooldown (seconds)</value></data>
+  <data name="Editor.Field.Cooldown.Help" xml:space="preserve"><value>How long to wait after a run before the next one is accepted; 0 for none.</value></data>
+  <data name="Editor.Field.Capture" xml:space="preserve"><value>Capture the output (stdout and stderr)</value></data>
+
+  <data name="Editor.Action.Title" xml:space="preserve"><value>Action</value></data>
+  <data name="Editor.Action.Type" xml:space="preserve"><value>What the command does</value></data>
+  <data name="Editor.Action.Unknown" xml:space="preserve"><value>This version does not know the action type "{0}". Choose a type to replace it.</value></data>
+  <data name="Editor.Ps.Source" xml:space="preserve"><value>Code</value></data>
+  <data name="Editor.Ps.Source.Inline" xml:space="preserve"><value>Written here (stored in the command)</value></data>
+  <data name="Editor.Ps.Source.File" xml:space="preserve"><value>A script file at the agent</value></data>
+  <data name="Editor.Ps.Engine" xml:space="preserve"><value>PowerShell</value></data>
+  <data name="Editor.Ps.Engine.Auto" xml:space="preserve"><value>Automatic (pwsh if installed)</value></data>
+  <data name="Editor.Ps.Engine.Pwsh" xml:space="preserve"><value>PowerShell 7 (pwsh)</value></data>
+  <data name="Editor.Ps.Engine.PowerShell" xml:space="preserve"><value>Windows PowerShell 5.1</value></data>
+  <data name="Editor.Ps.Code" xml:space="preserve"><value>PowerShell code</value></data>
+  <data name="Editor.Ps.ParamBlock" xml:space="preserve"><value>Write param() block</value></data>
+  <data name="Editor.Ps.ParamBlock.Help" xml:space="preserve"><value>Inserts a param() block for the parameters below, or updates the one that is in the code.</value></data>
+  <data name="Editor.Ps.Script" xml:space="preserve"><value>Script file</value></data>
+  <data name="Editor.Ps.Script.Help" xml:space="preserve"><value>The name of a file in the scripts folder of the agent. The script declares a param() block for the parameters.</value></data>
+  <data name="Editor.Process.File" xml:space="preserve"><value>Program</value></data>
+  <data name="Editor.Process.Args" xml:space="preserve"><value>Arguments</value></data>
+  <data name="Editor.Process.Args.Help" xml:space="preserve"><value>One argument per line. Write a parameter as {{Name}}; its value replaces it and is never split into several arguments.</value></data>
+  <data name="Editor.Process.Directory" xml:space="preserve"><value>Working directory</value></data>
+  <data name="Editor.Process.Wait" xml:space="preserve"><value>Wait for the program to end</value></data>
+  <data name="Editor.Builtin.Name" xml:space="preserve"><value>Built-in action</value></data>
+  <data name="Editor.Builtin.Name.Help" xml:space="preserve"><value>The name of an action of the platform, for example power.shutdown.</value></data>
+  <data name="Editor.Sequence.Step" xml:space="preserve"><value>Step {0}</value></data>
+  <data name="Editor.Sequence.Command" xml:space="preserve"><value>Command to run</value></data>
+  <data name="Editor.Sequence.Choose" xml:space="preserve"><value>Choose a command</value></data>
+  <data name="Editor.Sequence.Vars" xml:space="preserve"><value>Variables</value></data>
+  <data name="Editor.Sequence.Vars.Help" xml:space="preserve"><value>Optional, as a JSON object, for example {"Profile": "TV-Mode"}.</value></data>
+  <data name="Editor.Sequence.Delay" xml:space="preserve"><value>Wait (seconds)</value></data>
+  <data name="Editor.Sequence.AddCommand" xml:space="preserve"><value>Add a command</value></data>
+  <data name="Editor.Sequence.AddDelay" xml:space="preserve"><value>Add a wait</value></data>
+  <data name="Editor.Sequence.OnError" xml:space="preserve"><value>When a step fails</value></data>
+  <data name="Editor.Sequence.OnError.Stop" xml:space="preserve"><value>Stop the sequence</value></data>
+  <data name="Editor.Sequence.OnError.Continue" xml:space="preserve"><value>Go on with the next step</value></data>
+
+  <data name="Editor.Params.Title" xml:space="preserve"><value>Parameters</value></data>
+  <data name="Editor.Params.Help" xml:space="preserve"><value>The variables of a run. The agent checks every value against these rules, whoever starts the command.</value></data>
+  <data name="Editor.Params.None" xml:space="preserve"><value>This command has no parameters.</value></data>
+  <data name="Editor.Params.Add" xml:space="preserve"><value>Add a parameter</value></data>
+  <data name="Editor.Params.Row" xml:space="preserve"><value>Parameter {0}</value></data>
+  <data name="Editor.Params.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Editor.Params.Type" xml:space="preserve"><value>Type</value></data>
+  <data name="Editor.Param.Type.string" xml:space="preserve"><value>Text</value></data>
+  <data name="Editor.Param.Type.int" xml:space="preserve"><value>Whole number</value></data>
+  <data name="Editor.Param.Type.float" xml:space="preserve"><value>Decimal number</value></data>
+  <data name="Editor.Param.Type.bool" xml:space="preserve"><value>Yes or no</value></data>
+  <data name="Editor.Param.Type.enum" xml:space="preserve"><value>Choice</value></data>
+  <data name="Editor.Params.Required" xml:space="preserve"><value>Required</value></data>
+  <data name="Editor.Params.Secret" xml:space="preserve"><value>Secret</value></data>
+  <data name="Editor.Params.Min" xml:space="preserve"><value>Minimum</value></data>
+  <data name="Editor.Params.Max" xml:space="preserve"><value>Maximum</value></data>
+  <data name="Editor.Params.Step" xml:space="preserve"><value>Step</value></data>
+  <data name="Editor.Params.Pattern" xml:space="preserve"><value>Pattern</value></data>
+  <data name="Editor.Params.Pattern.Help" xml:space="preserve"><value>A regular expression that the whole value must match.</value></data>
+  <data name="Editor.Params.MaxLength" xml:space="preserve"><value>Longest text</value></data>
+  <data name="Editor.Params.Options" xml:space="preserve"><value>Options</value></data>
+  <data name="Editor.Params.Options.Help" xml:space="preserve"><value>One option per line.</value></data>
+  <data name="Editor.Params.Default" xml:space="preserve"><value>Default</value></data>
+  <data name="Editor.Params.Default.None" xml:space="preserve"><value>No default</value></data>
+  <data name="Editor.Params.Unit" xml:space="preserve"><value>Unit</value></data>
+  <data name="Editor.Params.Description" xml:space="preserve"><value>Description</value></data>
+
+  <data name="Editor.Ha.Title" xml:space="preserve"><value>Home Assistant control</value></data>
+  <data name="Editor.Ha.Help" xml:space="preserve"><value>Which entity Home Assistant gets for this command. Only the controls that the parameters allow are offered.</value></data>
+  <data name="Editor.Ha.Type" xml:space="preserve"><value>Control</value></data>
+  <data name="Editor.Ha.Type.none" xml:space="preserve"><value>None</value></data>
+  <data name="Editor.Ha.Type.button" xml:space="preserve"><value>Button</value></data>
+  <data name="Editor.Ha.Type.switch" xml:space="preserve"><value>Switch</value></data>
+  <data name="Editor.Ha.Type.select" xml:space="preserve"><value>Select</value></data>
+  <data name="Editor.Ha.Type.number" xml:space="preserve"><value>Number</value></data>
+  <data name="Editor.Ha.Type.text" xml:space="preserve"><value>Text</value></data>
+  <data name="Editor.Ha.Help.none" xml:space="preserve"><value>No entity. The command can only be called with the action qoffeeautomat.run_command.</value></data>
+  <data name="Editor.Ha.Help.button" xml:space="preserve"><value>Pressing the button runs the command with the defaults. It needs every required parameter to have a default.</value></data>
+  <data name="Editor.Ha.Help.switch" xml:space="preserve"><value>On runs the command with true, off with false. It needs a yes-or-no parameter.</value></data>
+  <data name="Editor.Ha.Help.select" xml:space="preserve"><value>Choosing an option runs the command with it. It needs a choice parameter.</value></data>
+  <data name="Editor.Ha.Help.number" xml:space="preserve"><value>Setting a value runs the command with it. It needs a whole or decimal number parameter.</value></data>
+  <data name="Editor.Ha.Help.text" xml:space="preserve"><value>Setting a text runs the command with it. It needs a text parameter.</value></data>
+  <data name="Editor.Ha.Invalid" xml:space="preserve"><value>The parameters no longer allow this control. Choose another one or change the parameters.</value></data>
+  <data name="Editor.Ha.Parameter" xml:space="preserve"><value>Parameter that the control sets</value></data>
+  <data name="Editor.Ha.Parameter.Choose" xml:space="preserve"><value>Choose a parameter</value></data>
+  <data name="Editor.Ha.StateMetric" xml:space="preserve"><value>Metric that reports the real state</value></data>
+  <data name="Editor.Ha.StateMetric.None" xml:space="preserve"><value>None (Home Assistant assumes the state)</value></data>
+  <data name="Editor.Ha.StateMetric.Help" xml:space="preserve"><value>Only metrics with a fitting type are offered. Without one the entity is optimistic.</value></data>
+
+  <data name="Editor.Test.Title" xml:space="preserve"><value>Test</value></data>
+  <data name="Editor.Test.Help" xml:space="preserve"><value>Runs the draft as it is on screen, without saving it. The run appears in the history as a test run.</value></data>
+  <data name="Editor.Test.Start" xml:space="preserve"><value>Test run</value></data>
+  <data name="Editor.Test.NoValue" xml:space="preserve"><value>No value</value></data>
+  <data name="Editor.Test.DraftRejected" xml:space="preserve"><value>The draft cannot be run yet. The problems are marked in the editor.</value></data>
+
+  <data name="Editor.Preview.Title" xml:space="preserve"><value>Home Assistant preview</value></data>
+  <data name="Editor.Preview.NoEntity" xml:space="preserve"><value>This command makes no entity. It can only be called with the action below.</value></data>
+  <data name="Editor.Preview.Hidden" xml:space="preserve"><value>The entity appears when the command is shown in Home Assistant.</value></data>
+  <data name="Editor.Preview.Disabled" xml:space="preserve"><value>The entity appears when the command is enabled.</value></data>
+  <data name="Editor.Preview.Entity.button" xml:space="preserve"><value>A button "{0}". Pressing it runs the command with the defaults.</value></data>
+  <data name="Editor.Preview.Entity.switch" xml:space="preserve"><value>A switch "{0}". On and off run the command with {1} set to true or false.</value></data>
+  <data name="Editor.Preview.Entity.select" xml:space="preserve"><value>A select "{0}". Choosing an option runs the command with {1} set to it.</value></data>
+  <data name="Editor.Preview.Entity.number" xml:space="preserve"><value>A number "{0}". Setting a value runs the command with {1} set to it.</value></data>
+  <data name="Editor.Preview.Entity.text" xml:space="preserve"><value>A text "{0}". Setting a text runs the command with {1} set to it.</value></data>
+  <data name="Editor.Preview.Options" xml:space="preserve"><value>Options: {0}</value></data>
+  <data name="Editor.Preview.Range" xml:space="preserve"><value>Range: {0} to {1}, step {2}</value></data>
+  <data name="Editor.Preview.Optimistic" xml:space="preserve"><value>No state metric: Home Assistant assumes the state after a run.</value></data>
+  <data name="Editor.Preview.StateFrom" xml:space="preserve"><value>The state comes from the metric {0}.</value></data>
+  <data name="Editor.Preview.Yaml" xml:space="preserve"><value>Call it from an automation</value></data>
+  <data name="Editor.Preview.Yaml.Help" xml:space="preserve"><value>Replace the device with the one of this PC. Values that you enter in the test are used here.</value></data>
+  <data name="Editor.Preview.Copy" xml:space="preserve"><value>Copy</value></data>
+  <data name="Editor.Preview.Copied" xml:space="preserve"><value>Copied.</value></data>
+  <data name="Editor.Preview.CopyFailed" xml:space="preserve"><value>The browser did not allow copying. Select the text and copy it by hand.</value></data>
+
+  <data name="Nav.Metrics" xml:space="preserve"><value>Metrics</value></data>
+  <data name="Nav.Sensors" xml:space="preserve"><value>Sensors</value></data>
+  <data name="Nav.Link" xml:space="preserve"><value>Home Assistant</value></data>
+
+  <data name="Metrics.Title" xml:space="preserve"><value>Metrics</value></data>
+  <data name="Metrics.ToSensors" xml:space="preserve"><value>Custom sensors</value></data>
+  <data name="Metrics.Intro" xml:space="preserve"><value>The values of this PC by provider. A metric is only sampled while somebody looks at it, here or in Home Assistant. Changes are saved at once.</value></data>
+  <data name="Metrics.None" xml:space="preserve"><value>The agent has no metrics.</value></data>
+  <data name="Metrics.Column.Metric" xml:space="preserve"><value>Metric</value></data>
+  <data name="Metrics.Column.Value" xml:space="preserve"><value>Value now</value></data>
+  <data name="Metrics.Column.Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Metrics.Column.Expose" xml:space="preserve"><value>Show in Home Assistant</value></data>
+  <data name="Metrics.Column.Interval" xml:space="preserve"><value>Interval</value></data>
+  <data name="Metrics.Column.Deadband" xml:space="preserve"><value>Deadband</value></data>
+  <data name="Metrics.Unit.Seconds" xml:space="preserve"><value>s</value></data>
+  <data name="Metrics.Interval.EventDriven" xml:space="preserve"><value>Event-driven</value></data>
+  <data name="Metrics.Error.Number" xml:space="preserve"><value>Enter a number that is zero or more.</value></data>
+  <data name="Metrics.Privacy.Chip" xml:space="preserve"><value>Privacy</value></data>
+  <data name="Metrics.Privacy.Hint" xml:space="preserve"><value>This metric shows what you do or who you are. Switch it on and show it to Home Assistant only if you want everybody with access to Home Assistant to see it.</value></data>
+  <data name="Metrics.Custom.Hint" xml:space="preserve"><value>Custom sensor. Change it on the Sensors page.</value></data>
+  <data name="Metrics.SaveFailed" xml:space="preserve"><value>The change to {0} was not saved.</value></data>
+  <data name="Metrics.Group.cpu" xml:space="preserve"><value>Processor</value></data>
+  <data name="Metrics.Group.memory" xml:space="preserve"><value>Memory</value></data>
+  <data name="Metrics.Group.disk" xml:space="preserve"><value>Disks</value></data>
+  <data name="Metrics.Group.network" xml:space="preserve"><value>Network</value></data>
+  <data name="Metrics.Group.gpu" xml:space="preserve"><value>Graphics</value></data>
+  <data name="Metrics.Group.system" xml:space="preserve"><value>System</value></data>
+  <data name="Metrics.Group.session" xml:space="preserve"><value>Session</value></data>
+  <data name="Metrics.Group.audio" xml:space="preserve"><value>Audio</value></data>
+  <data name="Metrics.Group.display" xml:space="preserve"><value>Displays</value></data>
+  <data name="Metrics.Group.battery" xml:space="preserve"><value>Battery</value></data>
+  <data name="Metrics.Group.window" xml:space="preserve"><value>Active window</value></data>
+  <data name="Metrics.Group.custom" xml:space="preserve"><value>Custom sensors</value></data>
+  <data name="Metrics.Group.other" xml:space="preserve"><value>Other</value></data>
+
+  <data name="Sensors.Title" xml:space="preserve"><value>Custom sensors</value></data>
+  <data name="Sensors.Intro" xml:space="preserve"><value>Sensors that you define yourself. Each one appears as a metric and, when you want, as an entity in Home Assistant.</value></data>
+  <data name="Sensors.New" xml:space="preserve"><value>New sensor</value></data>
+  <data name="Sensors.None" xml:space="preserve"><value>There are no custom sensors yet.</value></data>
+  <data name="Sensors.Column.Sensor" xml:space="preserve"><value>Sensor</value></data>
+  <data name="Sensors.Column.Type" xml:space="preserve"><value>Source</value></data>
+  <data name="Sensors.Column.Value" xml:space="preserve"><value>Value now</value></data>
+  <data name="Sensors.Column.Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Sensors.Column.Expose" xml:space="preserve"><value>Show in Home Assistant</value></data>
+  <data name="Sensors.Column.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Sensors.Unsupported" xml:space="preserve"><value>Not supported on this platform</value></data>
+  <data name="Sensors.Disabled" xml:space="preserve"><value>disabled</value></data>
+  <data name="Sensors.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Sensors.Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Sensors.Delete.Title" xml:space="preserve"><value>Delete sensor?</value></data>
+  <data name="Sensors.Delete.Message" xml:space="preserve"><value>Delete the sensor {0} ({1})? Earlier versions are kept, but the metric disappears.</value></data>
+  <data name="Sensors.Deleted" xml:space="preserve"><value>The sensor {0} was deleted.</value></data>
+  <data name="Sensors.DeleteFailed" xml:space="preserve"><value>The sensor {0} could not be deleted.</value></data>
+  <data name="Sensors.Type.powershell" xml:space="preserve"><value>PowerShell script</value></data>
+  <data name="Sensors.Type.process_running" xml:space="preserve"><value>Process is running</value></data>
+  <data name="Sensors.Type.perf_counter" xml:space="preserve"><value>Performance counter</value></data>
+  <data name="Sensors.Type.cim_query" xml:space="preserve"><value>CIM query</value></data>
+  <data name="Sensors.Type.service_state" xml:space="preserve"><value>Service state</value></data>
+  <data name="Sensors.Type.state" xml:space="preserve"><value>Value set from outside</value></data>
+  <data name="Sensors.Type.powershell.Help" xml:space="preserve"><value>Runs a script. The last line of its output is the value.</value></data>
+  <data name="Sensors.Type.process_running.Help" xml:space="preserve"><value>True while a process with this name is running.</value></data>
+  <data name="Sensors.Type.perf_counter.Help" xml:space="preserve"><value>Reads a Windows performance counter.</value></data>
+  <data name="Sensors.Type.cim_query.Help" xml:space="preserve"><value>Reads a property of the first result of a Windows CIM query.</value></data>
+  <data name="Sensors.Type.service_state.Help" xml:space="preserve"><value>The state of a Windows service.</value></data>
+  <data name="Sensors.Type.state.Help" xml:space="preserve"><value>A value that is set from outside.</value></data>
+
+  <data name="Sensors.Title.New" xml:space="preserve"><value>New sensor</value></data>
+  <data name="Sensors.Title.Edit" xml:space="preserve"><value>Edit sensor: {0}</value></data>
+  <data name="Sensors.Editor.Back" xml:space="preserve"><value>Back to the list</value></data>
+  <data name="Sensors.Editor.Test" xml:space="preserve"><value>Test</value></data>
+  <data name="Sensors.Editor.Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Sensors.Editor.NotFound" xml:space="preserve"><value>There is no sensor with this id.</value></data>
+  <data name="Sensors.Editor.Validation.Summary" xml:space="preserve"><value>{0} to fix before the sensor can be saved:</value></data>
+  <data name="Sensors.Editor.General" xml:space="preserve"><value>General</value></data>
+  <data name="Sensors.Editor.Source" xml:space="preserve"><value>Where the value comes from</value></data>
+  <data name="Sensors.Editor.Ha" xml:space="preserve"><value>Value and Home Assistant</value></data>
+  <data name="Sensors.Editor.Ha.Help" xml:space="preserve"><value>Only values that Home Assistant accepts for the value type are offered.</value></data>
+  <data name="Sensors.Saved" xml:space="preserve"><value>The sensor {0} was saved.</value></data>
+  <data name="Sensors.Error.already_exists" xml:space="preserve"><value>A sensor with this id exists already. Choose another id.</value></data>
+  <data name="Sensors.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Sensors.Field.Id" xml:space="preserve"><value>Id</value></data>
+  <data name="Sensors.Field.Id.Help" xml:space="preserve"><value>Made from the name. You can change it until the sensor is saved; the metric is called custom.id.</value></data>
+  <data name="Sensors.Field.Id.Fixed" xml:space="preserve"><value>The id of a saved sensor cannot change.</value></data>
+  <data name="Sensors.Field.Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Sensors.Field.Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Sensors.Field.Expose" xml:space="preserve"><value>Show in Home Assistant</value></data>
+  <data name="Sensors.Field.Interval" xml:space="preserve"><value>Interval (seconds)</value></data>
+  <data name="Sensors.Field.Interval.Help" xml:space="preserve"><value>How often the sensor is read while somebody looks at it; empty for the default.</value></data>
+  <data name="Sensors.Field.Deadband" xml:space="preserve"><value>Deadband</value></data>
+  <data name="Sensors.Field.Deadband.Help" xml:space="preserve"><value>A new value is only published when it differs from the last one by at least this much.</value></data>
+  <data name="Sensors.Field.SourceType" xml:space="preserve"><value>Source</value></data>
+  <data name="Sensors.Field.ScriptSource" xml:space="preserve"><value>Code</value></data>
+  <data name="Sensors.ScriptSource.Inline" xml:space="preserve"><value>Written here (stored in the sensor)</value></data>
+  <data name="Sensors.ScriptSource.File" xml:space="preserve"><value>A script file at the agent</value></data>
+  <data name="Sensors.Field.ScriptFile" xml:space="preserve"><value>Script file</value></data>
+  <data name="Sensors.Field.ScriptFile.None" xml:space="preserve"><value>Choose a script</value></data>
+  <data name="Sensors.Field.Code" xml:space="preserve"><value>PowerShell code</value></data>
+  <data name="Sensors.Field.Code.Help" xml:space="preserve"><value>The last non-empty line of the output is the value.</value></data>
+  <data name="Sensors.Field.Engine" xml:space="preserve"><value>PowerShell</value></data>
+  <data name="Sensors.Engine.auto" xml:space="preserve"><value>Automatic (pwsh if installed)</value></data>
+  <data name="Sensors.Engine.pwsh" xml:space="preserve"><value>PowerShell 7 (pwsh)</value></data>
+  <data name="Sensors.Engine.powershell" xml:space="preserve"><value>Windows PowerShell 5.1</value></data>
+  <data name="Sensors.Field.Process" xml:space="preserve"><value>Process name</value></data>
+  <data name="Sensors.Field.Category" xml:space="preserve"><value>Counter category</value></data>
+  <data name="Sensors.Field.Counter" xml:space="preserve"><value>Counter</value></data>
+  <data name="Sensors.Field.Instance" xml:space="preserve"><value>Instance (optional)</value></data>
+  <data name="Sensors.Field.CimNamespace" xml:space="preserve"><value>CIM namespace</value></data>
+  <data name="Sensors.Field.CimClass" xml:space="preserve"><value>CIM class</value></data>
+  <data name="Sensors.Field.CimProperty" xml:space="preserve"><value>Property</value></data>
+  <data name="Sensors.Field.CimFilter" xml:space="preserve"><value>Filter (optional)</value></data>
+  <data name="Sensors.Field.Service" xml:space="preserve"><value>Service name</value></data>
+  <data name="Sensors.Field.ValueType" xml:space="preserve"><value>Value type</value></data>
+  <data name="Sensors.ValueType.number" xml:space="preserve"><value>Number</value></data>
+  <data name="Sensors.ValueType.string" xml:space="preserve"><value>Text</value></data>
+  <data name="Sensors.ValueType.bool" xml:space="preserve"><value>Yes or no (binary sensor)</value></data>
+  <data name="Sensors.ValueType.timestamp" xml:space="preserve"><value>Point in time</value></data>
+  <data name="Sensors.ValueType.enum" xml:space="preserve"><value>One of several options</value></data>
+  <data name="Sensors.Field.Unit" xml:space="preserve"><value>Unit</value></data>
+  <data name="Sensors.Field.DeviceClass" xml:space="preserve"><value>Device class</value></data>
+  <data name="Sensors.Field.StateClass" xml:space="preserve"><value>State class</value></data>
+  <data name="Sensors.Field.EntityCategory" xml:space="preserve"><value>Entity category</value></data>
+  <data name="Sensors.Field.Precision" xml:space="preserve"><value>Decimals</value></data>
+  <data name="Sensors.Field.Precision.Help" xml:space="preserve"><value>How many decimals Home Assistant shows.</value></data>
+  <data name="Sensors.Field.Options" xml:space="preserve"><value>Options</value></data>
+  <data name="Sensors.Field.Options.Help" xml:space="preserve"><value>One option per line. The value of the sensor must be one of them.</value></data>
+  <data name="Sensors.Field.None" xml:space="preserve"><value>None</value></data>
+  <data name="Sensors.Test.Title" xml:space="preserve"><value>Test</value></data>
+  <data name="Sensors.Test.Help" xml:space="preserve"><value>Reads the sensor once as it is on screen, without saving it, and shows the value that was understood.</value></data>
+  <data name="Sensors.Test.Running" xml:space="preserve"><value>Testing…</value></data>
+  <data name="Sensors.Test.Value" xml:space="preserve"><value>Value</value></data>
+  <data name="Sensors.Test.Duration" xml:space="preserve"><value>Read in {0} ms.</value></data>
+  <data name="Sensors.Test.Failed" xml:space="preserve"><value>The sensor produced no value:</value></data>
+
+  <data name="Link.Title" xml:space="preserve"><value>Home Assistant</value></data>
+  <data name="Link.Intro" xml:space="preserve"><value>Pair Home Assistant with this PC, see which clients are paired, and decide whether the PC announces itself on the network.</value></data>
+  <data name="Link.Pair" xml:space="preserve"><value>Pair</value></data>
+  <data name="Link.Instructions.Title" xml:space="preserve"><value>How to pair</value></data>
+  <data name="Link.Instructions.Step1" xml:space="preserve"><value>In Home Assistant, open Settings, Devices and services, and add the integration QoffeeAutomat.</value></data>
+  <data name="Link.Instructions.Step2" xml:space="preserve"><value>Choose this PC from the list, or enter its address and the link port.</value></data>
+  <data name="Link.Instructions.Step3" xml:space="preserve"><value>Compare the fingerprint that Home Assistant shows with the one in the pairing window.</value></data>
+  <data name="Link.Instructions.Step4" xml:space="preserve"><value>Enter the code from the pairing window before it expires.</value></data>
+  <data name="Link.Instructions.Port" xml:space="preserve"><value>The link port of this agent is {0}.</value></data>
+  <data name="Link.Zeroconf" xml:space="preserve"><value>Announce this PC on the local network</value></data>
+  <data name="Link.Zeroconf.Help" xml:space="preserve"><value>Home Assistant finds the PC by itself when this is on. Switch it off to pair by entering the address.</value></data>
+  <data name="Link.Zeroconf.SaveFailed" xml:space="preserve"><value>The setting was not saved.</value></data>
+  <data name="Link.Clients.Title" xml:space="preserve"><value>Paired clients</value></data>
+  <data name="Link.Clients.None" xml:space="preserve"><value>No client is paired yet.</value></data>
+  <data name="Link.Column.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Link.Column.Kind" xml:space="preserve"><value>Kind</value></data>
+  <data name="Link.Column.Created" xml:space="preserve"><value>Paired</value></data>
+  <data name="Link.Column.LastSeen" xml:space="preserve"><value>Last seen</value></data>
+  <data name="Link.Column.Connected" xml:space="preserve"><value>Connected</value></data>
+  <data name="Link.Column.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Link.Kind.homeassistant" xml:space="preserve"><value>Home Assistant</value></data>
+  <data name="Link.Kind.hub" xml:space="preserve"><value>Hub</value></data>
+  <data name="Link.Kind.tool" xml:space="preserve"><value>Tool</value></data>
+  <data name="Link.Connected.Yes" xml:space="preserve"><value>Connected ({0})</value></data>
+  <data name="Link.Connected.No" xml:space="preserve"><value>Not connected</value></data>
+  <data name="Link.Revoke" xml:space="preserve"><value>Revoke</value></data>
+  <data name="Link.Revoke.Title" xml:space="preserve"><value>Revoke client?</value></data>
+  <data name="Link.Revoke.Message" xml:space="preserve"><value>Revoke {0}? Its connections are closed at once, and it has to pair again to get access.</value></data>
+  <data name="Link.Revoked" xml:space="preserve"><value>{0} was revoked.</value></data>
+  <data name="Link.RevokeFailed" xml:space="preserve"><value>{0} could not be revoked.</value></data>
+  <data name="Link.Pairing.Title" xml:space="preserve"><value>Pair with Home Assistant</value></data>
+  <data name="Link.Pairing.Done" xml:space="preserve"><value>A client has paired.</value></data>
+  <data name="Link.Pairing.CodeLabel" xml:space="preserve"><value>Pairing code</value></data>
+  <data name="Link.Pairing.ExpiresIn" xml:space="preserve"><value>The code is valid for {0} more.</value></data>
+  <data name="Link.Pairing.Expired" xml:space="preserve"><value>The code has expired.</value></data>
+  <data name="Link.Pairing.Ended" xml:space="preserve"><value>The code is no longer valid.</value></data>
+  <data name="Link.Pairing.Paired" xml:space="preserve"><value>A client has paired.</value></data>
+  <data name="Link.Pairing.NewCode" xml:space="preserve"><value>New code</value></data>
+  <data name="Link.Fingerprint" xml:space="preserve"><value>Certificate fingerprint (SHA-256)</value></data>
+  <data name="Link.Fingerprint.Help" xml:space="preserve"><value>Home Assistant shows the same fingerprint. If they differ, do not enter the code.</value></data>
+
+  <data name="Nav.History" xml:space="preserve"><value>History</value></data>
+  <data name="Nav.Logs" xml:space="preserve"><value>Logs</value></data>
+  <data name="Nav.Backup" xml:space="preserve"><value>Backup</value></data>
+  <data name="Nav.Settings" xml:space="preserve"><value>Settings</value></data>
+  <data name="Common.Save" xml:space="preserve"><value>Save</value></data>
+
+  <data name="Settings.Title" xml:space="preserve"><value>Settings</value></data>
+  <data name="Settings.Intro" xml:space="preserve"><value>The settings of this agent. Changes to the ports and to remote UI take effect after the agent restarts.</value></data>
+  <data name="Settings.Name" xml:space="preserve"><value>Agent name</value></data>
+  <data name="Settings.Name.Help" xml:space="preserve"><value>The name that Home Assistant shows for this PC.</value></data>
+  <data name="Settings.LogLevel" xml:space="preserve"><value>Log level</value></data>
+  <data name="Settings.LogLevel.trace" xml:space="preserve"><value>Trace</value></data>
+  <data name="Settings.LogLevel.debug" xml:space="preserve"><value>Debug</value></data>
+  <data name="Settings.LogLevel.information" xml:space="preserve"><value>Information</value></data>
+  <data name="Settings.LogLevel.warning" xml:space="preserve"><value>Warning</value></data>
+  <data name="Settings.LogLevel.error" xml:space="preserve"><value>Error</value></data>
+  <data name="Settings.LogLevel.critical" xml:space="preserve"><value>Critical</value></data>
+  <data name="Settings.UiPort" xml:space="preserve"><value>UI port</value></data>
+  <data name="Settings.UiPort.Help" xml:space="preserve"><value>The port of this management UI on the PC itself (loopback). Needs a restart.</value></data>
+  <data name="Settings.LinkPort" xml:space="preserve"><value>Link port</value></data>
+  <data name="Settings.LinkPort.Help" xml:space="preserve"><value>The port that Home Assistant connects to (HTTPS). Needs a restart.</value></data>
+  <data name="Settings.RunHistoryDays" xml:space="preserve"><value>Keep run history (days)</value></data>
+  <data name="Settings.AuditLogDays" xml:space="preserve"><value>Keep audit log (days)</value></data>
+  <data name="Settings.Retention.Help" xml:space="preserve"><value>Empty uses the default.</value></data>
+  <data name="Settings.TrayIcon" xml:space="preserve"><value>Show the tray icon</value></data>
+  <data name="Settings.TrayIcon.Help" xml:space="preserve"><value>The icon in the notification area of the signed-in user.</value></data>
+  <data name="Settings.RemoteUi" xml:space="preserve"><value>Remote UI</value></data>
+  <data name="Settings.RemoteUi.Explanation" xml:space="preserve"><value>Off: this UI and the management API only answer on the PC itself. On: they also answer on the link port, so other devices in your network can open them. Every request still needs the password.</value></data>
+  <data name="Settings.RemoteUi.Warning" xml:space="preserve"><value>Only switch this on in a network that you trust, and use a strong password. Anyone who can reach the link port and knows the password can run the commands of this agent.</value></data>
+  <data name="Settings.Saved" xml:space="preserve"><value>The settings are saved.</value></data>
+  <data name="Settings.SaveFailed" xml:space="preserve"><value>The settings could not be saved.</value></data>
+  <data name="Settings.RestartRequired" xml:space="preserve"><value>Restart required: a port or the remote UI switch changed, and this takes effect only after the agent restarts.</value></data>
+  <data name="Settings.Restart" xml:space="preserve"><value>Restart the agent now</value></data>
+  <data name="Settings.Restarting" xml:space="preserve"><value>The agent is restarting. This page is unavailable for a moment; if you changed the UI port, open the UI on the new port.</value></data>
+  <data name="Settings.RestartFailed" xml:space="preserve"><value>The agent could not be restarted.</value></data>
+  <data name="Settings.Password.Title" xml:space="preserve"><value>Password</value></data>
+  <data name="Settings.Password.Help" xml:space="preserve"><value>Changing the password asks for the current one.</value></data>
+  <data name="Settings.Password.Current" xml:space="preserve"><value>Current password</value></data>
+  <data name="Settings.Password.New" xml:space="preserve"><value>New password</value></data>
+  <data name="Settings.Password.Repeat" xml:space="preserve"><value>Repeat the new password</value></data>
+  <data name="Settings.Password.Change" xml:space="preserve"><value>Change password</value></data>
+  <data name="Settings.Password.Missing" xml:space="preserve"><value>Enter the current and the new password.</value></data>
+  <data name="Settings.Password.Mismatch" xml:space="preserve"><value>The new passwords are not the same.</value></data>
+  <data name="Settings.Password.Changed" xml:space="preserve"><value>The password is changed.</value></data>
+  <data name="Settings.Password.Failed" xml:space="preserve"><value>The password could not be changed.</value></data>
+
+  <data name="History.Title" xml:space="preserve"><value>History</value></data>
+  <data name="History.Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="History.Runs.Title" xml:space="preserve"><value>Runs</value></data>
+  <data name="History.Runs.None" xml:space="preserve"><value>No runs match.</value></data>
+  <data name="History.Filter.Command" xml:space="preserve"><value>Command id</value></data>
+  <data name="History.Filter.Source" xml:space="preserve"><value>Source</value></data>
+  <data name="History.Filter.AnySource" xml:space="preserve"><value>Any source</value></data>
+  <data name="History.Filter.FailedOnly" xml:space="preserve"><value>Failed only</value></data>
+  <data name="History.Filter.Apply" xml:space="preserve"><value>Apply</value></data>
+  <data name="History.Filter.EventType" xml:space="preserve"><value>Event type</value></data>
+  <data name="History.Source.ha" xml:space="preserve"><value>Home Assistant</value></data>
+  <data name="History.Source.ui" xml:space="preserve"><value>UI</value></data>
+  <data name="History.Source.hub" xml:space="preserve"><value>Hub</value></data>
+  <data name="History.Source.cli" xml:space="preserve"><value>Command line</value></data>
+  <data name="History.Source.sequence" xml:space="preserve"><value>Sequence</value></data>
+  <data name="History.Source.test" xml:space="preserve"><value>Test run</value></data>
+  <data name="History.State.waiting" xml:space="preserve"><value>Waiting</value></data>
+  <data name="History.State.running" xml:space="preserve"><value>Running</value></data>
+  <data name="History.State.finished" xml:space="preserve"><value>Finished</value></data>
+  <data name="History.Column.Command" xml:space="preserve"><value>Command</value></data>
+  <data name="History.Column.Source" xml:space="preserve"><value>Source</value></data>
+  <data name="History.Column.Started" xml:space="preserve"><value>Started</value></data>
+  <data name="History.Column.Duration" xml:space="preserve"><value>Duration</value></data>
+  <data name="History.Column.Result" xml:space="preserve"><value>Result</value></data>
+  <data name="History.Column.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="History.Column.Time" xml:space="preserve"><value>Time</value></data>
+  <data name="History.Column.Type" xml:space="preserve"><value>Type</value></data>
+  <data name="History.Column.Data" xml:space="preserve"><value>Data</value></data>
+  <data name="History.Details" xml:space="preserve"><value>Details</value></data>
+  <data name="History.Previous" xml:space="preserve"><value>Newer</value></data>
+  <data name="History.Next" xml:space="preserve"><value>Older</value></data>
+  <data name="History.Detail.Title" xml:space="preserve"><value>Run of {0}</value></data>
+  <data name="History.Detail.Id" xml:space="preserve"><value>Run id</value></data>
+  <data name="History.Detail.State" xml:space="preserve"><value>State</value></data>
+  <data name="History.Detail.ExitCode" xml:space="preserve"><value>Exit code</value></data>
+  <data name="History.Detail.ErrorCode" xml:space="preserve"><value>Error code</value></data>
+  <data name="History.Detail.Client" xml:space="preserve"><value>Client</value></data>
+  <data name="History.Detail.User" xml:space="preserve"><value>Home Assistant user</value></data>
+  <data name="History.Detail.Parent" xml:space="preserve"><value>Started by run</value></data>
+  <data name="History.Detail.Variables" xml:space="preserve"><value>Variables</value></data>
+  <data name="History.Detail.NoVariables" xml:space="preserve"><value>This run had no variables.</value></data>
+  <data name="History.Detail.Output" xml:space="preserve"><value>Output</value></data>
+  <data name="History.Detail.NoOutput" xml:space="preserve"><value>There is no output.</value></data>
+  <data name="History.Detail.Errors" xml:space="preserve"><value>Error output</value></data>
+  <data name="History.Detail.Truncated" xml:space="preserve"><value>The output was cut because it was too long.</value></data>
+  <data name="History.Events.Title" xml:space="preserve"><value>Events</value></data>
+  <data name="History.Events.None" xml:space="preserve"><value>No events.</value></data>
+
+  <data name="Logs.Title" xml:space="preserve"><value>Logs</value></data>
+  <data name="Logs.Intro" xml:space="preserve"><value>The newest entries of the agent log, newest first. Secrets are never written to the log.</value></data>
+  <data name="Logs.Level" xml:space="preserve"><value>Lowest level</value></data>
+  <data name="Logs.Limit" xml:space="preserve"><value>Entries</value></data>
+  <data name="Logs.Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Logs.Follow" xml:space="preserve"><value>Follow</value></data>
+  <data name="Logs.None" xml:space="preserve"><value>No log entries.</value></data>
+
+  <data name="Backup.Title" xml:space="preserve"><value>Backup</value></data>
+  <data name="Backup.Intro" xml:space="preserve"><value>Export and import the configuration, go back to an earlier version of a document, and download a bundle for support.</value></data>
+  <data name="Backup.Export.Title" xml:space="preserve"><value>Export</value></data>
+  <data name="Backup.Export.Help" xml:space="preserve"><value>Downloads all commands, sensors, metric overrides, scripts and settings as one zip file. It contains no password, token or key.</value></data>
+  <data name="Backup.Export.Button" xml:space="preserve"><value>Download the configuration</value></data>
+  <data name="Backup.Export.Done" xml:space="preserve"><value>Downloaded {0}.</value></data>
+  <data name="Backup.Export.Failed" xml:space="preserve"><value>The configuration could not be exported.</value></data>
+  <data name="Backup.Import.Title" xml:space="preserve"><value>Import</value></data>
+  <data name="Backup.Import.Help" xml:space="preserve"><value>Choose a zip file from an export. You see what would change before anything is applied. Items with the same id are replaced.</value></data>
+  <data name="Backup.Import.IncludeSettings" xml:space="preserve"><value>Also import the settings</value></data>
+  <data name="Backup.Import.IncludeSettings.Help" xml:space="preserve"><value>The settings belong to one PC (name, ports), so they are not imported by default.</value></data>
+  <data name="Backup.Import.File" xml:space="preserve"><value>File: {0}</value></data>
+  <data name="Backup.Import.Invalid" xml:space="preserve"><value>The archive has errors.</value></data>
+  <data name="Backup.Import.Summary" xml:space="preserve"><value>{0} new, {1} changed, {2} unchanged.</value></data>
+  <data name="Backup.Import.NothingApplied" xml:space="preserve"><value>Nothing is applied while a document is invalid. Fix the archive and choose it again.</value></data>
+  <data name="Backup.Import.Apply" xml:space="preserve"><value>Apply the import</value></data>
+  <data name="Backup.Import.TooLarge" xml:space="preserve"><value>The file is larger than 32 MiB.</value></data>
+  <data name="Backup.Import.Unreadable" xml:space="preserve"><value>The file could not be read.</value></data>
+  <data name="Backup.Import.Done" xml:space="preserve"><value>Imported {0} commands, {1} sensors and {2} scripts.</value></data>
+  <data name="Backup.Import.Failed" xml:space="preserve"><value>The import failed.</value></data>
+  <data name="Backup.Column.Kind" xml:space="preserve"><value>Kind</value></data>
+  <data name="Backup.Column.Id" xml:space="preserve"><value>Id</value></data>
+  <data name="Backup.Column.Change" xml:space="preserve"><value>Change</value></data>
+  <data name="Backup.Column.Revision" xml:space="preserve"><value>Revision</value></data>
+  <data name="Backup.Column.Saved" xml:space="preserve"><value>Saved</value></data>
+  <data name="Backup.Column.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Backup.Kind.command" xml:space="preserve"><value>Command</value></data>
+  <data name="Backup.Kind.sensor" xml:space="preserve"><value>Sensor</value></data>
+  <data name="Backup.Kind.script" xml:space="preserve"><value>Script</value></data>
+  <data name="Backup.Kind.metrics" xml:space="preserve"><value>Metric overrides</value></data>
+  <data name="Backup.Kind.settings" xml:space="preserve"><value>Settings</value></data>
+  <data name="Backup.Change.new" xml:space="preserve"><value>New</value></data>
+  <data name="Backup.Change.changed" xml:space="preserve"><value>Changed</value></data>
+  <data name="Backup.Change.unchanged" xml:space="preserve"><value>Unchanged</value></data>
+  <data name="Backup.Revisions.Title" xml:space="preserve"><value>Revision history</value></data>
+  <data name="Backup.Revisions.Help" xml:space="preserve"><value>Every save keeps the earlier version. Restoring one stores it as a new revision, so nothing is lost.</value></data>
+  <data name="Backup.Revisions.Kind" xml:space="preserve"><value>Kind of document</value></data>
+  <data name="Backup.Revisions.Document" xml:space="preserve"><value>Document</value></data>
+  <data name="Backup.Revisions.Choose" xml:space="preserve"><value>Choose a document</value></data>
+  <data name="Backup.Revisions.None" xml:space="preserve"><value>No earlier revisions are kept.</value></data>
+  <data name="Backup.Revisions.Current" xml:space="preserve"><value>current</value></data>
+  <data name="Backup.Revisions.Restore" xml:space="preserve"><value>Restore</value></data>
+  <data name="Backup.Revisions.Restore.Title" xml:space="preserve"><value>Restore this revision?</value></data>
+  <data name="Backup.Revisions.Restore.Message" xml:space="preserve"><value>{0} goes back to revision {1}. It is stored as a new revision.</value></data>
+  <data name="Backup.Revisions.Restored" xml:space="preserve"><value>{0} is restored from revision {1}.</value></data>
+  <data name="Backup.Revisions.RestoreFailed" xml:space="preserve"><value>The revision could not be restored.</value></data>
+  <data name="Backup.Diagnostics.Title" xml:space="preserve"><value>Diagnostics</value></data>
+  <data name="Backup.Diagnostics.Help" xml:space="preserve"><value>A zip file with versions, counters, the settings and the recent log lines, for a bug report. Passwords, tokens and keys are removed.</value></data>
+  <data name="Backup.Diagnostics.Button" xml:space="preserve"><value>Download diagnostics</value></data>
+  <data name="Backup.Diagnostics.Done" xml:space="preserve"><value>Downloaded {0}.</value></data>
+  <data name="Backup.Diagnostics.Failed" xml:space="preserve"><value>The diagnostics could not be downloaded.</value></data>
+</root>

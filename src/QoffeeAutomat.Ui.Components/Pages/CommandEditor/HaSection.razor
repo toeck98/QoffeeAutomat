@@ -1,0 +1,150 @@
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The Home Assistant control of the command. Only what the parameters allow is offered (PLAN.md S06, table "haControl"). *@
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="section-ha">
+  <MudText Typo="Typo.h6" Class="mb-1">@L["Editor.Ha.Title"]</MudText>
+  <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">@L["Editor.Ha.Help"]</MudText>
+
+  <SelectBox Label="@L["Editor.Ha.Type"]"
+             Value="Draft.HaType"
+             ValueChanged="@((string value) => SetTypeAsync(value))"
+             Error="@Errors.Has("/haControl/type")"
+             TestId="ha-type">
+    @foreach (string type in TypeChoices)
+    {
+      <option value="@type">@L["Editor.Ha.Type." + type]</option>
+    }
+  </SelectBox>
+  <FieldError Errors="Errors" Path="/haControl/type" />
+  <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="ha-type-help">@L["Editor.Ha.Help." + Draft.HaType]</MudText>
+  @if (!_valid.Contains(Draft.HaType))
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-2" data-testid="ha-invalid">@L["Editor.Ha.Invalid"]</MudAlert>
+  }
+
+  @if (HaControlRules.SetsParameter(Draft.HaType))
+  {
+    <div class="mt-2">
+      <SelectBox Label="@L["Editor.Ha.Parameter"]"
+                 Value="Draft.HaParameter"
+                 ValueChanged="@((string value) => SetParameterAsync(value))"
+                 Error="@Errors.Has("/haControl/parameter")"
+                 TestId="ha-parameter">
+        <option value="">@L["Editor.Ha.Parameter.Choose"]</option>
+        @foreach (string name in ParameterChoices)
+        {
+          <option value="@name">@name</option>
+        }
+      </SelectBox>
+    </div>
+  }
+  <FieldError Errors="Errors" Path="/haControl/parameter" />
+
+  @if (Draft.HaType != HaControlTypes.None && Draft.HaType != HaControlTypes.Button)
+  {
+    <div class="mt-2">
+      <SelectBox Label="@L["Editor.Ha.StateMetric"]"
+                 Value="Draft.HaStateMetric"
+                 ValueChanged="@((string value) => SetStateMetricAsync(value))"
+                 Error="@Errors.Has("/haControl/stateMetric")"
+                 TestId="ha-state-metric">
+        <option value="">@L["Editor.Ha.StateMetric.None"]</option>
+        @foreach (string id in MetricChoices)
+        {
+          <option value="@id">@id</option>
+        }
+      </SelectBox>
+      <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Editor.Ha.StateMetric.Help"]</MudText>
+      <FieldError Errors="Errors" Path="/haControl/stateMetric" />
+    </div>
+  }
+</MudPaper>
+
+@code {
+  private IReadOnlyList<ParameterDefinition> _definitions = [];
+  private IReadOnlyList<string> _valid = [HaControlTypes.None];
+
+  /// <summary>The draft.</summary>
+  [Parameter]
+  [EditorRequired]
+  public CommandDraft Draft { get; set; } = null!;
+
+  /// <summary>The problems of the draft.</summary>
+  [Parameter]
+  public DraftErrors Errors { get; set; } = DraftErrors.Empty;
+
+  /// <summary>The metrics of the agent, from which the state metric is chosen.</summary>
+  [Parameter]
+  public IReadOnlyList<MetricInfo> Metrics { get; set; } = [];
+
+  /// <summary>Raised after every change of the draft.</summary>
+  [Parameter]
+  public EventCallback OnChanged { get; set; }
+
+  /// <summary>The valid types, and the current one when it is not valid any more, so that the select shows what is set.</summary>
+  private IReadOnlyList<string> TypeChoices => _valid.Contains(Draft.HaType) || !HaControlRules.AllTypes.Contains(Draft.HaType)
+    ? _valid
+    : [.. _valid, Draft.HaType];
+
+  private IReadOnlyList<string> ParameterChoices
+  {
+    get
+    {
+      IReadOnlyList<string> names = HaControlRules.ParametersFor(Draft.HaType, _definitions);
+      return Draft.HaParameter.Length == 0 || names.Contains(Draft.HaParameter) ? names : [.. names, Draft.HaParameter];
+    }
+  }
+
+  private IReadOnlyList<string> MetricChoices
+  {
+    get
+    {
+      List<string> ids = [.. HaControlRules.StateMetricsFor(Draft.HaType, Metrics).Select(metric => metric.Id)];
+      if (Draft.HaStateMetric.Length > 0 && !ids.Contains(Draft.HaStateMetric))
+      {
+        ids.Add(Draft.HaStateMetric);
+      }
+
+      return ids;
+    }
+  }
+
+  /// <inheritdoc />
+  protected override void OnParametersSet()
+  {
+    _definitions = Draft.ParameterDefinitions();
+    _valid = HaControlRules.ValidTypes(_definitions);
+  }
+
+  private Task SetTypeAsync(string type)
+  {
+    Draft.HaType = type;
+    IReadOnlyList<string> names = HaControlRules.ParametersFor(type, _definitions);
+    if (!HaControlRules.SetsParameter(type))
+    {
+      Draft.HaParameter = string.Empty;
+    }
+    else if (!names.Contains(Draft.HaParameter))
+    {
+      // The only choice is taken; with several the user chooses.
+      Draft.HaParameter = names.Count == 1 ? names[0] : string.Empty;
+    }
+
+    // A state metric has the value type of the control, so another type starts without one.
+    Draft.HaStateMetric = string.Empty;
+    return OnChanged.InvokeAsync();
+  }
+
+  private Task SetParameterAsync(string name)
+  {
+    Draft.HaParameter = name;
+    return OnChanged.InvokeAsync();
+  }
+
+  private Task SetStateMetricAsync(string id)
+  {
+    Draft.HaStateMetric = id;
+    return OnChanged.InvokeAsync();
+  }
+}
