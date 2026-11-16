@@ -6,4 +6,9 @@
     <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Run history and recent events (T207, T217). -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+
 </Project>

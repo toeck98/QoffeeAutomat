@@ -1,0 +1,8 @@
+<Project>
+
+  <!-- The benchmark is a console program, not a test project: it must not inherit the xUnit packages and the test
+       SDK of tests/Directory.Build.props (the test SDK would generate its own entry point). It takes the
+       repository-wide settings from the root file directly. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../../'))" />
+
+</Project>

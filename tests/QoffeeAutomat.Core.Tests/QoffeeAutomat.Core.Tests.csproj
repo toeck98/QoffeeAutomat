@@ -2,6 +2,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
+    <!-- The platform tests (Category=Platform) exercise the simulated platform against the Core interfaces. -->
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Platform.Simulated\QoffeeAutomat.Platform.Simulated.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The manifest tests validate against protocol/schema (T209) with the validator of the contracts tests, so there is one implementation of it. -->
+    <Compile Include="..\QoffeeAutomat.Contracts.Tests\Schema\SchemaSet.cs" Link="Manifest\Schema\SchemaSet.cs" />
   </ItemGroup>
 
 </Project>

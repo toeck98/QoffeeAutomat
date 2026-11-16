@@ -281,7 +281,7 @@ Parameters (variables, R-04):
 
 Unknown variables are rejected. Values are validated by the agent regardless
 of what the client checked. Context values available to every run:
-`QA_RUN_ID`, `QA_SOURCE` (`ha`, `ui`, `hub`, `cli`, `sequence`), `QA_COMMAND_ID`,
+`QA_RUN_ID`, `QA_SOURCE` (`ha`, `ui`, `hub`, `cli`, `sequence`, `test`), `QA_COMMAND_ID`,
 `QA_AGENT_NAME` (environment variables; `{{qa.run_id}}` etc. in `process` args).
 
 `haControl` maps a command to a Home Assistant entity:
@@ -468,16 +468,22 @@ the Python test suites validate and round-trip.
 ## S08 Management API
 
 Base path `/api/v1`, JSON (camelCase), authenticated (S09), OpenAPI document
-at `/openapi/v1.json`. Errors use RFC 9457 problem details. Writes take an
-optional `If-Match: <revision>` header and return 409 on a stale revision.
+at `/openapi/v1.json` (it needs a session like the rest). Errors use RFC 9457
+problem details (`application/problem+json`) with a machine-readable `code`; a
+document that fails validation is answered with 422 and an `errors` array of
+`{ path, code, message }` where `path` is a JSON pointer into the request body.
+Reading a document returns its revision as `ETag` (`"3"`; the ETag of a script
+is the SHA-256 of its bytes). Writes take an optional `If-Match` header with that
+ETag and return 412 on a stale revision (the problem carries `currentRevision`);
+creating a document whose id exists returns 409.
 
 | Resource | Operations |
 |----------|------------|
-| `/auth/setup`, `/auth/login`, `/auth/logout`, `/auth/me` | First-run setup, session handling. |
+| `/auth/setup`, `/auth/login`, `/auth/logout`, `/auth/me`, `/auth/password` | First-run setup, session handling, password change. |
 | `/status` | Agent version, uptime, platform, link clients, session host state, paused flag. |
 | `/commands`, `/commands/{id}` | List, create, read, update, delete; `PATCH` for `enabled` and `exposeToHa`. |
 | `/commands/{id}/run` | Start a run with variables; returns `runId`. |
-| `/commands/validate`, `/commands/test` | Validate a draft document without saving; run a draft without saving (used by the editor's test panel). |
+| `/commands/validate`, `/commands/test` | Validate a draft document without saving; run a draft without saving (used by the editor's test panel). A test run is recorded in the history with source `test`, publishes no events and ignores `enabled` and the cooldown. |
 | `/scripts/{name}` | Read and write script files. |
 | `/runs`, `/runs/{id}`, `/runs/{id}/stream` | History; live output as Server-Sent Events. |
 | `/metrics`, `/metrics/{id}` | Catalog with current value; update overrides. |
@@ -489,11 +495,18 @@ optional `If-Match: <revision>` header and return 409 on a stale revision.
 | `/events` | Recent events. |
 | `/templates` | Template gallery (T701). |
 | `/settings` | Agent name, ports, remote UI, logging, retention. |
-| `/config/export`, `/config/import` | Zip export and import with validation. |
+| `/config/export`, `/config/import` | Zip export of all documents and scripts (no secrets) and import with validation: the whole archive is validated before anything is written; items with the same id are replaced, settings are imported only on request (`?settings=true`). |
 | `/logs`, `/diagnostics` | Log tail and a redacted diagnostics bundle. |
 
-Unauthenticated endpoints: `/healthz`, `/auth/setup` (only while no password
-exists and only with the setup token), `/auth/login`, static UI files.
+Unauthenticated endpoints: `/healthz`, `/auth/setup` (only while the setup
+token file exists, that is until the first password is set or after
+`qoffeeautomat reset-password` wrote a new token, and only with that token),
+`/auth/login`, static UI files. Everything else below `/api/v1` answers 401
+without a session; this is enforced by one authorization policy on the route
+group and checked by a test over the endpoint data source. Requests that change
+state also need the header `X-QoffeeAutomat-Csrf: 1` (S09 item 1). Requests
+from a non-loopback address are answered with 403 unless "remote UI" is on
+(D-018).
 
 ## S09 Security model
 
@@ -504,8 +517,15 @@ malicious values arriving from Home Assistant, stolen link tokens.
    setup token to `secrets/setup-token.txt` (readable by Administrators only);
    the UI asks for it once and lets the user set a password. Passwords are
    stored as salted PBKDF2-SHA256 hashes (at least 600 000 iterations) or
-   Argon2id. Sessions use an `HttpOnly`, `SameSite=Strict` cookie; state-changing
-   requests require an anti-forgery header. Login is rate limited with lockout.
+   Argon2id. Sessions use an `HttpOnly`, `SameSite=Strict` cookie (`Secure` on
+   HTTPS); state-changing requests require the anti-forgery header
+   `X-QoffeeAutomat-Csrf: 1` and, when an `Origin` header is present, the
+   agent's own origin. Login and setup are rate limited with lockout (five
+   failures per address within 15 minutes lock that address out for 15
+   minutes; 30 failures from all addresses lock everybody out). The password is
+   reset with `qoffeeautomat reset-password` (local administrator or root),
+   which writes a new setup token file; the old password works until a new one
+   is set through the setup page, which ends all sessions.
 2. Link tokens are 32 random bytes, shown to the client once, stored as
    SHA-256 hashes, revocable individually. Several clients may be paired.
 3. TLS: the agent creates a self-signed ECDSA P-256 certificate on first start
