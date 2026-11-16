@@ -247,7 +247,7 @@ public sealed class PowerShellExecutionTests
         using var run = new RealRun();
 
         ExecutionResult result = await run.RunInlineAsync(
-            "param($Known)\n'x'",
+            "[CmdletBinding()] param($Known)\n'x'",
             PowerShellEngines.Pwsh,
             variables: [("Known", "a"), ("Unknown", "b")]);
 
