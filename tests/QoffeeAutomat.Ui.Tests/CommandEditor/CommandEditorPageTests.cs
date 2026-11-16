@@ -378,11 +378,10 @@ public sealed class CommandEditorPageTests : BunitContext, IAsyncLifetime
     public async Task A_sequence_runs_the_commands_that_exist_with_waits_between()
     {
         IRenderedComponent<CommandEditorPage> cut = RenderEditor(out _);
+        cut.Find("[data-testid=field-action-type]").Change(ActionTypes.Sequence);
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=add-step-command]")), Patience);
         cut.Find("[data-testid=field-name] input").Input("Good night");
         await cut.InvokeAsync(() => { });
-        cut.Find("[data-testid=field-action-type]").Change(ActionTypes.Sequence);
-
-        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=add-step-command]")), Patience);
         cut.Find("[data-testid=add-step-command]").Click();
         cut.Find("[data-testid=step-command-0]").Change("lock_screen");
         cut.Find("[data-testid=add-step-delay]").Click();
