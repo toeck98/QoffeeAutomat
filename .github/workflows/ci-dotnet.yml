@@ -101,7 +101,7 @@ jobs:
         # The browser smoke test (Category=E2E) needs the published agent and Chromium; the ui-e2e job runs it.
         run: >-
           dotnet test --no-build --configuration Release
-          --filter "Category!=E2E"
+          -p:ExcludeE2E=true
           --blame-hang-timeout 180s
           --collect:"XPlat Code Coverage"
           --results-directory TestResults

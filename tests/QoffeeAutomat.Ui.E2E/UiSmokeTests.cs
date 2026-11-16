@@ -14,8 +14,8 @@ namespace QoffeeAutomat.Ui.E2E;
 public sealed class UiSmokeTests : IClassFixture<AgentFixture>
 {
     private const string Password = "E2E-smoke-password-1!";
-    private const string CommandId = "smoke-greeting";
-    private const string SensorId = "smoke-sensor";
+    private const string CommandId = "smoke_greeting";
+    private const string SensorId = "smoke_sensor";
 
     private static readonly float StepTimeout = 30_000;
 
