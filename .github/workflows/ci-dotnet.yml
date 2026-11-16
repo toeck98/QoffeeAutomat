@@ -131,11 +131,43 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  benchmark:
+    # Performance budget of PLAN.md S14 (T218): an idle agent with 20 subscribed metrics. It runs on pushes to
+    # main only (the numbers of a shared runner are too noisy to gate every pull request) and reports CPU
+    # percentage, working set and the average size of a state frame in the job summary.
+    name: performance budget
+    needs: changes
+    if: github.event_name == 'push' && needs.changes.outputs.dotnet == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET (version from global.json) with NuGet cache
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            Directory.Packages.props
+            global.json
+      - name: Run the benchmark (60 seconds)
+        run: >-
+          dotnet run -c Release
+          --project tests/QoffeeAutomat.Agent.Benchmarks
+          -- --duration 60 --summary "$GITHUB_STEP_SUMMARY"
+
   result:
     name: dotnet ci passed
     # Require this job in the branch ruleset: it is green when the build passed or was
     # skipped because no relevant file changed, and red when anything failed.
-    needs: [changes, build]
+    needs: [changes, build, benchmark]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

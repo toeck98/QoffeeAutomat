@@ -1,0 +1,270 @@
+using System.Globalization;
+
+namespace QoffeeAutomat.Agent.Hosting;
+
+/// <summary>The verbs of the command-line interface.</summary>
+public enum AgentVerb
+{
+    /// <summary>Runs the agent (the default).</summary>
+    Run,
+
+    /// <summary>Prints the version and exits.</summary>
+    Version,
+
+    /// <summary>Installs, removes and controls the Windows service (stub until T301).</summary>
+    Service,
+
+    /// <summary>Sends a custom event to the running agent: <c>emit &lt;name&gt; [--data &lt;json&gt;]</c> (PLAN.md T217).</summary>
+    Emit,
+
+    /// <summary>Writes a new setup token so that the password can be set again in the UI (PLAN.md T212). Needs administrator or root.</summary>
+    ResetPassword,
+}
+
+/// <summary>The parsed command line.</summary>
+/// <param name="Verb">The verb; <see cref="AgentVerb.Run"/> when none is given.</param>
+/// <param name="DataDir">Value of <c>--data-dir</c>.</param>
+/// <param name="Platform">Value of <c>--platform</c>: <c>auto</c>, <c>simulated</c>, <c>windows</c> or <c>linux</c>.</param>
+/// <param name="UiPort">Value of <c>--ui-port</c>; overrides the settings. Zero picks a free port.</param>
+/// <param name="LinkPort">Value of <c>--link-port</c>; overrides the settings. Zero picks a free port.</param>
+/// <param name="ShowHelp">True for <c>--help</c>.</param>
+/// <param name="VerbArguments">The arguments after the verb <c>service</c>.</param>
+/// <param name="PassThrough">Options that the agent does not know; they are handed to the ASP.NET Core configuration (for example <c>--environment</c>).</param>
+/// <param name="Error">A message when the command line is invalid; null otherwise.</param>
+/// <param name="EventName">The event name of the verb <c>emit</c>.</param>
+/// <param name="EventData">The value of <c>--data</c> of the verb <c>emit</c>: a JSON object as text.</param>
+public sealed record AgentOptions(
+    AgentVerb Verb = AgentVerb.Run,
+    string? DataDir = null,
+    string? Platform = null,
+    int? UiPort = null,
+    int? LinkPort = null,
+    bool ShowHelp = false,
+    IReadOnlyList<string>? VerbArguments = null,
+    IReadOnlyList<string>? PassThrough = null,
+    string? Error = null,
+    string? EventName = null,
+    string? EventData = null)
+{
+    /// <summary>The platforms that <c>--platform</c> accepts.</summary>
+    public static readonly IReadOnlyList<string> KnownPlatforms = ["auto", "simulated", "windows", "linux"];
+}
+
+/// <summary>
+/// Parses the command line: <c>qoffeeautomat [run|version|service] [options]</c>. Options the agent
+/// does not know are kept in <see cref="AgentOptions.PassThrough"/> and given to the ASP.NET Core
+/// configuration, which is how the test host and the service host set the environment and the
+/// content root.
+/// </summary>
+public static class CommandLine
+{
+    /// <summary>The usage text.</summary>
+    public const string Usage = """
+        Usage: qoffeeautomat [run|version|service|emit|reset-password] [options]
+
+        Verbs:
+          run                  Run the agent (default).
+          version              Print the version and exit.
+          service ...          Install or control the Windows service (not available yet).
+          emit <name> [--data <json>]
+                               Send a custom event to the running agent, for example from a script
+                               that the agent started. <json> must be an object.
+          reset-password       Write a new setup token file so that a new password can be set in the
+                               UI. Needs a local administrator (Windows) or root (Linux).
+
+        Options:
+          --data-dir <path>    Keep all files below this directory (env QOFFEEAUTOMAT_DATA_DIR).
+          --platform <name>    auto (default), simulated, windows or linux.
+          --ui-port <port>     Port of the loopback UI and API listener (default from settings, 8480).
+          --link-port <port>   Port of the QoffeeLink listener (default from settings, 8481).
+          --help               Show this text.
+        """;
+
+    /// <summary>Parses the arguments; a problem is reported in <see cref="AgentOptions.Error"/> instead of an exception.</summary>
+    /// <param name="args">The arguments, as given to <c>Main</c>.</param>
+    /// <returns>The parsed options.</returns>
+    public static AgentOptions Parse(IReadOnlyList<string> args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+
+        var verb = AgentVerb.Run;
+        bool verbSeen = false;
+        bool showHelp = false;
+        string? dataDir = null;
+        string? platform = null;
+        int? uiPort = null;
+        int? linkPort = null;
+        string? eventName = null;
+        string? eventData = null;
+        var verbArguments = new List<string>();
+        var passThrough = new List<string>();
+
+        for (int index = 0; index < args.Count; index++)
+        {
+            string argument = args[index];
+
+            if (verbSeen && verb == AgentVerb.Service)
+            {
+                verbArguments.Add(argument);
+                continue;
+            }
+
+            if (verbSeen && verb == AgentVerb.Emit && !argument.StartsWith('-'))
+            {
+                if (eventName is not null)
+                {
+                    return Fail($"emit takes one event name; '{argument}' is extra. Try --help.");
+                }
+
+                eventName = argument;
+                continue;
+            }
+
+            if (!argument.StartsWith('-'))
+            {
+                if (verbSeen || !TryParseVerb(argument, out verb))
+                {
+                    return Fail($"Unknown command '{argument}'. Try --help.");
+                }
+
+                verbSeen = true;
+                continue;
+            }
+
+            (string name, string? inlineValue) = SplitOption(argument);
+            switch (name)
+            {
+                case "--help":
+                case "-h":
+                    showHelp = true;
+                    break;
+                case "--version":
+                    verb = AgentVerb.Version;
+                    verbSeen = true;
+                    break;
+                case "--data-dir":
+                    if (!TryTakeValue(args, ref index, inlineValue, out dataDir) || string.IsNullOrWhiteSpace(dataDir))
+                    {
+                        return Fail("--data-dir needs a directory.");
+                    }
+
+                    break;
+                case "--platform":
+                    if (!TryTakeValue(args, ref index, inlineValue, out platform) || platform is null
+                        || !AgentOptions.KnownPlatforms.Contains(platform.ToLowerInvariant()))
+                    {
+                        return Fail("--platform must be auto, simulated, windows or linux.");
+                    }
+
+                    platform = platform.ToLowerInvariant();
+                    break;
+                case "--ui-port":
+                    if (!TryTakePort(args, ref index, inlineValue, out uiPort))
+                    {
+                        return Fail("--ui-port must be a number between 0 and 65535.");
+                    }
+
+                    break;
+                case "--link-port":
+                    if (!TryTakePort(args, ref index, inlineValue, out linkPort))
+                    {
+                        return Fail("--link-port must be a number between 0 and 65535.");
+                    }
+
+                    break;
+                case "--data":
+                    if (verb != AgentVerb.Emit)
+                    {
+                        return Fail("--data belongs to the emit verb: emit <name> --data <json>.");
+                    }
+
+                    if (!TryTakeValue(args, ref index, inlineValue, out eventData) || string.IsNullOrWhiteSpace(eventData))
+                    {
+                        return Fail("--data needs a JSON object.");
+                    }
+
+                    break;
+                default:
+                    passThrough.Add(argument);
+                    if (inlineValue is null && index + 1 < args.Count && !args[index + 1].StartsWith('-'))
+                    {
+                        passThrough.Add(args[++index]);
+                    }
+
+                    break;
+            }
+        }
+
+        if (verb == AgentVerb.Emit && eventName is null && !showHelp)
+        {
+            return Fail("emit needs an event name: emit <name> [--data <json>].");
+        }
+
+        return new AgentOptions(verb, dataDir, platform, uiPort, linkPort, showHelp, verbArguments, passThrough, null, eventName, eventData);
+    }
+
+    private static AgentOptions Fail(string message) => new(Error: message);
+
+    private static bool TryParseVerb(string text, out AgentVerb verb)
+    {
+        switch (text.ToLowerInvariant())
+        {
+            case "run":
+                verb = AgentVerb.Run;
+                return true;
+            case "version":
+                verb = AgentVerb.Version;
+                return true;
+            case "service":
+                verb = AgentVerb.Service;
+                return true;
+            case "emit":
+                verb = AgentVerb.Emit;
+                return true;
+            case "reset-password":
+                verb = AgentVerb.ResetPassword;
+                return true;
+            default:
+                verb = AgentVerb.Run;
+                return false;
+        }
+    }
+
+    private static (string Name, string? Value) SplitOption(string argument)
+    {
+        int equals = argument.IndexOf('=', StringComparison.Ordinal);
+        return equals < 0 ? (argument, null) : (argument[..equals], argument[(equals + 1)..]);
+    }
+
+    private static bool TryTakeValue(IReadOnlyList<string> args, ref int index, string? inlineValue, out string? value)
+    {
+        if (inlineValue is not null)
+        {
+            value = inlineValue;
+            return true;
+        }
+
+        if (index + 1 < args.Count && !args[index + 1].StartsWith("--", StringComparison.Ordinal))
+        {
+            value = args[++index];
+            return true;
+        }
+
+        value = null;
+        return false;
+    }
+
+    private static bool TryTakePort(IReadOnlyList<string> args, ref int index, string? inlineValue, out int? port)
+    {
+        port = null;
+        if (!TryTakeValue(args, ref index, inlineValue, out string? text)
+            || !int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int parsed)
+            || parsed is < 0 or > 65535)
+        {
+            return false;
+        }
+
+        port = parsed;
+        return true;
+    }
+}

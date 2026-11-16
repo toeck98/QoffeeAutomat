@@ -83,7 +83,6 @@ def test_committed_plan_is_valid() -> None:
         ("T002", "status", "blocked", "needs a 'blocked_reason'"),
         ("T002", "blocked_reason", "waiting", "only allowed when blocked"),
         ("T002", "colour", "red", "unknown field 'colour'"),
-        ("T001", "depends_on", ["T101"], "is done but T101 is todo"),
     ],
 )
 def test_validate_reports_a_broken_plan(
@@ -95,6 +94,15 @@ def test_validate_reports_a_broken_plan(
     result = validate(write_plan(tmp_path, mutate))
     assert result.returncode == 1
     assert expected in result.stderr
+
+
+def test_validate_reports_done_depending_on_todo(tmp_path: Path) -> None:
+    def mutate(data: dict[str, Any]) -> None:
+        find(data, "T002")["status"] = "todo"
+
+    result = validate(write_plan(tmp_path, mutate))
+    assert result.returncode == 1
+    assert "is done but T002 is todo" in result.stderr
 
 
 def test_validate_reports_a_dependency_cycle(tmp_path: Path) -> None:

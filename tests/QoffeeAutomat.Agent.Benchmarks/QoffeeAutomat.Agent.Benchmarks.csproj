@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Performance budget benchmark (PLAN.md S14, T218). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>QoffeeAutomat.Agent.Benchmarks</RootNamespace>
+    <IsTestProject>false</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Agent\QoffeeAutomat.Agent.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -529,7 +529,7 @@ tasks:
       - "An integration test starts the host through WebApplicationFactory with a temporary data directory."
     verify:
       - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Hosting"
-    status: todo
+    status: done
 
   - id: T202
     title: Implement the file-based config store
@@ -560,7 +560,7 @@ tasks:
       - "An externally edited file raises exactly one change event."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Config"
-    status: todo
+    status: done
 
   - id: T203
     title: Implement the secrets store
@@ -584,7 +584,7 @@ tasks:
       - "On Unix the key file is created with mode 0600 and the store refuses to load a key file with wider permissions."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Secrets"
-    status: todo
+    status: done
 
   - id: T204
     title: Define platform interfaces and the simulated platform
@@ -615,7 +615,7 @@ tasks:
       - "Simulated metric values are reproducible for a given fake time."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Platform"
-    status: todo
+    status: done
 
   - id: T205
     title: Implement the metric engine
@@ -647,7 +647,7 @@ tasks:
       - "Changing an override (interval, enabled) takes effect without restart."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Metrics"
-    status: todo
+    status: done
 
   - id: T206
     title: Implement the process runner
@@ -672,7 +672,7 @@ tasks:
       - "Arguments containing spaces, quotes and shell metacharacters arrive unchanged in the child process."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=ProcessRunner"
-    status: todo
+    status: done
 
   - id: T207
     title: Implement the command engine
@@ -705,7 +705,7 @@ tasks:
       - "Runs are queryable from the history store after completion."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Commands"
-    status: todo
+    status: done
 
   - id: T208
     title: Implement the PowerShell action
@@ -734,7 +734,7 @@ tasks:
       - "A script calling exit 3 yields exit code 3; a thrown error yields a non-zero exit code and stderr text."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=PowerShell"
-    status: todo
+    status: done
 
   - id: T209
     title: Implement the manifest builder
@@ -758,7 +758,7 @@ tasks:
       - "The built manifest validates against protocol/schema."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Manifest"
-    status: todo
+    status: done
 
   - id: T210
     title: Implement the QoffeeLink server
@@ -789,7 +789,7 @@ tasks:
       - "Unknown message types from the client are ignored without closing the connection."
     verify:
       - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Link"
-    status: todo
+    status: done
 
   - id: T211
     title: Implement pairing, link tokens and the TLS certificate
@@ -816,7 +816,7 @@ tasks:
       - "A revoked token is rejected and its live connection is closed."
     verify:
       - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Pairing"
-    status: todo
+    status: done
 
   - id: T212
     title: Implement management API authentication
@@ -842,7 +842,7 @@ tasks:
       - "State-changing requests without the anti-forgery header are rejected."
     verify:
       - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Auth"
-    status: todo
+    status: done
 
   - id: T213
     title: Implement the configuration endpoints of the management API
@@ -868,7 +868,7 @@ tasks:
       - "The OpenAPI snapshot test fails when a route or schema changes without updating the snapshot."
     verify:
       - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Api"
-    status: todo
+    status: done
 
   - id: T214
     title: Implement the runtime endpoints of the management API
@@ -896,7 +896,7 @@ tasks:
       - "The diagnostics bundle contains no token, password hash or private key (asserted by scanning the archive)."
     verify:
       - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=ApiRuntime"
-    status: todo
+    status: done
 
   - id: T215
     title: Implement cross-platform custom sensors
@@ -921,7 +921,7 @@ tasks:
       - "Parse failures and timeouts make the metric unavailable without affecting other metrics."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=CustomSensors"
-    status: todo
+    status: done
 
   - id: T216
     title: Advertise the agent through zeroconf
@@ -950,7 +950,7 @@ tasks:
     verify:
       - "dotnet test tests/QoffeeAutomat.Agent.Tests --filter Category=Discovery"
     human_verify: true
-    status: todo
+    status: done
 
   - id: T217
     title: Implement the event bus and the emit command
@@ -974,7 +974,7 @@ tasks:
       - "emit works from a script started by the agent and is rejected for callers without access to the local channel."
     verify:
       - "dotnet test tests/QoffeeAutomat.Core.Tests --filter Category=Events"
-    status: todo
+    status: done
 
   - id: T218
     title: Add performance budget tests

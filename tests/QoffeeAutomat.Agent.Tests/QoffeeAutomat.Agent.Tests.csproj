@@ -1,7 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\QoffeeAutomat.Agent\QoffeeAutomat.Agent.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The link tests (T210) validate every frame of the agent against protocol/schema with the validator of the contracts tests, so there is one implementation of it. -->
+    <Compile Include="..\QoffeeAutomat.Contracts.Tests\Schema\SchemaSet.cs" Link="Link\Schema\SchemaSet.cs" />
   </ItemGroup>
 
 </Project>
