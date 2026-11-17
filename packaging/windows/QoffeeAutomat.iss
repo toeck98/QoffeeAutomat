@@ -268,12 +268,19 @@ end;
 procedure StopServiceAndSessionHosts;
 begin
   if ServiceExists then
-    RunTool(ExpandConstant('{sys}\net.exe'), 'stop ' + ServiceName);
+  begin
+    { Wait up to 30 s for SCM to reach Stopped so taskkill never races with STOP_PENDING or triggers failure recovery. }
+    RunTool(
+      ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -NonInteractive -Command "Stop-Service -Name ''' + ServiceName + ''' -Force -ErrorAction SilentlyContinue; ' +
+      '$s = Get-Service -Name ''' + ServiceName + ''' -ErrorAction SilentlyContinue; ' +
+      'if ($s -and $s.Status -ne ''Stopped'') { $s.WaitForStatus(''Stopped'', [TimeSpan]::FromSeconds(30)) }"');
+  end;
   { The agent stops its SessionHosts with the service; this catches the ones that did not follow and an agent that was
     started by hand, because their executables would block the replacement of the files. }
   RunTool(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM QoffeeAutomat.SessionHost.exe');
   RunTool(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM QoffeeAutomat.Agent.exe');
-  Sleep(1000);
+  Sleep(1500);
 end;
 
 function InitializeSetup: Boolean;
