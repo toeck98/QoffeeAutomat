@@ -1,0 +1,93 @@
+name: docs
+
+# User documentation (PLAN.md S12, task T604): builds the MkDocs site with --strict and publishes it to
+# GitHub Pages. Pull requests only build it (the link and reference checks), they never deploy.
+#
+# Repository settings (once, owner): Settings > Pages > Source "GitHub Actions", and the environment
+# `github-pages`. Both are applied by scripts/github/setup-repo.sh (steps `pages` and `environments`,
+# docs/maintainers/github-setup.md).
+#
+# The reference pages are generated while the site is built, from the metric catalogs, protocol/ and the
+# OpenAPI snapshot, so changes to those sources are paths of this workflow, too.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - "scripts/docs/**"
+      - "protocol/**"
+      - "assets/brand/**"
+      - "src/QoffeeAutomat.Platform.Windows/Metrics/System/**"
+      - "src/QoffeeAutomat.Platform.Windows/Actions/WindowsActionCatalog.cs"
+      - "src/QoffeeAutomat.Contracts/Session/SessionMetrics.cs"
+      - "tests/QoffeeAutomat.Agent.Tests/Api/openapi.v1.snapshot.json"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - "scripts/docs/**"
+      - "protocol/**"
+      - "src/QoffeeAutomat.Platform.Windows/Metrics/System/**"
+      - "src/QoffeeAutomat.Platform.Windows/Actions/WindowsActionCatalog.cs"
+      - "src/QoffeeAutomat.Contracts/Session/SessionMetrics.cs"
+      - "tests/QoffeeAutomat.Agent.Tests/Api/openapi.v1.snapshot.json"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: build (mkdocs --strict)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+          # No pip cache on purpose: this workflow publishes to GitHub Pages, and a cache
+          # restored from another run must not be able to influence what gets published.
+      - name: Install the documentation tools
+        run: python -m pip install -r requirements-docs.txt
+      - name: Build the site
+        run: mkdocs build --strict
+      - name: Configure Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Upload the site
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: deploy (GitHub Pages)
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

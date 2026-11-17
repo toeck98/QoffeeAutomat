@@ -1,0 +1,33 @@
+# Template of the winget installer manifest (PLAN.md S12, task T607). New-WingetManifest.ps1 fills in the markers that stand between two at signs.
+#
+# The installer is Inno Setup (packaging/windows/QoffeeAutomat.iss): AppId {8F3C2A5E-6B1D-4E7A-9C42-1D5B7E0A3F96}, so the
+# uninstall key is that id plus "_is1". It needs administrator rights (PrivilegesRequired=admin), installs per machine and
+# upgrades in place. /VERYSILENT skips every page, including the one that shows the setup token.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+
+PackageIdentifier: toeck98.QoffeeAutomat
+PackageVersion: @VERSION@
+InstallerLocale: en-US
+InstallerType: inno
+Scope: machine
+InstallModes:
+- interactive
+- silent
+- silentWithProgress
+InstallerSwitches:
+  Silent: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+  SilentWithProgress: /SILENT /SUPPRESSMSGBOXES /NORESTART
+UpgradeBehavior: install
+MinimumOSVersion: 10.0.17763.0
+ElevationRequirement: elevationRequired
+ProductCode: '{8F3C2A5E-6B1D-4E7A-9C42-1D5B7E0A3F96}_is1'
+ReleaseDate: @RELEASE_DATE@
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/toeck98/QoffeeAutomat/releases/download/v@VERSION@/QoffeeAutomat-Setup-@VERSION@-x64.exe
+  InstallerSha256: @X64_SHA256@
+- Architecture: arm64
+  InstallerUrl: https://github.com/toeck98/QoffeeAutomat/releases/download/v@VERSION@/QoffeeAutomat-Setup-@VERSION@-arm64.exe
+  InstallerSha256: @ARM64_SHA256@
+ManifestType: installer
+ManifestVersion: 1.10.0

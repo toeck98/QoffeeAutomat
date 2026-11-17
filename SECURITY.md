@@ -39,7 +39,9 @@ reporter is credited in the advisory unless they prefer to stay anonymous.
 
 ## Scope
 
-The threat model is described in section S09 of [`docs/plan/PLAN.md`](docs/plan/PLAN.md).
+The threat model is described in section S09 of [`docs/plan/PLAN.md`](docs/plan/PLAN.md); how each point is
+implemented and tested, and the findings of the 1.0 security review, are in
+[`docs/security/threat-model.md`](docs/security/threat-model.md).
 In scope are, among others: authentication and pairing, variable handling (command
 injection), file permissions of the configuration, scripts and secrets directories,
 the SessionHost pipe and the TLS certificate handling.

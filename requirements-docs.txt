@@ -1,0 +1,6 @@
+# Tools that build the user documentation (task T604): python -m pip install -r requirements-docs.txt
+# Then: mkdocs build --strict    (or: mkdocs serve)
+# Versions looked up on 2026-11-17 (PLAN.md S01 rule 9); Dependabot keeps them current.
+mkdocs==1.6.1
+mkdocs-material==9.8.1
+mkdocs-gen-files==0.6.1

@@ -701,7 +701,7 @@ concurrency groups and actions pinned by commit SHA:
 | `release.yml` | called by `release-please.yml`, manual for prereleases | Builds artifacts, checksums, SBOM, attestations and signatures, attaches them to the draft release and then publishes it (S13). |
 | `docs.yml` | push to main (docs paths) | Builds MkDocs and deploys to GitHub Pages. |
 | `plan-sync.yml` | push to main touching `docs/plan/tasks.yaml`, manual | Syncs tasks to GitHub issues and the project board (T010). |
-| `winget.yml` | release published | Submits the winget manifest (T607). |
+| `winget.yml` | started by `release.yml` after a stable release is published (`workflow_dispatch`), manual | Submits the winget manifest of the release to `microsoft/winget-pkgs` (T607). |
 | `scorecard.yml` | weekly | OpenSSF Scorecard. |
 | `copilot-setup-steps.yml` | used by GitHub coding agents | Preinstalls the .NET SDK, Python and dev dependencies. |
 

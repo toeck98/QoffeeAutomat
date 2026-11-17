@@ -108,12 +108,16 @@ jobs:
         with:
           persist-credentials: false
       # Offline mode checks links to files in the repository. External links are not
-      # checked: they would break the build whenever a remote site is down.
+      # checked: they would break the build whenever a remote site is down. The pages
+      # docs/user/reference/{metrics,protocol,api}.md are generated while MkDocs builds the
+      # site (T604) and are not in the repository, so links to them are excluded here; the
+      # `docs` workflow (`mkdocs build --strict`) checks those links.
       - name: Check links between files
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           args: >-
             --offline --no-progress --exclude-path docs/prototype
+            --exclude 'reference/(metrics|protocol|api)\.md'
             './**/*.md'
           fail: true
 

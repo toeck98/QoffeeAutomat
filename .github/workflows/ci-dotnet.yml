@@ -41,7 +41,7 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
-          PATTERN: '^(src/|tests/|protocol/|Directory\.Build\.props|Directory\.Packages\.props|global\.json|QoffeeAutomat\.slnx|\.editorconfig|\.gitattributes|\.github/workflows/ci-dotnet\.yml)'
+          PATTERN: '^(src/|tests/|protocol/|packaging/|assets/brand/|LICENSE$|Directory\.Build\.props|Directory\.Packages\.props|global\.json|QoffeeAutomat\.slnx|\.editorconfig|\.gitattributes|\.github/workflows/ci-dotnet\.yml)'
         run: |
           set -euo pipefail
           base=""
@@ -216,11 +216,95 @@ jobs:
           --project tests/QoffeeAutomat.Agent.Benchmarks
           -- --duration 60 --summary "$GITHUB_STEP_SUMMARY"
 
+  installer:
+    # Windows packaging (PLAN.md S13, T601): publishes the agent and the SessionHost self-contained for the architecture,
+    # builds the portable zip and the Inno Setup installer. On x64 (the architecture of the runner) the installer is then
+    # tested on the runner: silent install, /healthz, silent upgrade, uninstall that keeps the data, install again and
+    # uninstall with /PURGEDATA (packaging/windows/test-installer.ps1). The arm64 package is built but cannot run here.
+    name: installer (${{ matrix.arch }})
+    needs: changes
+    if: needs.changes.outputs.dotnet == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    env:
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+      # Chocolatey package version of Inno Setup (6.3 or newer is required for the x64compatible and arm64 architectures).
+      # Dependabot does not track it; look up the current stable release when touching this job (PLAN.md S01 rule 9).
+      INNO_SETUP_VERSION: "6.7.4"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET (version from global.json) with NuGet cache
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            Directory.Packages.props
+            global.json
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --version "$env:INNO_SETUP_VERSION" --no-progress --yes
+          if ($LASTEXITCODE -ne 0) { throw "choco install failed with exit code $LASTEXITCODE" }
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
+          "ISCC=$iscc" >> $env:GITHUB_ENV
+      - name: Work out the versions
+        # The new version is the one of Directory.Build.props (what a release ships); the old one is a pre-release of it,
+        # so that the upgrade goes from a lower to a higher version.
+        shell: pwsh
+        run: |
+          $props = Get-Content Directory.Build.props -Raw
+          if ($props -notmatch '<Version>\s*([^<\s]+)\s*</Version>') { throw 'Directory.Build.props has no <Version>.' }
+          "PACKAGE_VERSION=$($Matches[1])" >> $env:GITHUB_ENV
+          "PACKAGE_OLD_VERSION=$($Matches[1])-ci.1" >> $env:GITHUB_ENV
+      - name: Publish and stage (agent, SessionHost, portable zip)
+        shell: pwsh
+        run: ./packaging/windows/publish.ps1 -Arch ${{ matrix.arch }} -Version $env:PACKAGE_VERSION
+      - name: Build the installer
+        shell: pwsh
+        run: ./packaging/windows/build-installer.ps1 -Arch ${{ matrix.arch }} -Version $env:PACKAGE_VERSION
+      - name: Build the installer of the old version (for the upgrade test)
+        if: matrix.arch == 'x64'
+        shell: pwsh
+        run: >-
+          ./packaging/windows/build-installer.ps1 -Arch x64 -Version $env:PACKAGE_OLD_VERSION
+          -StageDirectory artifacts/packaging/stage/win-x64 -OutputDirectory artifacts/packaging/old
+      - name: Test the installer (install, health check, upgrade, uninstall)
+        if: matrix.arch == 'x64'
+        shell: pwsh
+        run: >-
+          ./packaging/windows/test-installer.ps1
+          -OldInstaller "artifacts/packaging/old/QoffeeAutomat-Setup-$env:PACKAGE_OLD_VERSION-x64.exe"
+          -NewInstaller "artifacts/packaging/QoffeeAutomat-Setup-$env:PACKAGE_VERSION-x64.exe"
+          -OldVersion $env:PACKAGE_OLD_VERSION -NewVersion $env:PACKAGE_VERSION
+          -PortableZip "artifacts/packaging/QoffeeAutomat-$env:PACKAGE_VERSION-win-x64.zip"
+      - name: Upload the installer and the portable zip
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-package-${{ matrix.arch }}
+          path: |
+            artifacts/packaging/QoffeeAutomat-Setup-*.exe
+            artifacts/packaging/QoffeeAutomat-*.zip
+            artifacts/packaging/logs/
+          if-no-files-found: warn
+          retention-days: 14
+
   result:
     name: dotnet ci passed
     # Require this job in the branch ruleset: it is green when the build passed or was
     # skipped because no relevant file changed, and red when anything failed.
-    needs: [changes, build, ui-e2e, benchmark]
+    needs: [changes, build, ui-e2e, benchmark, installer]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -1,0 +1,175 @@
+name: winget
+
+# Submits a stable release to the Windows Package Manager community repository, microsoft/winget-pkgs
+# (PLAN.md S12, task T607). Details, the one-time setup and the first submission: docs/maintainers/winget.md.
+#
+# Started by release.yml (workflow_dispatch) after it has published a stable release, or by hand for a tag that
+# is already published. A release that release.yml publishes with the default GITHUB_TOKEN does not start workflows
+# that listen for `release: published`, so this workflow has no release trigger.
+#
+# The workflow
+#   1. checks that the tag is a stable vMAJOR.MINOR.PATCH and that the release is published and complete,
+#   2. checks that the package already exists in winget-pkgs (the very first version is submitted by hand,
+#      packaging/windows/winget/New-WingetManifest.ps1),
+#   3. downloads the installers of the release, verifies their build provenance attestation and their SHA-256
+#      against SHA256SUMS.txt,
+#   4. lets wingetcreate (Microsoft) update the manifest of the package and open the pull request in
+#      winget-pkgs from the fork of the token's owner.
+#
+# It needs the repository secret WINGET_TOKEN: a personal access token of the repository owner (classic, scope
+# public_repo), whose account owns a fork of microsoft/winget-pkgs. No third-party action is used: wingetcreate is
+# downloaded from Microsoft and its Authenticode signature is checked, so there is nothing to pin by commit SHA here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable release tag to submit, for example v1.0.0. The release must be published.
+        type: string
+        required: true
+      require-token:
+        description: >-
+          Fail when the secret WINGET_TOKEN does not exist. release.yml passes false, so that a release without
+          winget setup stays green and only shows a warning.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: winget-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  PACKAGE_ID: toeck98.QoffeeAutomat
+
+jobs:
+  submit:
+    name: submit ${{ inputs.tag }} to winget-pkgs
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check that the token for winget-pkgs exists
+        id: token
+        shell: pwsh
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          REQUIRE_TOKEN: ${{ inputs.require-token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrEmpty($env:WINGET_TOKEN)) {
+            if ($env:REQUIRE_TOKEN -eq 'true') {
+              throw 'The repository secret WINGET_TOKEN does not exist. See docs/maintainers/winget.md.'
+            }
+            Write-Host '::warning::The repository secret WINGET_TOKEN does not exist, so nothing was submitted to winget-pkgs. See docs/maintainers/winget.md.'
+            'enabled=false' >> $env:GITHUB_OUTPUT
+          } else {
+            'enabled=true' >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Check the tag and the published release
+        id: release
+        if: steps.token.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:TAG -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
+            throw "The tag '$env:TAG' is not a stable version vMAJOR.MINOR.PATCH. Prereleases are not published to winget."
+          }
+          $version = $Matches['version']
+
+          # A draft release is not returned by this endpoint, so the call also proves that the release is published.
+          $json = gh api "repos/$env:GH_REPO/releases/tags/$env:TAG"
+          if ($LASTEXITCODE -ne 0) { throw "There is no published release for $env:TAG." }
+          $release = $json | ConvertFrom-Json
+          if ($release.draft -or $release.prerelease) {
+            throw "The release $env:TAG is a draft or a prerelease."
+          }
+
+          $names = @($release.assets | ForEach-Object { $_.name })
+          foreach ($required in "QoffeeAutomat-Setup-$version-x64.exe", "QoffeeAutomat-Setup-$version-arm64.exe", 'SHA256SUMS.txt') {
+            if ($names -notcontains $required) { throw "The release has no asset $required." }
+          }
+
+          $base = "https://github.com/$env:GH_REPO/releases/download/$env:TAG"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "x64_url=$base/QoffeeAutomat-Setup-$version-x64.exe" >> $env:GITHUB_OUTPUT
+          "arm64_url=$base/QoffeeAutomat-Setup-$version-arm64.exe" >> $env:GITHUB_OUTPUT
+
+      - name: Check that the package exists in winget-pkgs
+        if: steps.token.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Layout of the community repository: manifests/<first letter, lower case>/<publisher>/<package>/<version>.
+          gh api 'repos/microsoft/winget-pkgs/contents/manifests/t/toeck98/QoffeeAutomat' --silent
+          if ($LASTEXITCODE -ne 0) {
+            throw "The package $env:PACKAGE_ID was not found in microsoft/winget-pkgs (or the lookup failed). The first version must be submitted by hand: see docs/maintainers/winget.md, section 'First submission'."
+          }
+
+      - name: Verify the installers of the release
+        if: steps.token.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'release-assets'
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          gh release download $env:TAG --repo $env:GH_REPO --dir $dir --pattern 'QoffeeAutomat-Setup-*.exe' --pattern 'SHA256SUMS.txt'
+          if ($LASTEXITCODE -ne 0) { throw 'The release assets could not be downloaded.' }
+
+          $sums = @{}
+          foreach ($line in Get-Content -LiteralPath (Join-Path $dir 'SHA256SUMS.txt')) {
+            if ($line -match '^(?<hash>[0-9a-fA-F]{64})\s+\*?(?<name>\S+)$') { $sums[$Matches['name']] = $Matches['hash'].ToUpperInvariant() }
+          }
+
+          foreach ($arch in 'x64', 'arm64') {
+            $name = "QoffeeAutomat-Setup-$env:VERSION-$arch.exe"
+            $file = Join-Path $dir $name
+            if (-not $sums.ContainsKey($name)) { throw "SHA256SUMS.txt has no entry for $name." }
+            $actual = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash
+            if ($actual -ne $sums[$name]) { throw "$name has SHA-256 $actual, SHA256SUMS.txt says $($sums[$name])." }
+            gh attestation verify $file --repo $env:GH_REPO
+            if ($LASTEXITCODE -ne 0) { throw "$name has no valid build provenance attestation." }
+            Write-Host "$name : checksum and attestation are valid ($actual)."
+          }
+
+      - name: Download wingetcreate and check its signature
+        if: steps.token.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:RUNNER_TEMP 'wingetcreate.exe'
+          Invoke-WebRequest -Uri 'https://aka.ms/wingetcreate/latest' -OutFile $exe -MaximumRetryCount 3 -RetryIntervalSec 5
+          $signature = Get-AuthenticodeSignature -LiteralPath $exe
+          Write-Host "wingetcreate: $($signature.Status), $($signature.SignerCertificate.Subject)"
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+            throw 'wingetcreate.exe is not validly signed by Microsoft Corporation.'
+          }
+          "WINGETCREATE=$exe" >> $env:GITHUB_ENV
+
+      - name: Update the manifest and submit the pull request
+        if: steps.token.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+          X64_URL: ${{ steps.release.outputs.x64_url }}
+          ARM64_URL: ${{ steps.release.outputs.arm64_url }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # wingetcreate downloads both installers, computes their hashes, writes the manifest of the new version from
+          # the latest one in winget-pkgs and opens the pull request from the fork of the token's owner.
+          & $env:WINGETCREATE update $env:PACKAGE_ID --urls $env:X64_URL $env:ARM64_URL --version $env:VERSION --token $env:WINGET_TOKEN --submit
+          if ($LASTEXITCODE -ne 0) { throw "wingetcreate failed with exit code $LASTEXITCODE." }
+          "### winget" >> $env:GITHUB_STEP_SUMMARY
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "Submitted $env:PACKAGE_ID $env:VERSION to microsoft/winget-pkgs. Follow the pull request there: https://github.com/microsoft/winget-pkgs/pulls?q=$env:PACKAGE_ID+$env:VERSION" >> $env:GITHUB_STEP_SUMMARY

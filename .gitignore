@@ -26,6 +26,9 @@ project.lock.json
 *.pubxml.user
 *.publishproj
 PublishProfiles/
+# The publish profiles of the projects are part of the repository (PLAN.md T601).
+!src/*/Properties/PublishProfiles/
+!src/*/Properties/PublishProfiles/*.pubxml
 
 # ---------------------------------------------------------------------------
 # Python (Home Assistant integration, plan tooling)
@@ -84,3 +87,10 @@ setup-token.txt
 *.tmp
 *.temp
 *.log
+
+# User documentation (task T604): the MkDocs output and the reference pages that
+# scripts/docs/generate_reference.py builds from the catalogs, schemas and the OpenAPI snapshot.
+/site/
+/docs/user/reference/metrics.md
+/docs/user/reference/protocol.md
+/docs/user/reference/api.md

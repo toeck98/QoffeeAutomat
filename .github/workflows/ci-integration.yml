@@ -144,20 +144,20 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Ignored HACS checks (all others run):
-      # - brands: ignored until the HACS check recognises the local brand/ folder of
-      #   custom_components/qoffeeautomat/ (added by task T507, kept equal to assets/brand/
-      #   by scripts/dev/sync_brand.py --check in the python job). Remove it from the
-      #   ignore list once the check passes without it.
-      # - description, topics: need repository settings that scripts/github/setup-repo.sh
-      #   applies (open item O-01, docs/maintainers/github-setup.md).
-      # - license: the GitHub API reports a license only once LICENSE is on the default
-      #   branch, which happens when the milestone M0 pull request is merged into main.
+      # Ignored HACS checks (all others run, T605):
+      # - description, topics: they read the description and the topics of the GitHub
+      #   repository, which only the owner can set (open item O-01: run
+      #   scripts/github/setup-repo.sh, see docs/maintainers/github-setup.md). On
+      #   2026-11-17 the repository still had neither. Remove this whole `ignore` line as
+      #   soon as the script has run; the checks are not unavoidable, only not done yet.
+      # The checks `brands` (the integration ships brand/ images, kept equal to
+      # assets/brand/ by scripts/dev/sync_brand.py --check in the python job) and
+      # `license` (LICENSE is on the default branch) are no longer ignored.
       - name: Run HACS validation
         uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
         with:
           category: integration
-          ignore: brands description topics license
+          ignore: description topics
           comment: "false"
 
   result:
