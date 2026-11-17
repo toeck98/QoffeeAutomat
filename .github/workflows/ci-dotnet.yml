@@ -236,7 +236,7 @@ jobs:
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
       # Chocolatey package version of Inno Setup (6.3 or newer is required for the x64compatible and arm64 architectures).
       # Dependabot does not track it; look up the current stable release when touching this job (PLAN.md S01 rule 9).
-      INNO_SETUP_VERSION: "6.7.4"
+      INNO_SETUP_VERSION: "6.7.1"
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
