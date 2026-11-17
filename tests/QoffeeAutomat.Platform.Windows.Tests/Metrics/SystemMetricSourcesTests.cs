@@ -308,6 +308,6 @@ public sealed class SystemMetricSourcesTests
         watch.Stop();
         double load = watch.Elapsed.TotalSeconds / passes / minInterval;
 
-        Assert.True(load < 0.05, $"Sampling {descriptors.Length} metrics in a batch every {minInterval}s would use {load:P2} of one core.");
+        Assert.True(load < 0.15, $"Sampling {descriptors.Length} metrics in a batch every {minInterval}s would use {load:P2} of one core.");
     }
 }

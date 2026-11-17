@@ -203,7 +203,7 @@ public sealed class UserContextExecutionTests
 
         ExecutionResult result = await session.Harness.Bridge.RunAsync(
             Request(Path.Combine(Path.GetTempPath(), "qa-no-such-program-" + Guid.NewGuid().ToString("N"))),
-            CancellationToken.None).AsTask().WaitAsync(TestWait.Patience);
+            CancellationToken.None).AsTask().WaitAsync(TimeSpan.FromSeconds(45));
 
         Assert.False(result.Succeeded);
         Assert.Equal(ErrorCodes.Internal, result.ErrorCode);
@@ -513,7 +513,7 @@ public sealed class UserContextExecutionTests
             "slow.action",
             new Dictionary<string, object>(),
             TimeSpan.FromMilliseconds(300),
-            CancellationToken.None).AsTask().WaitAsync(TestWait.Patience);
+            CancellationToken.None).AsTask().WaitAsync(TimeSpan.FromSeconds(45));
 
         Assert.Equal(ErrorCodes.Timeout, result.ErrorCode);
     }
@@ -588,7 +588,7 @@ public sealed class UserContextExecutionTests
 
         ExecutionResult result = await session.Harness.Bridge.RunAsync(
             Request("cmd.exe", ["/c", "echo %USERNAME%"]),
-            CancellationToken.None).AsTask().WaitAsync(TestWait.Patience);
+            CancellationToken.None).AsTask().WaitAsync(TimeSpan.FromSeconds(45));
 
         Assert.True(result.Succeeded);
         Assert.Equal(Environment.UserName, result.StandardOutput.Trim(), ignoreCase: true);
@@ -604,7 +604,7 @@ public sealed class UserContextExecutionTests
 
         ExecutionResult result = await session.Harness.Bridge.RunAsync(
             Request(file, arguments, timeout: TimeSpan.FromMilliseconds(600)),
-            CancellationToken.None).AsTask().WaitAsync(TestWait.Patience);
+            CancellationToken.None).AsTask().WaitAsync(TimeSpan.FromSeconds(45));
 
         Assert.Equal(ErrorCodes.Timeout, result.ErrorCode);
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(15));
@@ -663,7 +663,7 @@ public sealed class UserContextExecutionTests
 
         ExecutionResult result = await session.Harness.Bridge.RunAsync(
             Request(file, arguments, waitForExit: false),
-            CancellationToken.None).AsTask().WaitAsync(TestWait.Patience);
+            CancellationToken.None).AsTask().WaitAsync(TimeSpan.FromSeconds(45));
 
         Assert.True(result.Succeeded);
         Assert.Equal(string.Empty, result.StandardOutput);
