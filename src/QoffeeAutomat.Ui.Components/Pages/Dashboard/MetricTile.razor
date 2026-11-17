@@ -1,0 +1,19 @@
+@inherits LocalizedComponentBase
+
+<MudPaper Class="pa-3 qa-tile" Elevation="1" data-testid="@($"tile-{Tile.Info.Id}")">
+  <MudText Typo="Typo.caption" Color="Color.Secondary">@Tile.Info.Name</MudText>
+  <MudText Typo="Typo.h5" data-testid="tile-value">@DashboardFormat.MetricValue(Tile.Info, Tile.Value, L)</MudText>
+  <div class="qa-tile-chart">
+    <LineChart Points="Tile.Points" Label="@L.Format("Dashboard.ChartLabel", Tile.Info.Name, HistoryMinutes)" />
+  </div>
+</MudPaper>
+
+@code {
+  /// <summary>The metric to show.</summary>
+  [Parameter, EditorRequired]
+  public MetricTileModel Tile { get; set; } = default!;
+
+  /// <summary>How many minutes the chart covers, for its description.</summary>
+  [Parameter]
+  public int HistoryMinutes { get; set; }
+}

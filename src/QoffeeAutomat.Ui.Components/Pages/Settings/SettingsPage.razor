@@ -1,0 +1,149 @@
+@page "/settings"
+@inherits LocalizedComponentBase
+
+@* The agent settings (PLAN.md T407): name, ports, remote UI with its security explanation, log level, retention, tray icon, and
+   the password. A change of a port or of the remote UI switch takes effect after a restart, which the page offers. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@L["Settings.Title"]</MudText>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Settings.Intro"]</MudText>
+
+<ErrorDisplay Error="_loadError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_actionError is not null)
+{
+  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="action-failed">@_actionFailure</MudAlert>
+  <ErrorDisplay Error="_actionError" Class="mb-4" />
+}
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="notice">@_notice</MudAlert>
+}
+@if (_restartRequired)
+{
+  <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Class="mb-4" data-testid="restart-required">
+    <div>@L["Settings.RestartRequired"]</div>
+    <MudButton Variant="Variant.Outlined"
+               Color="Color.Inherit"
+               Size="Size.Small"
+               Class="mt-2"
+               Disabled="_restarting"
+               OnClick="RestartAsync"
+               data-testid="restart-agent">@L["Settings.Restart"]</MudButton>
+  </MudAlert>
+}
+@if (_restarting)
+{
+  <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4" data-testid="restarting">@L["Settings.Restarting"]</MudAlert>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_settings is not null)
+{
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="settings-form">
+    <MudGrid Spacing="3">
+      <MudItem xs="12" md="6">
+        <div data-testid="setting-name">
+          <MudTextField T="string" @bind-Value="_name" Label="@L["Settings.Name"]" HelperText="@L["Settings.Name.Help"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <SelectBox Label="@L["Settings.LogLevel"]" Value="@_logLevel" ValueChanged="@(value => _logLevel = value)" TestId="setting-loglevel">
+          @foreach (string level in LogLevels)
+          {
+            <option value="@level" selected="@(level == _logLevel)">@L["Settings.LogLevel." + level]</option>
+          }
+        </SelectBox>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <div data-testid="setting-uiport">
+          <MudNumericField T="int" @bind-Value="_uiPort" Label="@L["Settings.UiPort"]" HelperText="@L["Settings.UiPort.Help"]" Min="1" Max="65535" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <div data-testid="setting-linkport">
+          <MudNumericField T="int" @bind-Value="_linkPort" Label="@L["Settings.LinkPort"]" HelperText="@L["Settings.LinkPort.Help"]" Min="1" Max="65535" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <div data-testid="setting-runhistorydays">
+          <MudNumericField T="int?" @bind-Value="_runHistoryDays" Label="@L["Settings.RunHistoryDays"]" HelperText="@L["Settings.Retention.Help"]" Min="1" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <div data-testid="setting-auditlogdays">
+          <MudNumericField T="int?" @bind-Value="_auditLogDays" Label="@L["Settings.AuditLogDays"]" HelperText="@L["Settings.Retention.Help"]" Min="1" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="12">
+        <span data-testid="setting-tray" data-checked="@(_trayIcon ? "true" : "false")">
+          <MudSwitch T="bool" @bind-Value="_trayIcon" Color="Color.Primary" Label="@L["Settings.TrayIcon"]" />
+        </span>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">@L["Settings.TrayIcon.Help"]</MudText>
+      </MudItem>
+      <MudItem xs="12">
+        <span data-testid="setting-remoteui" data-checked="@(_remoteUi ? "true" : "false")">
+          <MudSwitch T="bool" @bind-Value="_remoteUi" Color="Color.Warning" Label="@L["Settings.RemoteUi"]" />
+        </span>
+        <MudAlert Severity="@(_remoteUi ? Severity.Warning : Severity.Info)" Variant="Variant.Outlined" Dense="true" data-testid="remoteui-explanation">
+          @L["Settings.RemoteUi.Explanation"]
+          @if (_remoteUi)
+          {
+            <div class="mt-1" data-testid="remoteui-warning">@L["Settings.RemoteUi.Warning"]</div>
+          }
+        </MudAlert>
+      </MudItem>
+    </MudGrid>
+    <div class="mt-4">
+      <MudButton Variant="Variant.Filled"
+                 Color="Color.Primary"
+                 Disabled="_saving"
+                 OnClick="SaveAsync"
+                 data-testid="settings-save">@L["Common.Save"]</MudButton>
+    </div>
+  </MudPaper>
+}
+
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="password-form">
+  <MudText Typo="Typo.h6" Class="mb-2">@L["Settings.Password.Title"]</MudText>
+  <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Settings.Password.Help"]</MudText>
+  @if (_passwordError is not null)
+  {
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="password-failed">@_passwordFailure</MudAlert>
+    <ErrorDisplay Error="_passwordError" Class="mb-2" />
+  }
+  else if (_passwordFailure is not null)
+  {
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="password-failed">@_passwordFailure</MudAlert>
+  }
+  @if (_passwordNotice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-2" data-testid="password-changed">@_passwordNotice</MudAlert>
+  }
+  <MudGrid Spacing="2">
+    <MudItem xs="12" md="4">
+      <div data-testid="password-current">
+        <MudTextField T="string" @bind-Value="_currentPassword" InputType="InputType.Password" Label="@L["Settings.Password.Current"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </div>
+    </MudItem>
+    <MudItem xs="12" md="4">
+      <div data-testid="password-new">
+        <MudTextField T="string" @bind-Value="_newPassword" InputType="InputType.Password" Label="@L["Settings.Password.New"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </div>
+    </MudItem>
+    <MudItem xs="12" md="4">
+      <div data-testid="password-repeat">
+        <MudTextField T="string" @bind-Value="_repeatPassword" InputType="InputType.Password" Label="@L["Settings.Password.Repeat"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </div>
+    </MudItem>
+  </MudGrid>
+  <div class="mt-3">
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               Disabled="_changingPassword"
+               OnClick="ChangePasswordAsync"
+               data-testid="password-save">@L["Settings.Password.Change"]</MudButton>
+  </div>
+</MudPaper>

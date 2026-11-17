@@ -80,6 +80,11 @@ public static class AuthEndpoints
             return failure!;
         }
 
+        if (string.IsNullOrEmpty(request.SetupToken) || string.IsNullOrEmpty(request.Password))
+        {
+            return ApiResults.Problem(StatusCodes.Status400BadRequest, "invalid_request", "Both setupToken and password are required.");
+        }
+
         AccountResult result = await accounts.SetupAsync(Caller(context), request.SetupToken, request.Password, cancellationToken).ConfigureAwait(false);
         if (result.Succeeded)
         {
@@ -100,6 +105,11 @@ public static class AuthEndpoints
         if (request is null)
         {
             return failure!;
+        }
+
+        if (string.IsNullOrEmpty(request.Password))
+        {
+            return ApiResults.Problem(StatusCodes.Status400BadRequest, "invalid_request", "Password is required.");
         }
 
         AccountResult result = await accounts.LoginAsync(Caller(context), request.Password, cancellationToken).ConfigureAwait(false);
@@ -129,6 +139,11 @@ public static class AuthEndpoints
         if (request is null)
         {
             return failure!;
+        }
+
+        if (string.IsNullOrEmpty(request.CurrentPassword) || string.IsNullOrEmpty(request.NewPassword))
+        {
+            return ApiResults.Problem(StatusCodes.Status400BadRequest, "invalid_request", "Both currentPassword and newPassword are required.");
         }
 
         AccountResult result = await accounts.ChangePasswordAsync(

@@ -1,0 +1,142 @@
+@page "/metrics"
+@using QoffeeAutomat.Contracts.Config
+@using QoffeeAutomat.Ui.Components.Pages.Dashboard
+@inherits LocalizedComponentBase
+
+@* The metric catalog (PLAN.md T405): the metrics by provider with their current value, the switches for sampling and for
+   Home Assistant, which save at once (and spring back when the agent refuses), and the interval and the deadband. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@L["Metrics.Title"]</MudText>
+  <MudButton Variant="Variant.Text" Href="/sensors" StartIcon="@Icons.Material.Filled.Sensors" data-testid="metrics-to-sensors">@L["Metrics.ToSensors"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Metrics.Intro"]</MudText>
+
+<ErrorDisplay Error="_listError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_actionError is not null)
+{
+  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="action-failed">@_actionFailure</MudAlert>
+  <ErrorDisplay Error="_actionError" Class="mb-4" />
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_metrics.Count == 0)
+{
+  if (_listError is null)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="metrics-none">@L["Metrics.None"]</MudText>
+    </MudPaper>
+  }
+}
+else
+{
+  @foreach (MetricGroup group in Groups)
+  {
+    <MudPaper Class="mb-4 qa-card" Elevation="1" data-testid="@($"group-{group.Key}")">
+      <div class="pa-3">
+        <MudText Typo="Typo.h6">@GroupTitle(group.Key)</MudText>
+      </div>
+      <MudSimpleTable Dense="true" Hover="true" data-testid="@($"metric-table-{group.Key}")">
+        <thead>
+          <tr>
+            <th>@L["Metrics.Column.Metric"]</th>
+            <th>@L["Metrics.Column.Value"]</th>
+            <th>@L["Metrics.Column.Enabled"]</th>
+            <th>@L["Metrics.Column.Expose"]</th>
+            <th>@L["Metrics.Column.Interval"]</th>
+            <th>@L["Metrics.Column.Deadband"]</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (MetricInfo metric in group.Metrics)
+          {
+            <tr @key="metric.Id" data-testid="@($"metric-{metric.Id}")" data-enabled="@(IsEnabled(metric) ? "true" : "false")">
+              <td>
+                <div class="qa-command-name">@metric.Name</div>
+                <div class="qa-muted"><code>@metric.Id</code></div>
+                @if (MetricCatalogView.IsSensitive(metric))
+                {
+                  <div data-testid="@($"privacy-{metric.Id}")">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Icon="@Icons.Material.Filled.PrivacyTip">@L["Metrics.Privacy.Chip"]</MudChip>
+                    <div class="qa-muted">@L["Metrics.Privacy.Hint"]</div>
+                  </div>
+                }
+                @if (metric.Custom)
+                {
+                  <div class="qa-muted" data-testid="@($"custom-{metric.Id}")">@L["Metrics.Custom.Hint"]</div>
+                }
+              </td>
+              <td data-testid="@($"value-{metric.Id}")" data-has-value="@(ValueOf(metric) is null ? "false" : "true")">
+                @DashboardFormat.MetricValue(metric, ValueOf(metric), L)
+              </td>
+              <td>
+                <span data-testid="@($"enabled-{metric.Id}")" data-checked="@(IsEnabled(metric) ? "true" : "false")">
+                  <MudSwitch @key="EnabledKey(metric)"
+                             T="bool"
+                             Value="IsEnabled(metric)"
+                             ValueChanged="@((bool value) => SaveAsync(metric, new MetricOverride(Enabled: value)))"
+                             Color="Color.Primary"
+                             Disabled="@(metric.Custom || IsBusy(metric))"
+                             aria-label="@Aria(L["Metrics.Column.Enabled"], metric)" />
+                </span>
+              </td>
+              <td>
+                <span data-testid="@($"expose-{metric.Id}")" data-checked="@(IsExposed(metric) ? "true" : "false")">
+                  <MudSwitch @key="ExposeKey(metric)"
+                             T="bool"
+                             Value="IsExposed(metric)"
+                             ValueChanged="@((bool value) => SaveAsync(metric, new MetricOverride(ExposeToHa: value)))"
+                             Color="Color.Primary"
+                             Disabled="@(metric.Custom || IsBusy(metric))"
+                             aria-label="@Aria(L["Metrics.Column.Expose"], metric)" />
+                </span>
+              </td>
+              <td>
+                <input @key="IntervalKey(metric)"
+                       class="qa-number"
+                       type="number"
+                       min="0"
+                       step="any"
+                       value="@MetricCatalogView.Format(IntervalOf(metric))"
+                       disabled="@(metric.Custom || IsBusy(metric))"
+                       aria-label="@Aria(L["Metrics.Column.Interval"], metric)"
+                       aria-invalid="@(HasFieldError(metric, "interval") ? "true" : null)"
+                       data-testid="@($"interval-{metric.Id}")"
+                       @onchange="@((ChangeEventArgs args) => SetIntervalAsync(metric, args.Value?.ToString()))" />
+                <span class="qa-muted">@L["Metrics.Unit.Seconds"]</span>
+                @if (IntervalOf(metric) == 0)
+                {
+                  <div class="qa-muted">@L["Metrics.Interval.EventDriven"]</div>
+                }
+                @if (HasFieldError(metric, "interval"))
+                {
+                  <MudText Typo="Typo.caption" Color="Color.Error" role="alert" data-testid="@($"interval-error-{metric.Id}")">@L["Metrics.Error.Number"]</MudText>
+                }
+              </td>
+              <td>
+                <input @key="DeadbandKey(metric)"
+                       class="qa-number"
+                       type="number"
+                       min="0"
+                       step="any"
+                       value="@MetricCatalogView.Format(DeadbandOf(metric))"
+                       disabled="@(metric.Custom || IsBusy(metric) || !IsNumeric(metric))"
+                       aria-label="@Aria(L["Metrics.Column.Deadband"], metric)"
+                       aria-invalid="@(HasFieldError(metric, "deadband") ? "true" : null)"
+                       data-testid="@($"deadband-{metric.Id}")"
+                       @onchange="@((ChangeEventArgs args) => SetDeadbandAsync(metric, args.Value?.ToString()))" />
+                @if (HasFieldError(metric, "deadband"))
+                {
+                  <MudText Typo="Typo.caption" Color="Color.Error" role="alert" data-testid="@($"deadband-error-{metric.Id}")">@L["Metrics.Error.Number"]</MudText>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    </MudPaper>
+  }
+}

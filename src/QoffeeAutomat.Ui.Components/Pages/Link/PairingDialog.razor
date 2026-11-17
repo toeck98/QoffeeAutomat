@@ -1,0 +1,27 @@
+@* The dialog around the pairing panel (T406); the title is given by whoever shows the dialog. It closes with the result true
+   when a client has paired, so that the page can read the list of clients again. *@
+<MudDialog>
+  <DialogContent>
+    <PairingPanel OnFinished="FinishedAsync" />
+  </DialogContent>
+</MudDialog>
+
+@code {
+  /// <summary>The dialog that shows this component.</summary>
+  [CascadingParameter]
+  private IMudDialogInstance MudDialog { get; set; } = null!;
+
+  private Task FinishedAsync(bool paired)
+  {
+    if (paired)
+    {
+      MudDialog.Close(DialogResult.Ok(true));
+    }
+    else
+    {
+      MudDialog.Cancel();
+    }
+
+    return Task.CompletedTask;
+  }
+}

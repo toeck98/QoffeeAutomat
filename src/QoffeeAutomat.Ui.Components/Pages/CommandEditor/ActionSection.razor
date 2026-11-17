@@ -1,0 +1,349 @@
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* What the command does: the type of the action and the form that belongs to it. *@
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="section-action" data-action="@Draft.ActionType">
+  <MudText Typo="Typo.h6" Class="mb-3">@L["Editor.Action.Title"]</MudText>
+
+  <SelectBox Label="@L["Editor.Action.Type"]"
+             @bind-Value="Draft.ActionType"
+             @bind-Value:after="NotifyAsync"
+             Error="@(Errors.Has("/action") || Errors.Has("/action/type"))"
+             TestId="field-action-type">
+    @if (!Draft.HasKnownAction)
+    {
+      <option value="@Draft.ActionType">@Draft.ActionType</option>
+    }
+    <option value="@ActionTypes.PowerShell">@L["Commands.Action.PowerShell"]</option>
+    <option value="@ActionTypes.Process">@L["Commands.Action.Process"]</option>
+    <option value="@ActionTypes.Builtin">@L["Commands.Action.Builtin"]</option>
+    <option value="@ActionTypes.Sequence">@L["Commands.Action.Sequence"]</option>
+  </SelectBox>
+  <FieldError Errors="Errors" Path="/action" />
+  <FieldError Errors="Errors" Path="/action/type" />
+  @if (!Draft.HasKnownAction)
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-2" data-testid="action-unknown">@L.Format("Editor.Action.Unknown", Draft.ActionType)</MudAlert>
+  }
+
+  @if (Draft.ActionType == ActionTypes.PowerShell)
+  {
+    <MudGrid Spacing="2" Class="mt-1">
+      <MudItem xs="12" md="6">
+        <SelectBox Label="@L["Editor.Ps.Source"]"
+                   @bind-Value="Draft.PowerShellSource"
+                   @bind-Value:after="NotifyAsync"
+                   Error="@Errors.Has("/action/source")"
+                   TestId="field-ps-source">
+          <option value="@PowerShellSources.Inline">@L["Editor.Ps.Source.Inline"]</option>
+          <option value="@PowerShellSources.File">@L["Editor.Ps.Source.File"]</option>
+        </SelectBox>
+        <FieldError Errors="Errors" Path="/action/source" />
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <SelectBox Label="@L["Editor.Ps.Engine"]"
+                   @bind-Value="Draft.PowerShellEngine"
+                   @bind-Value:after="NotifyAsync"
+                   Error="@Errors.Has("/action/engine")"
+                   TestId="field-ps-engine">
+          <option value="@PowerShellEngines.Auto">@L["Editor.Ps.Engine.Auto"]</option>
+          <option value="@PowerShellEngines.Pwsh">@L["Editor.Ps.Engine.Pwsh"]</option>
+          <option value="@PowerShellEngines.PowerShell">@L["Editor.Ps.Engine.PowerShell"]</option>
+        </SelectBox>
+        <FieldError Errors="Errors" Path="/action/engine" />
+      </MudItem>
+      @if (Draft.PowerShellSource == PowerShellSources.File)
+      {
+        <MudItem xs="12">
+          <div data-testid="field-ps-script">
+            <MudTextField T="string"
+                          @bind-Value="Draft.PowerShellScript"
+                          @bind-Value:after="NotifyAsync"
+                          Immediate="true"
+                          Label="@L["Editor.Ps.Script"]"
+                          HelperText="@L["Editor.Ps.Script.Help"]"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Error="@Errors.Has("/action/script")"
+                          spellcheck="false" />
+          </div>
+          <FieldError Errors="Errors" Path="/action/script" />
+          @if (Scripts.Count > 0)
+          {
+            <div class="qa-chip-row" data-testid="script-choices">
+              @foreach (ScriptSummary script in Scripts)
+              {
+                <MudChip @key="script.Name"
+                         T="string"
+                         Size="Size.Small"
+                         Variant="@(script.Name == Draft.PowerShellScript ? Variant.Filled : Variant.Outlined)"
+                         OnClick="@(() => PickScriptAsync(script.Name))"
+                         data-testid="@($"script-{script.Name}")">@script.Name</MudChip>
+              }
+            </div>
+          }
+        </MudItem>
+      }
+      else
+      {
+        <MudItem xs="12">
+          <div class="qa-code-toolbar">
+            <MudText Typo="Typo.subtitle2">@L["Editor.Ps.Code"]</MudText>
+            <MudButton Size="Size.Small"
+                       Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Code"
+                       OnClick="InsertParamBlockAsync"
+                       Disabled="@(!HasNamedParameters)"
+                       title="@L["Editor.Ps.ParamBlock.Help"]"
+                       data-testid="insert-param-block">@L["Editor.Ps.ParamBlock"]</MudButton>
+          </div>
+          <CodeEditor Value="@Draft.PowerShellCode"
+                      ValueChanged="OnCodeChangedAsync"
+                      Language="powershell"
+                      Label="@L["Editor.Ps.Code"]" />
+          <FieldError Errors="Errors" Path="/action/code" />
+        </MudItem>
+      }
+    </MudGrid>
+  }
+  else if (Draft.ActionType == ActionTypes.Process)
+  {
+    <MudGrid Spacing="2" Class="mt-1">
+      <MudItem xs="12">
+        <div data-testid="field-process-file">
+          <MudTextField T="string"
+                        @bind-Value="Draft.ProcessFile"
+                        @bind-Value:after="NotifyAsync"
+                        Immediate="true"
+                        Label="@L["Editor.Process.File"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Error="@Errors.Has("/action/file")"
+                        spellcheck="false" />
+        </div>
+        <FieldError Errors="Errors" Path="/action/file" />
+      </MudItem>
+      <MudItem xs="12">
+        <div data-testid="field-process-args">
+          <MudTextField T="string"
+                        @bind-Value="Draft.ProcessArgsText"
+                        @bind-Value:after="NotifyAsync"
+                        Immediate="true"
+                        Lines="4"
+                        Label="@L["Editor.Process.Args"]"
+                        HelperText="@L["Editor.Process.Args.Help"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Error="@Errors.Has("/action/args")"
+                        spellcheck="false" />
+        </div>
+        <FieldError Errors="Errors" Path="/action/args" />
+      </MudItem>
+      <MudItem xs="12" md="8">
+        <div data-testid="field-process-dir">
+          <MudTextField T="string"
+                        @bind-Value="Draft.ProcessWorkingDirectory"
+                        @bind-Value:after="NotifyAsync"
+                        Immediate="true"
+                        Label="@L["Editor.Process.Directory"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Error="@Errors.Has("/action/workingDirectory")"
+                        spellcheck="false" />
+        </div>
+        <FieldError Errors="Errors" Path="/action/workingDirectory" />
+      </MudItem>
+      <MudItem xs="12" md="4">
+        <MudSwitch T="bool" @bind-Value="Draft.ProcessWaitForExit" @bind-Value:after="NotifyAsync" Label="@L["Editor.Process.Wait"]" Color="Color.Primary" data-testid="field-process-wait" />
+      </MudItem>
+    </MudGrid>
+  }
+  else if (Draft.ActionType == ActionTypes.Builtin)
+  {
+    <div class="mt-1" data-testid="field-builtin-name">
+      <MudTextField T="string"
+                    @bind-Value="Draft.BuiltinName"
+                    @bind-Value:after="NotifyAsync"
+                    Immediate="true"
+                    Label="@L["Editor.Builtin.Name"]"
+                    HelperText="@L["Editor.Builtin.Name.Help"]"
+                    Variant="Variant.Outlined"
+                    Margin="Margin.Dense"
+                    Error="@Errors.Has("/action/name")"
+                    spellcheck="false" />
+    </div>
+    <FieldError Errors="Errors" Path="/action/name" />
+    <div class="qa-chip-row" data-testid="builtin-choices">
+      @foreach (string name in BuiltinSuggestions)
+      {
+        <MudChip @key="name"
+                 T="string"
+                 Size="Size.Small"
+                 Variant="@(name == Draft.BuiltinName ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => PickBuiltinAsync(name))"
+                 data-testid="@($"builtin-{name}")">@name</MudChip>
+      }
+    </div>
+  }
+  else if (Draft.ActionType == ActionTypes.Sequence)
+  {
+    <div class="mt-1" data-testid="sequence-steps">
+      @for (int index = 0; index < Draft.Steps.Count; index++)
+      {
+        int position = index;
+        StepDraft step = Draft.Steps[position];
+        string path = "/action/steps/" + position;
+        <div class="qa-step" @key="step.Key" data-testid="@($"step-{position}")" data-kind="@step.Kind">
+          <div class="qa-step-header">
+            <MudText Typo="Typo.subtitle2">@L.Format("Editor.Sequence.Step", position + 1)</MudText>
+            <span>
+              <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="@(position == 0)" OnClick="@(() => MoveStepAsync(position, -1))" aria-label="@L["Editor.Move.Up"]" data-testid="@($"step-up-{position}")" />
+              <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="@(position == Draft.Steps.Count - 1)" OnClick="@(() => MoveStepAsync(position, 1))" aria-label="@L["Editor.Move.Down"]" data-testid="@($"step-down-{position}")" />
+              <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveStepAsync(position))" aria-label="@L["Editor.Remove"]" data-testid="@($"step-remove-{position}")" />
+            </span>
+          </div>
+          @if (step.Kind == StepKinds.Delay)
+          {
+            <div data-testid="@($"step-delay-{position}")">
+              <MudTextField T="string"
+                            @bind-Value="step.DelayText"
+                            @bind-Value:after="NotifyAsync"
+                            Immediate="true"
+                            InputType="InputType.Number"
+                            Label="@L["Editor.Sequence.Delay"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            Error="@Errors.Has(path + "/delaySeconds")" />
+            </div>
+            <FieldError Errors="Errors" Path="@(path + "/delaySeconds")" />
+          }
+          else
+          {
+            <SelectBox Label="@L["Editor.Sequence.Command"]"
+                       @bind-Value="step.CommandId"
+                       @bind-Value:after="NotifyAsync"
+                       Error="@Errors.Has(path + "/command")"
+                       TestId="@($"step-command-{position}")">
+              <option value="">@L["Editor.Sequence.Choose"]</option>
+              @if (step.CommandId.Length > 0 && !CommandIds.Contains(step.CommandId))
+              {
+                <option value="@step.CommandId">@step.CommandId</option>
+              }
+              @foreach (string commandId in CommandIds)
+              {
+                <option value="@commandId">@commandId</option>
+              }
+            </SelectBox>
+            <FieldError Errors="Errors" Path="@(path + "/command")" />
+            <div data-testid="@($"step-vars-{position}")">
+              <MudTextField T="string"
+                            @bind-Value="step.VarsText"
+                            @bind-Value:after="NotifyAsync"
+                            Immediate="true"
+                            Label="@L["Editor.Sequence.Vars"]"
+                            HelperText="@L["Editor.Sequence.Vars.Help"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            Error="@Errors.Has(path + "/vars")"
+                            spellcheck="false" />
+            </div>
+            <FieldError Errors="Errors" Path="@(path + "/vars")" />
+          }
+          <FieldError Errors="Errors" Path="@path" />
+        </div>
+      }
+      <FieldError Errors="Errors" Path="/action/steps" />
+      <div class="qa-run-actions">
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => AddStepAsync(StepKinds.Command))" data-testid="add-step-command">@L["Editor.Sequence.AddCommand"]</MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Timer" OnClick="@(() => AddStepAsync(StepKinds.Delay))" data-testid="add-step-delay">@L["Editor.Sequence.AddDelay"]</MudButton>
+      </div>
+    </div>
+    <SelectBox Label="@L["Editor.Sequence.OnError"]"
+               @bind-Value="Draft.SequenceOnError"
+               @bind-Value:after="NotifyAsync"
+               Error="@Errors.Has("/action/onError")"
+               TestId="field-sequence-onerror">
+      <option value="@SequenceErrorModes.Stop">@L["Editor.Sequence.OnError.Stop"]</option>
+      <option value="@SequenceErrorModes.Continue">@L["Editor.Sequence.OnError.Continue"]</option>
+    </SelectBox>
+    <FieldError Errors="Errors" Path="/action/onError" />
+  }
+</MudPaper>
+
+@code {
+  private static readonly string[] BuiltinSuggestions = ["power.shutdown", "session.lock", "audio.set_volume", "notify.toast"];
+
+  /// <summary>The draft.</summary>
+  [Parameter]
+  [EditorRequired]
+  public CommandDraft Draft { get; set; } = null!;
+
+  /// <summary>The problems of the draft.</summary>
+  [Parameter]
+  public DraftErrors Errors { get; set; } = DraftErrors.Empty;
+
+  /// <summary>The script files that exist at the agent.</summary>
+  [Parameter]
+  public IReadOnlyList<ScriptSummary> Scripts { get; set; } = [];
+
+  /// <summary>The ids of the commands that a sequence can run (not the command itself).</summary>
+  [Parameter]
+  public IReadOnlyList<string> CommandIds { get; set; } = [];
+
+  /// <summary>Raised after every change of the draft.</summary>
+  [Parameter]
+  public EventCallback OnChanged { get; set; }
+
+  private bool HasNamedParameters => Draft.Parameters.Exists(row => !string.IsNullOrWhiteSpace(row.Name));
+
+  private Task NotifyAsync() => OnChanged.InvokeAsync();
+
+  private Task OnCodeChangedAsync(string code)
+  {
+    Draft.PowerShellCode = code;
+    return NotifyAsync();
+  }
+
+  /// <summary>Writes the param() block of the parameter table into the code: replaces the block that is there, or adds one.</summary>
+  private Task InsertParamBlockAsync()
+  {
+    string block = PowerShellParamBlock.Build(Draft.ParameterDefinitions());
+    Draft.PowerShellCode = PowerShellParamBlock.Apply(Draft.PowerShellCode, block);
+    return NotifyAsync();
+  }
+
+  private Task PickScriptAsync(string name)
+  {
+    Draft.PowerShellScript = name;
+    return NotifyAsync();
+  }
+
+  private Task PickBuiltinAsync(string name)
+  {
+    Draft.BuiltinName = name;
+    return NotifyAsync();
+  }
+
+  private Task AddStepAsync(string kind)
+  {
+    Draft.Steps.Add(new StepDraft { Kind = kind });
+    return NotifyAsync();
+  }
+
+  private Task RemoveStepAsync(int index)
+  {
+    Draft.Steps.RemoveAt(index);
+    return NotifyAsync();
+  }
+
+  private Task MoveStepAsync(int index, int offset)
+  {
+    int target = index + offset;
+    if (target >= 0 && target < Draft.Steps.Count)
+    {
+      (Draft.Steps[index], Draft.Steps[target]) = (Draft.Steps[target], Draft.Steps[index]);
+    }
+
+    return NotifyAsync();
+  }
+}

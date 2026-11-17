@@ -1,0 +1,24 @@
+@inherits LocalizedComponentBase
+
+@* The problems of one field of the draft (a JSON pointer), as found by the editor or reported by the agent. *@
+@foreach (ApiValidationError error in Errors.For(Path))
+{
+  <MudText Typo="Typo.caption" Color="Color.Error" role="alert" data-testid="@($"draft-error:{Path}")" data-code="@error.Code">@TextOf(error)</MudText>
+}
+
+@code {
+  /// <summary>The problems of the draft.</summary>
+  [Parameter]
+  public DraftErrors Errors { get; set; } = DraftErrors.Empty;
+
+  /// <summary>The JSON pointer of the field.</summary>
+  [Parameter]
+  [EditorRequired]
+  public string Path { get; set; } = string.Empty;
+
+  /// <summary>A translation of the code when the editor has one, else the message of the agent (English).</summary>
+  private string TextOf(ApiValidationError error)
+  {
+    return L.Find("Editor.Error." + error.Code) ?? error.Message;
+  }
+}

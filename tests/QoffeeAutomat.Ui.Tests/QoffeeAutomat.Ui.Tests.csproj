@@ -1,9 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- bUnit is added together with the first real component (milestone M4). -->
+  <!-- Component tests with bUnit (PLAN.md S14, T401, T402). The tests of the HTTP client reference the UI shell, which
+       implements IAgentApi; the components themselves are tested against a fake IAgentApi. -->
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\QoffeeAutomat.Ui.Components\QoffeeAutomat.Ui.Components.csproj" />
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Ui\QoffeeAutomat.Ui.csproj" />
   </ItemGroup>
 
 </Project>

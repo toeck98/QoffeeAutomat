@@ -1,0 +1,202 @@
+@page "/backup"
+@using Microsoft.AspNetCore.Components.Forms
+@using QoffeeAutomat.Ui.Components.Pages.Dashboard
+@inherits LocalizedComponentBase
+
+@* Backup (PLAN.md T407): export of the configuration, import with a preview of what will change, the revision history of the
+   documents with restore, and the diagnostics bundle. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@L["Backup.Title"]</MudText>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Backup.Intro"]</MudText>
+
+@if (_actionError is not null)
+{
+  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="action-failed">@_actionFailure</MudAlert>
+  <ErrorDisplay Error="_actionError" Class="mb-4" />
+}
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="notice">@_notice</MudAlert>
+}
+
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="backup-export">
+  <MudText Typo="Typo.h6" Class="mb-1">@L["Backup.Export.Title"]</MudText>
+  <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Backup.Export.Help"]</MudText>
+  <MudButton Variant="Variant.Filled"
+             Color="Color.Primary"
+             StartIcon="@Icons.Material.Filled.Download"
+             Disabled="_exporting"
+             OnClick="ExportAsync"
+             data-testid="export-start">@L["Backup.Export.Button"]</MudButton>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="backup-import">
+  <MudText Typo="Typo.h6" Class="mb-1">@L["Backup.Import.Title"]</MudText>
+  <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Backup.Import.Help"]</MudText>
+  <div class="mb-2" data-testid="import-file">
+    <InputFile OnChange="OnFileChosenAsync" accept=".zip,application/zip" />
+  </div>
+  <span data-testid="import-settings" data-checked="@(_includeSettings ? "true" : "false")">
+    <MudSwitch T="bool" Value="_includeSettings" ValueChanged="SetIncludeSettingsAsync" Color="Color.Primary" Label="@L["Backup.Import.IncludeSettings"]" />
+  </span>
+  <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-2">@L["Backup.Import.IncludeSettings.Help"]</MudText>
+
+  @if (_fileError is not null)
+  {
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="import-file-error">@_fileError</MudAlert>
+  }
+  <ErrorDisplay Error="_previewError" Class="mb-2" />
+  @if (_previewing)
+  {
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+  }
+  @if (_preview is not null)
+  {
+    <div data-testid="import-preview" data-valid="@(_preview.Valid ? "true" : "false")">
+      <MudText Typo="Typo.subtitle1" Class="mb-1">@L.Format("Backup.Import.File", _fileName ?? string.Empty)</MudText>
+      @if (!_preview.Valid)
+      {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-2" data-testid="import-invalid">@L["Backup.Import.Invalid"]</MudAlert>
+        <ul class="qa-error-list" data-testid="import-errors">
+          @foreach (ApiValidationError error in _preview.Errors)
+          {
+            <li><code>@error.Path</code> @error.Message</li>
+          }
+        </ul>
+      }
+      @if (_preview.Items.Count > 0)
+      {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1" data-testid="import-summary">
+          @L.Format("Backup.Import.Summary", Count("new"), Count("changed"), Count("unchanged"))
+        </MudText>
+        <MudSimpleTable Dense="true" Hover="true" Class="mb-2" data-testid="import-items">
+          <thead>
+            <tr>
+              <th>@L["Backup.Column.Kind"]</th>
+              <th>@L["Backup.Column.Id"]</th>
+              <th>@L["Backup.Column.Change"]</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (ImportPreviewItem item in _preview.Items)
+            {
+              <tr data-testid="@($"import-item-{item.Kind}-{item.Id}")" data-change="@item.Change">
+                <td>@(L.Find("Backup.Kind." + item.Kind) ?? item.Kind)</td>
+                <td><code>@item.Id</code></td>
+                <td>
+                  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ChangeColor(item.Change)">@(L.Find("Backup.Change." + item.Change) ?? item.Change)</MudChip>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </MudSimpleTable>
+      }
+      @if (_preview.Valid)
+      {
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(_importing || !CanApply)"
+                   OnClick="ApplyAsync"
+                   data-testid="import-apply">@L["Backup.Import.Apply"]</MudButton>
+      }
+      else
+      {
+        <MudText Typo="Typo.body2" Color="Color.Error" data-testid="import-nothing-applied">@L["Backup.Import.NothingApplied"]</MudText>
+      }
+    </div>
+  }
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="backup-revisions">
+  <MudText Typo="Typo.h6" Class="mb-1">@L["Backup.Revisions.Title"]</MudText>
+  <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Backup.Revisions.Help"]</MudText>
+  <MudGrid Spacing="2">
+    <MudItem xs="12" md="4">
+      <SelectBox Label="@L["Backup.Revisions.Kind"]" Value="@_kind" ValueChanged="SetKindAsync" TestId="revision-kind">
+        <option value="@RevisionKinds.Command" selected="@(_kind == RevisionKinds.Command)">@L["Backup.Kind.command"]</option>
+        <option value="@RevisionKinds.Sensor" selected="@(_kind == RevisionKinds.Sensor)">@L["Backup.Kind.sensor"]</option>
+        <option value="@RevisionKinds.Settings" selected="@(_kind == RevisionKinds.Settings)">@L["Backup.Kind.settings"]</option>
+      </SelectBox>
+    </MudItem>
+    @if (_kind != RevisionKinds.Settings)
+    {
+      <MudItem xs="12" md="4">
+        <SelectBox Label="@L["Backup.Revisions.Document"]" Value="@_documentId" ValueChanged="SetDocumentAsync" TestId="revision-document">
+          <option value="" selected="@(_documentId.Length == 0)">@L["Backup.Revisions.Choose"]</option>
+          @foreach (string id in _documentIds)
+          {
+            <option value="@id" selected="@(id == _documentId)">@id</option>
+          }
+        </SelectBox>
+      </MudItem>
+    }
+  </MudGrid>
+  <ErrorDisplay Error="_revisionsError" Class="mt-2" />
+  @if (_loadingRevisions)
+  {
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+  }
+  else if (_revisions is not null)
+  {
+    if (_revisions.Revisions.Count == 0)
+    {
+      <MudText Color="Color.Secondary" Class="mt-2" data-testid="revisions-none">@L["Backup.Revisions.None"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Hover="true" Class="mt-2" data-testid="revision-table">
+        <thead>
+          <tr>
+            <th>@L["Backup.Column.Revision"]</th>
+            <th>@L["Backup.Column.Saved"]</th>
+            <th>@L["Backup.Column.Actions"]</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (RevisionEntry entry in _revisions.Revisions)
+          {
+            bool isCurrent = entry.Revision == _revisions.Current;
+            <tr @key="entry.Revision" data-testid="@($"revision-{entry.Revision}")" data-current="@(isCurrent ? "true" : "false")">
+              <td>
+                @entry.Revision
+                @if (isCurrent)
+                {
+                  <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Success">@L["Backup.Revisions.Current"]</MudChip>
+                }
+              </td>
+              <td>
+                @if (entry.UpdatedAt is { } saved)
+                {
+                  @DashboardFormat.LocalTime(saved, L.Culture)
+                }
+                else
+                {
+                  <span class="qa-muted">@L["Common.Unavailable"]</span>
+                }
+              </td>
+              <td class="qa-row-actions">
+                <MudButton Size="Size.Small"
+                           Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.Restore"
+                           Disabled="@(isCurrent || _restoring)"
+                           OnClick="@(() => RestoreAsync(entry))"
+                           data-testid="@($"restore-{entry.Revision}")">@L["Backup.Revisions.Restore"]</MudButton>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+  }
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="backup-diagnostics">
+  <MudText Typo="Typo.h6" Class="mb-1">@L["Backup.Diagnostics.Title"]</MudText>
+  <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Backup.Diagnostics.Help"]</MudText>
+  <MudButton Variant="Variant.Outlined"
+             StartIcon="@Icons.Material.Filled.BugReport"
+             Disabled="_downloadingDiagnostics"
+             OnClick="DownloadDiagnosticsAsync"
+             data-testid="diagnostics-download">@L["Backup.Diagnostics.Button"]</MudButton>
+</MudPaper>

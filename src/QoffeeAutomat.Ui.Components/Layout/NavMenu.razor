@@ -1,0 +1,14 @@
+@inherits LocalizedComponentBase
+
+@* The pages of the app. Later tasks add their entries here. *@
+<MudNavMenu>
+  <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">@L["Nav.Dashboard"]</MudNavLink>
+  <MudNavLink Href="/commands" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Terminal">@L["Nav.Commands"]</MudNavLink>
+  <MudNavLink Href="/metrics" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Speed">@L["Nav.Metrics"]</MudNavLink>
+  <MudNavLink Href="/sensors" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Sensors">@L["Nav.Sensors"]</MudNavLink>
+  <MudNavLink Href="/link" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Link">@L["Nav.Link"]</MudNavLink>
+  <MudNavLink Href="/history" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.History">@L["Nav.History"]</MudNavLink>
+  <MudNavLink Href="/logs" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Article">@L["Nav.Logs"]</MudNavLink>
+  <MudNavLink Href="/backup" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Backup">@L["Nav.Backup"]</MudNavLink>
+  <MudNavLink Href="/settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">@L["Nav.Settings"]</MudNavLink>
+</MudNavMenu>

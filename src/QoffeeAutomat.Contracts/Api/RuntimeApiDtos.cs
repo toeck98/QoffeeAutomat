@@ -37,11 +37,11 @@ public sealed record RunSummary(
     string State,
     DateTimeOffset StartedAt,
     long DurationMs,
-    int? ExitCode,
-    string? ErrorCode,
-    bool Succeeded,
-    string? ClientId,
-    string? ParentRunId);
+    int? ExitCode = null,
+    string? ErrorCode = null,
+    bool Succeeded = false,
+    string? ClientId = null,
+    string? ParentRunId = null);
 
 /// <summary>One run with its variables and output (<c>GET /api/v1/runs/{id}</c>). Values of secret variables are redacted.</summary>
 /// <param name="Id">The run id.</param>

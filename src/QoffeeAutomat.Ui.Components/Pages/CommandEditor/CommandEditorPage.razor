@@ -1,0 +1,77 @@
+@page "/commands/new"
+@page "/commands/{Id}"
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The command editor (PLAN.md T404): creates a command or changes one. The draft is validated by the agent while it is
+   typed, tested without saving, previewed for Home Assistant, and guarded against leaving with unsaved changes. *@
+<NavigationLock OnBeforeInternalNavigation="OnLeavingAsync" ConfirmExternalNavigation="_dirty" />
+
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true" data-testid="editor-title">@TitleText</MudText>
+  <span class="qa-editor-actions">
+    @if (_dirty)
+    {
+      <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined" data-testid="dirty-indicator">@L["Editor.Unsaved.Indicator"]</MudChip>
+    }
+    <MudButton Variant="Variant.Text" Href="/commands" data-testid="editor-back">@L["Editor.Back"]</MudButton>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Save"
+               OnClick="SaveAsync"
+               Disabled="@(_saving || _loading || _notFound || _loadError is not null)"
+               data-testid="editor-save">@L["Editor.Save"]</MudButton>
+  </span>
+</div>
+
+<ErrorDisplay Error="_loadError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_notFound)
+{
+  <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4" data-testid="editor-not-found">@L["Editor.NotFound"]</MudAlert>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_loadError is null && !_notFound)
+{
+  <ErrorDisplay Error="_saveError" Class="mb-4" />
+  @if (_notice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="editor-saved">@_notice</MudAlert>
+  }
+
+  @if (_errors.Count > 0)
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4" data-testid="validation-summary">
+      <div>@L.Format("Editor.Validation.Summary", _errors.Count)</div>
+      <ul class="qa-error-list">
+        @foreach (ApiValidationError error in _errors.All)
+        {
+          <li><code>@error.Path</code> @(L.Find("Editor.Error." + error.Code) ?? error.Message)</li>
+        }
+      </ul>
+    </MudAlert>
+  }
+
+  <MudGrid Spacing="3">
+    <MudItem xs="12" lg="7">
+      <GeneralSection Draft="_draft" Errors="_errors" Session="_session" OnChanged="OnChangedAsync" />
+      <ActionSection Draft="_draft" Errors="_errors" Scripts="_scripts" CommandIds="CommandChoices" OnChanged="OnChangedAsync" />
+      <ParameterSection Draft="_draft" Errors="_errors" OnChanged="OnChangedAsync" />
+      <HaSection Draft="_draft" Errors="_errors" Metrics="_metrics" OnChanged="OnChangedAsync" />
+    </MudItem>
+    <MudItem xs="12" lg="5">
+      <MudPaper Class="pa-3 mb-4 qa-card" Elevation="1" data-testid="validation-status" data-state="@StateName">
+        <MudText Typo="Typo.subtitle2">@L["Editor.Validation.Title"]</MudText>
+        <MudText Typo="Typo.body2" Color="@StateColor" data-testid="validation-state-text">@StateText</MudText>
+      </MudPaper>
+      <CommandTestPanel Document="_build.Document"
+                        Problems="_build.Problems"
+                        OnVariablesChanged="OnVariablesChangedAsync"
+                        OnDraftRejected="OnDraftRejectedAsync" />
+      <HaPreviewPanel Document="_build.Document" Entered="_entered" />
+    </MudItem>
+  </MudGrid>
+}

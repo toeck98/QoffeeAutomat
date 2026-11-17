@@ -1,0 +1,134 @@
+@using QoffeeAutomat.Ui.Components.Pages.Commands
+@inherits LocalizedComponentBase
+
+@* The test panel of the editor: it runs the draft as it is on screen (nothing is saved) with variables that the user enters,
+   and shows the output while the run happens and the result. A test run is recorded in the history with the source "test". *@
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="test-panel" data-phase="@PhaseName">
+  <MudText Typo="Typo.h6" Class="mb-1">@L["Editor.Test.Title"]</MudText>
+  <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">@L["Editor.Test.Help"]</MudText>
+
+  <form @onsubmit="TestAsync" @onsubmit:preventDefault novalidate data-testid="test-form">
+    <ErrorDisplay Error="_error" Class="mb-3" />
+    @if (_rejected)
+    {
+      <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3" data-testid="test-rejected">@L["Commands.Run.Rejected"]</MudAlert>
+    }
+    @if (_draftRejected)
+    {
+      <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3" data-testid="test-draft-rejected">@L["Editor.Test.DraftRejected"]</MudAlert>
+    }
+
+    @if (_fields.Count == 0)
+    {
+      <MudText Color="Color.Secondary" Class="mb-3" data-testid="test-no-parameters">@L["Commands.Run.NoParameters"]</MudText>
+    }
+
+    @foreach (RunField field in _fields)
+    {
+      <div class="qa-run-field" @key="field.Name" data-field="@field.Name">
+        @if (field.IsFlag)
+        {
+          <MudSwitch T="bool"
+                     Value="field.Flag"
+                     ValueChanged="@((bool value) => SetFlagAsync(field, value))"
+                     Label="@LabelOf(field)"
+                     Color="Color.Primary"
+                     Disabled="Locked" />
+        }
+        else if (field.HasOptions)
+        {
+          <SelectBox Label="@LabelOf(field)"
+                     Value="field.Text"
+                     ValueChanged="@((string value) => SetTextAsync(field, value))"
+                     Error="@(field.Message is not null)"
+                     Disabled="Locked"
+                     TestId="@($"test-var-{field.Name}")">
+            <option value="">@L["Editor.Test.NoValue"]</option>
+            @foreach (string option in field.Definition.Options!)
+            {
+              <option value="@option">@option</option>
+            }
+          </SelectBox>
+        }
+        else
+        {
+          <div data-testid="@($"test-var-{field.Name}")">
+            <MudTextField T="string"
+                          Value="field.Text"
+                          ValueChanged="@((string? value) => SetTextAsync(field, value))"
+                          Immediate="true"
+                          InputType="@(field.Definition.Secret ? InputType.Password : InputType.Text)"
+                          Label="@LabelOf(field)"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Adornment="@(string.IsNullOrEmpty(field.Definition.Unit) ? Adornment.None : Adornment.End)"
+                          AdornmentText="@field.Definition.Unit"
+                          Error="@(field.Message is not null)"
+                          Disabled="Locked" />
+          </div>
+        }
+
+        @if (field.Message is not null)
+        {
+          <MudText Typo="Typo.caption" Color="Color.Error" role="alert" data-testid="@($"test-field-error-{field.Name}")">@field.Message</MudText>
+        }
+        else if (!string.IsNullOrWhiteSpace(field.Definition.Description))
+        {
+          <MudText Typo="Typo.caption" Color="Color.Secondary">@field.Definition.Description</MudText>
+        }
+      </div>
+    }
+
+    <div class="qa-run-actions">
+      <MudButton ButtonType="ButtonType.Submit"
+                 Variant="Variant.Filled"
+                 Color="Color.Primary"
+                 StartIcon="@Icons.Material.Filled.PlayArrow"
+                 Disabled="Locked"
+                 data-testid="test-submit">@(_phase == RunPhase.Finished ? L["Commands.Run.Again"] : L["Editor.Test.Start"])</MudButton>
+    </div>
+  </form>
+
+  @if (_runId is not null)
+  {
+    <div class="qa-run-panel" data-testid="test-run" data-run-id="@_runId">
+      <MudText Typo="Typo.subtitle2" Class="mb-1">@L["Commands.Run.Output"]</MudText>
+      @if (_phase == RunPhase.Running)
+      {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" aria-label="@L["Commands.Run.Running"]" data-testid="test-progress" />
+      }
+      <pre class="qa-run-output" data-testid="test-output">@foreach (OutputPiece piece in _output) {<span class="@(piece.IsError ? "qa-stderr" : null)">@piece.Text</span>}</pre>
+      @if (_output.Count == 0 && _phase == RunPhase.Running)
+      {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="test-waiting">@L["Commands.Run.WaitingForOutput"]</MudText>
+      }
+      @if (_outputClipped)
+      {
+        <MudText Typo="Typo.caption" Color="Color.Warning" data-testid="test-clipped">@L["Commands.Run.OutputClipped"]</MudText>
+      }
+      <ErrorDisplay Error="_streamError" Class="mt-2" />
+      @if (_connectionLost)
+      {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-2" data-testid="test-connection-lost">@L["Commands.Run.ConnectionLost"]</MudAlert>
+      }
+      @if (_end is { } end)
+      {
+        <MudAlert Severity="@(end.Succeeded ? Severity.Success : Severity.Error)"
+                  Variant="Variant.Outlined"
+                  Class="mt-2"
+                  data-testid="test-result"
+                  data-state="@(end.Succeeded ? "succeeded" : "failed")">
+          <div data-testid="test-result-text">@ResultText(end)</div>
+          @if (!end.Succeeded)
+          {
+            <div class="qa-muted" data-testid="test-result-details">@ResultDetails(end)</div>
+          }
+          @if (end.OutputTruncated)
+          {
+            <div class="qa-muted">@L["Commands.Run.OutputTruncated"]</div>
+          }
+        </MudAlert>
+      }
+    </div>
+  }
+</MudPaper>

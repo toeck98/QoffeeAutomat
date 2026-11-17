@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Browser smoke test of the UI (PLAN.md S14, T408). It starts the published agent as a separate process (simulated
+       platform, fresh data directory) and drives the UI with headless Chromium through Playwright. The tests carry the
+       trait Category=E2E; the regular test job filters them out (Category!=E2E) and the ui-e2e job of ci-dotnet.yml runs
+       them after `dotnet publish` of the agent and the installation of the browser. -->
+
+  <PropertyGroup>
+    <IsTestProject Condition="'$(ExcludeE2E)' == 'true'">false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+</Project>

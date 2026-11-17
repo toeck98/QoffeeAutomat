@@ -1,0 +1,37 @@
+@inherits LocalizedComponentBase
+
+<MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="recent-events">
+  <MudText Typo="Typo.h6" GutterBottom="true">@L["Dashboard.Events"]</MudText>
+  @if (Events.Count == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="events-none">@L["Dashboard.Events.None"]</MudText>
+  }
+  else
+  {
+    <MudSimpleTable Dense="true" Hover="true">
+      <thead>
+        <tr>
+          <th>@L["Dashboard.Events.Time"]</th>
+          <th>@L["Dashboard.Events.Type"]</th>
+          <th>@L["Dashboard.Events.Data"]</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (EventInfo item in Events)
+        {
+          <tr data-testid="@($"event-{item.Id}")">
+            <td>@DashboardFormat.LocalTime(item.Timestamp, L.Culture)</td>
+            <td>@item.Type</td>
+            <td class="qa-muted">@DashboardFormat.EventSummary(item.Data)</td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  }
+</MudPaper>
+
+@code {
+  /// <summary>The events, newest first.</summary>
+  [Parameter]
+  public IReadOnlyList<EventInfo> Events { get; set; } = [];
+}

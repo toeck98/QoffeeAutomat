@@ -1,0 +1,53 @@
+@* A labelled native select for short lists of choices. The options are given as <option> elements. A native select is
+   used because it works everywhere, with the keyboard and with screen readers, and a test can drive it directly. *@
+<div class="@Css" data-field-select="@TestId">
+  <label class="qa-select-label" for="@_id">@Label</label>
+  <select id="@_id"
+          class="qa-select-input"
+          value="@Value"
+          disabled="@Disabled"
+          aria-invalid="@(Error ? "true" : null)"
+          data-testid="@TestId"
+          @onchange="OnChangedAsync">
+    @ChildContent
+  </select>
+</div>
+
+@code {
+  private readonly string _id = "qa-select-" + Guid.NewGuid().ToString("N");
+
+  /// <summary>The text above the select.</summary>
+  [Parameter]
+  public string? Label { get; set; }
+
+  /// <summary>The value of the selected option.</summary>
+  [Parameter]
+  public string? Value { get; set; }
+
+  /// <summary>Raised with the value of the option that the user picked.</summary>
+  [Parameter]
+  public EventCallback<string> ValueChanged { get; set; }
+
+  /// <summary>The options.</summary>
+  [Parameter]
+  public RenderFragment? ChildContent { get; set; }
+
+  /// <summary>Greys the select out.</summary>
+  [Parameter]
+  public bool Disabled { get; set; }
+
+  /// <summary>Marks the select as having a problem.</summary>
+  [Parameter]
+  public bool Error { get; set; }
+
+  /// <summary>The <c>data-testid</c> of the select.</summary>
+  [Parameter]
+  public string? TestId { get; set; }
+
+  private string Css => Error ? "qa-select qa-select-error" : "qa-select";
+
+  private Task OnChangedAsync(ChangeEventArgs args)
+  {
+    return ValueChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+  }
+}

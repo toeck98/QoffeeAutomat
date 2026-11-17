@@ -6,6 +6,30 @@
     "description": "The management API of the QoffeeAutomat agent. JSON with camelCase members; errors are RFC 9457 problem details. Every operation needs a session cookie, and operations that change state need the header X-QoffeeAutomat-Csrf: 1."
   },
   "paths": {
+    "/api/v1/agent/restart": {
+      "post": {
+        "tags": [
+          "Agent"
+        ],
+        "summary": "Restarts the agent a moment after the response, so that changed ports and remote UI take effect.",
+        "operationId": "restartAgent",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -1019,6 +1043,228 @@
           },
           "413": {
             "description": "Payload Too Large",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/config/import/preview": {
+      "post": {
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Validates a zip file made by the export and tells what an import would do to each item. Nothing is changed; an invalid archive is answered with valid false and the errors.",
+        "operationId": "previewImportConfig",
+        "parameters": [
+          {
+            "name": "settings",
+            "in": "query",
+            "required": false,
+            "description": "True also reads the settings; they belong to one PC, so the default is false.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigImportPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/config/revisions/{kind}/{id}": {
+      "get": {
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Lists the kept revisions of a command, a sensor (kind command or sensor) or the settings (kind and id settings), newest first.",
+        "operationId": "listRevisions",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisionList"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/config/revisions/{kind}/{id}/{revision}/restore": {
+      "post": {
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Stores a kept revision as a new revision of the document.",
+        "operationId": "restoreRevision",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "The ETag of the document as read; a stale value is refused with 412.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition Failed",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -3662,6 +3908,63 @@
           "command"
         ]
       },
+      "ConfigImportPreview": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "change": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "change"
+              ]
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "valid",
+          "items",
+          "errors"
+        ]
+      },
       "ConfigImportResult": {
         "type": "object",
         "properties": {
@@ -4227,6 +4530,51 @@
           "fingerprint"
         ]
       },
+      "RevisionList": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "current": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "revisions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "revision": {
+                  "type": "integer"
+                },
+                "updatedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time",
+                  "default": null
+                }
+              },
+              "required": [
+                "revision"
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "current",
+          "revisions"
+        ]
+      },
       "RunDetail": {
         "type": "object",
         "properties": {
@@ -4343,28 +4691,33 @@
                   "type": [
                     "integer",
                     "null"
-                  ]
+                  ],
+                  "default": null
                 },
                 "errorCode": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "default": null
                 },
                 "succeeded": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "default": false
                 },
                 "clientId": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "default": null
                 },
                 "parentRunId": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "default": null
                 }
               },
               "required": [
@@ -4373,12 +4726,7 @@
                 "source",
                 "state",
                 "startedAt",
-                "durationMs",
-                "exitCode",
-                "errorCode",
-                "succeeded",
-                "clientId",
-                "parentRunId"
+                "durationMs"
               ]
             }
           },

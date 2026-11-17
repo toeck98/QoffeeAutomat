@@ -14,7 +14,7 @@ namespace QoffeeAutomat.Contracts.Api;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
     RespectNullableAnnotations = true,
-    RespectRequiredConstructorParameters = true)]
+    RespectRequiredConstructorParameters = false)]
 [JsonSerializable(typeof(SetupState))]
 [JsonSerializable(typeof(SetupRequest))]
 [JsonSerializable(typeof(LoginRequest))]
@@ -49,6 +49,10 @@ namespace QoffeeAutomat.Contracts.Api;
 [JsonSerializable(typeof(ConfigExportInfo))]
 [JsonSerializable(typeof(ConfigImportResult))]
 [JsonSerializable(typeof(DiagnosticsInfo))]
+[JsonSerializable(typeof(ImportPreviewItem))]
+[JsonSerializable(typeof(ConfigImportPreview))]
+[JsonSerializable(typeof(RevisionEntry))]
+[JsonSerializable(typeof(RevisionList))]
 public sealed partial class ApiJsonContext : JsonSerializerContext
 {
 }

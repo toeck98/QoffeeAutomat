@@ -29,6 +29,12 @@ internal sealed class TestAgent : WebApplicationFactory<Program>
     private readonly string _dataDirectory;
     private readonly Action<IServiceCollection>? _configure;
 
+    static TestAgent()
+    {
+        // Prevent WebApplication.CreateBuilder from allocating Linux inotify FileSystemWatchers on every test host.
+        Environment.SetEnvironmentVariable("DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE", "false");
+    }
+
     /// <param name="dataDirectory">The temporary data directory.</param>
     /// <param name="configure">Registers or replaces services after the agent's own and the defaults of this class.</param>
     public TestAgent(string dataDirectory, Action<IServiceCollection>? configure = null)

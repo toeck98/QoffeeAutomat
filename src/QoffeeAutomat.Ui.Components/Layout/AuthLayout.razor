@@ -1,0 +1,19 @@
+@inherits LayoutComponentBase
+
+@* The layout of the setup and login pages: a centred card without navigation. *@
+<MudLayout>
+  <MudMainContent>
+    <MudContainer MaxWidth="MaxWidth.Small" Class="qa-auth">
+      <div class="qa-auth-brand">
+        <img src="icon.svg" alt="" width="56" height="56" />
+        <MudText Typo="Typo.h4">QoffeeAutomat</MudText>
+      </div>
+      <MudPaper Class="pa-6" Elevation="2">
+        @Body
+      </MudPaper>
+      <div class="qa-auth-language">
+        <LanguageSwitch />
+      </div>
+    </MudContainer>
+  </MudMainContent>
+</MudLayout>

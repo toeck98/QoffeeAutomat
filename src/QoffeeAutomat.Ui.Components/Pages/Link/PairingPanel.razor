@@ -1,0 +1,57 @@
+@inherits LocalizedComponentBase
+
+@* The content of the pairing dialog (PLAN.md T406): the one-time code with a countdown and the fingerprint of the
+   certificate, and what to do in Home Assistant. The code is only shown while it is valid: when it expired, was used or was
+   cancelled it is gone and the panel says why. When a client has paired the panel tells its owner, which closes the dialog. *@
+<div data-testid="pairing-panel" data-state="@PhaseName">
+  @if (_phase == PairingPhase.Starting)
+  {
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+  }
+
+  <ErrorDisplay Error="_error" Class="mb-3" />
+
+  @if (_phase == PairingPhase.Active && _pairing is not null)
+  {
+    <MudText Typo="Typo.subtitle2">@L["Link.Pairing.CodeLabel"]</MudText>
+    <div class="qa-pairing-code" data-testid="pairing-code" role="status">@_pairing.Code</div>
+    <MudProgressLinear Color="Color.Primary" Value="@RemainingPercent" aria-hidden="true" />
+    <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-1 mb-3" data-testid="pairing-countdown" data-seconds="@_remainingSeconds">
+      @L.Format("Link.Pairing.ExpiresIn", Countdown)
+    </MudText>
+
+    <dl class="qa-facts">
+      <dt>@L["Link.Fingerprint"]</dt>
+      <dd><code class="qa-fingerprint" data-testid="pairing-fingerprint">@_pairing.Fingerprint</code></dd>
+    </dl>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">@L["Link.Fingerprint.Help"]</MudText>
+
+    <MudText Typo="Typo.subtitle2">@L["Link.Instructions.Title"]</MudText>
+    <ol data-testid="pairing-instructions">
+      <li>@L["Link.Instructions.Step1"]</li>
+      <li>@L["Link.Instructions.Step2"]</li>
+      <li>@L["Link.Instructions.Step3"]</li>
+      <li>@L["Link.Instructions.Step4"]</li>
+    </ol>
+  }
+  else if (_phase == PairingPhase.Expired)
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3" data-testid="pairing-expired">@L["Link.Pairing.Expired"]</MudAlert>
+  }
+  else if (_phase == PairingPhase.Ended)
+  {
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-3" data-testid="pairing-ended">@L["Link.Pairing.Ended"]</MudAlert>
+  }
+  else if (_phase == PairingPhase.Paired)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-3" data-testid="pairing-paired">@L["Link.Pairing.Paired"]</MudAlert>
+  }
+
+  <div class="qa-run-actions">
+    @if (_phase is PairingPhase.Expired or PairingPhase.Ended or PairingPhase.Failed)
+    {
+      <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartAsync" data-testid="pairing-restart">@L["Link.Pairing.NewCode"]</MudButton>
+    }
+    <MudButton Variant="Variant.Text" OnClick="CloseAsync" data-testid="pairing-close">@L["Common.Close"]</MudButton>
+  </div>
+</div>

@@ -1,0 +1,155 @@
+@inherits LocalizedComponentBase
+
+@* The content of the run dialog (T403): a form made from the parameter definitions of the command, the check of the
+   values before anything is sent, the messages of the agent next to the fields, and the live output with the result.
+   It does not depend on the dialog, so it can be placed anywhere. *@
+<form @onsubmit="SubmitAsync" @onsubmit:preventDefault novalidate data-testid="run-form" data-phase="@PhaseName">
+  @if (!string.IsNullOrWhiteSpace(Command.Description))
+  {
+    <MudText Class="mb-3" data-testid="run-description">@Command.Description</MudText>
+  }
+
+  <ErrorDisplay Error="_error" Class="mb-3" />
+  @if (_rejected)
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3" data-testid="run-rejected">@L["Commands.Run.Rejected"]</MudAlert>
+  }
+
+  @if (_fields.Count == 0)
+  {
+    <MudText Color="Color.Secondary" Class="mb-3" data-testid="run-no-parameters">@L["Commands.Run.NoParameters"]</MudText>
+  }
+
+  @foreach (RunField field in _fields)
+  {
+    <div class="qa-run-field" @key="field.Name" data-field="@field.Name" data-required="@(field.Definition.Required ? "true" : "false")">
+      @if (field.IsFlag)
+      {
+        <MudSwitch T="bool"
+                   Value="field.Flag"
+                   ValueChanged="@((bool value) => SetFlag(field, value))"
+                   Label="@LabelOf(field)"
+                   Color="Color.Primary"
+                   Disabled="Locked" />
+      }
+      else if (field.HasOptions)
+      {
+        <MudSelect T="string"
+                   Value="field.Text"
+                   ValueChanged="@((string? value) => SetText(field, value))"
+                   Label="@LabelOf(field)"
+                   Variant="Variant.Outlined"
+                   Margin="Margin.Dense"
+                   Clearable="@(!field.Definition.Required)"
+                   Error="@(field.Message is not null)"
+                   Disabled="Locked">
+          @foreach (string option in field.Definition.Options!)
+          {
+            <MudSelectItem T="string" Value="option">@option</MudSelectItem>
+          }
+        </MudSelect>
+      }
+      else if (field.IsNumber)
+      {
+        <MudTextField T="string"
+                      Value="field.Text"
+                      ValueChanged="@((string? value) => SetText(field, value))"
+                      Immediate="true"
+                      InputType="InputType.Number"
+                      Label="@LabelOf(field)"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Adornment="@(string.IsNullOrEmpty(field.Definition.Unit) ? Adornment.None : Adornment.End)"
+                      AdornmentText="@field.Definition.Unit"
+                      Error="@(field.Message is not null)"
+                      Disabled="Locked"
+                      @attributes="NumberAttributes(field)" />
+      }
+      else
+      {
+        <MudTextField T="string"
+                      Value="field.Text"
+                      ValueChanged="@((string? value) => SetText(field, value))"
+                      Immediate="true"
+                      InputType="@(field.Definition.Secret ? InputType.Password : InputType.Text)"
+                      Label="@LabelOf(field)"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Adornment="@(string.IsNullOrEmpty(field.Definition.Unit) ? Adornment.None : Adornment.End)"
+                      AdornmentText="@field.Definition.Unit"
+                      Error="@(field.Message is not null)"
+                      Disabled="Locked" />
+      }
+
+      @if (field.Message is not null)
+      {
+        <MudText Typo="Typo.caption" Color="Color.Error" role="alert" data-testid="@($"field-error-{field.Name}")">@field.Message</MudText>
+      }
+      else if (HintOf(field) is { Length: > 0 } hint)
+      {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="@($"field-hint-{field.Name}")">@hint</MudText>
+      }
+    </div>
+  }
+
+  <div class="qa-run-actions">
+    @if (_phase == RunPhase.Finished)
+    {
+      <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Replay" OnClick="RunAgain" data-testid="run-again">@L["Commands.Run.Again"]</MudButton>
+    }
+    else if (_phase != RunPhase.Running)
+    {
+      <MudButton ButtonType="ButtonType.Submit"
+                 Variant="Variant.Filled"
+                 Color="Color.Primary"
+                 StartIcon="@Icons.Material.Filled.PlayArrow"
+                 Disabled="@(_phase == RunPhase.Starting)"
+                 data-testid="run-submit">@L["Commands.Run.Start"]</MudButton>
+    }
+
+    <MudButton Variant="Variant.Text" OnClick="CloseAsync" data-testid="run-close">@L["Common.Close"]</MudButton>
+  </div>
+
+  @if (_runId is not null)
+  {
+    <div class="qa-run-panel" data-testid="run-panel" data-run-id="@_runId">
+      <MudText Typo="Typo.subtitle2" Class="mb-1">@L["Commands.Run.Output"]</MudText>
+      @if (_phase == RunPhase.Running)
+      {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" aria-label="@L["Commands.Run.Running"]" data-testid="run-progress" />
+      }
+      <pre class="qa-run-output" data-testid="run-output">@foreach (OutputPiece piece in _output) {<span class="@(piece.IsError ? "qa-stderr" : null)">@piece.Text</span>}</pre>
+      @if (_output.Count == 0 && _phase == RunPhase.Running)
+      {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="run-waiting">@L["Commands.Run.WaitingForOutput"]</MudText>
+      }
+      @if (_outputClipped)
+      {
+        <MudText Typo="Typo.caption" Color="Color.Warning" data-testid="run-clipped">@L["Commands.Run.OutputClipped"]</MudText>
+      }
+      <ErrorDisplay Error="_streamError" Class="mt-2" />
+      @if (_connectionLost)
+      {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-2" data-testid="run-connection-lost">@L["Commands.Run.ConnectionLost"]</MudAlert>
+      }
+      @if (_end is { } end)
+      {
+        <MudAlert Severity="@(end.Succeeded ? Severity.Success : Severity.Error)"
+                  Variant="Variant.Outlined"
+                  Class="mt-2"
+                  data-testid="run-result"
+                  data-state="@(end.Succeeded ? "succeeded" : "failed")">
+          <div data-testid="run-result-text">@ResultText(end)</div>
+          @if (!end.Succeeded)
+          {
+            <div class="qa-muted" data-testid="run-result-details">@ResultDetails(end)</div>
+          }
+          @if (end.OutputTruncated)
+          {
+            <div class="qa-muted">@L["Commands.Run.OutputTruncated"]</div>
+          }
+        </MudAlert>
+      }
+    </div>
+  }
+</form>

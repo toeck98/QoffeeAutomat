@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!-- All pages and components (D-015). Depends on Contracts only, never on Agent, Core or a
-       platform project, so the hub UI can reuse it (PLAN.md S04). -->
+       platform project, so the hub UI can reuse it (PLAN.md S04). A test checks this. -->
 
   <ItemGroup>
     <SupportedPlatform Include="browser" />
@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <PackageReference Include="MudBlazor" />
+    <PackageReference Include="BlazorMonaco" />
   </ItemGroup>
 
   <ItemGroup>

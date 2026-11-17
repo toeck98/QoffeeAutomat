@@ -1,0 +1,118 @@
+@page "/setup"
+@layout AuthLayout
+@inherits LocalizedComponentBase
+@inject SessionState Session
+@inject NavigationManager Navigation
+
+<MudText Typo="Typo.h5" GutterBottom="true">@L["Setup.Title"]</MudText>
+<MudText Class="mb-4">@L["Setup.Intro"]</MudText>
+
+<ErrorDisplay Error="_error" Class="mb-4" />
+
+<form @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+  <MudTextField T="string"
+                @bind-Value="_token"
+                Label="@L["Setup.Token"]"
+                Immediate="true"
+                AutoFocus="true"
+                Class="mb-2" />
+  <MudTextField T="string"
+                @bind-Value="_password"
+                Label="@L["Setup.Password"]"
+                InputType="InputType.Password"
+                Immediate="true"
+                Class="mb-2" />
+  <MudTextField T="string"
+                @bind-Value="_confirmation"
+                Label="@L["Setup.PasswordConfirm"]"
+                InputType="InputType.Password"
+                Immediate="true"
+                Class="mb-2" />
+  @if (_validation is not null)
+  {
+    <MudText Color="Color.Error" Typo="Typo.caption" data-testid="validation-message">@_validation</MudText>
+  }
+  <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="_busy" Class="mt-4">
+    @L["Setup.Submit"]
+  </MudButton>
+</form>
+
+<MudLink Href="login" Class="d-block mt-4">@L["Setup.HavePassword"]</MudLink>
+
+@code {
+  private string? _token;
+  private string? _password;
+  private string? _confirmation;
+  private string? _validation;
+  private ApiException? _error;
+  private bool _busy;
+
+  protected override async Task OnInitializedAsync()
+  {
+    try
+    {
+      SignInStatus status = await Session.RefreshAsync();
+      if (status == SignInStatus.SignedIn)
+      {
+        Navigation.NavigateTo(ReturnTarget.Home, replace: true);
+      }
+      else if (status == SignInStatus.SignedOut)
+      {
+        // A password exists and no setup token is pending: there is nothing to set up.
+        Navigation.NavigateTo("login", replace: true);
+      }
+    }
+    catch (ApiException exception)
+    {
+      _error = exception;
+    }
+  }
+
+  private async Task SubmitAsync()
+  {
+    if (_busy)
+    {
+      return;
+    }
+
+    _error = null;
+    _validation = null;
+    if (string.IsNullOrWhiteSpace(_token))
+    {
+      _validation = L["Setup.TokenRequired"];
+      return;
+    }
+
+    if (string.IsNullOrEmpty(_password))
+    {
+      _validation = L["Setup.PasswordRequired"];
+      return;
+    }
+
+    if (!string.Equals(_password, _confirmation, StringComparison.Ordinal))
+    {
+      _validation = L["Setup.Mismatch"];
+      return;
+    }
+
+    _busy = true;
+    try
+    {
+      await Session.SetUpAsync(_token.Trim(), _password);
+      _token = null;
+      _password = null;
+      _confirmation = null;
+      Navigation.NavigateTo(ReturnTarget.Home, replace: true);
+    }
+    catch (ApiException exception)
+    {
+      _error = exception;
+      _password = null;
+      _confirmation = null;
+    }
+    finally
+    {
+      _busy = false;
+    }
+  }
+}

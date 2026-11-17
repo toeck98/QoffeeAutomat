@@ -1,0 +1,25 @@
+@* A small line chart as inline SVG: no charting library, no script, nothing to load. *@
+<svg class="qa-linechart" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="@Label">
+  @if (_polyline.Length > 0)
+  {
+    <polyline points="@_polyline" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+  }
+</svg>
+
+@code {
+  private string _polyline = string.Empty;
+
+  /// <summary>The points, oldest first.</summary>
+  [Parameter]
+  public IReadOnlyList<ChartPoint> Points { get; set; } = [];
+
+  /// <summary>The accessible description of the chart.</summary>
+  [Parameter]
+  public string Label { get; set; } = string.Empty;
+
+  protected override void OnParametersSet()
+  {
+    // The list may be the same object as before with more points in it, so this runs on every render.
+    _polyline = ChartGeometry.Polyline(Points);
+  }
+}

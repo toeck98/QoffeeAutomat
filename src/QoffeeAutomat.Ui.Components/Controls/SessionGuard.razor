@@ -1,0 +1,96 @@
+@inherits LocalizedComponentBase
+@inject SessionState Session
+@inject NavigationManager Navigation
+
+@* Shows its content only to a signed-in user. Anybody else is sent to the setup page (no password yet) or the login page. *@
+@if (_error is not null)
+{
+  <ErrorDisplay Error="_error" OnRetry="CheckAsync" />
+}
+else if (Session.Status == SignInStatus.SignedIn)
+{
+  @ChildContent
+}
+else
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Session.Checking"]" />
+}
+
+@code {
+  private ApiException? _error;
+
+  /// <summary>The pages that need a session.</summary>
+  [Parameter]
+  public RenderFragment? ChildContent { get; set; }
+
+  protected override async Task OnInitializedAsync()
+  {
+    Session.Changed += OnSessionChanged;
+    await CheckAsync();
+  }
+
+  protected override ValueTask OnDisposeAsync()
+  {
+    Session.Changed -= OnSessionChanged;
+    return base.OnDisposeAsync();
+  }
+
+  private async Task CheckAsync()
+  {
+    _error = null;
+    if (Session.Status == SignInStatus.Unknown)
+    {
+      try
+      {
+        await Session.RefreshAsync();
+      }
+      catch (ApiException exception)
+      {
+        // For example remote_ui_disabled, or an agent that is not running.
+        _error = exception;
+        return;
+      }
+    }
+
+    Redirect();
+  }
+
+  private void OnSessionChanged(object? sender, EventArgs e)
+  {
+    _ = InvokeAsync(() =>
+    {
+      Redirect();
+      StateHasChanged();
+    });
+  }
+
+  private void Redirect()
+  {
+    if (IsDisposed)
+    {
+      return;
+    }
+
+    switch (Session.Status)
+    {
+      case SignInStatus.SetupRequired:
+        Navigation.NavigateTo("setup", replace: true);
+        break;
+      case SignInStatus.SignedOut:
+        string back = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+
+        // The check and the change event of the session can both ask for the redirect; once the browser is on the login
+        // page there is nothing left to do (and the login page must never become its own return target).
+        string path = back.Split('?', '#')[0];
+        if (string.Equals(path, "/login", StringComparison.OrdinalIgnoreCase))
+        {
+          break;
+        }
+
+        Navigation.NavigateTo(
+          back.Length > 1 ? "login?returnUrl=" + Uri.EscapeDataString(back) : "login",
+          replace: true);
+        break;
+    }
+  }
+}

@@ -1,0 +1,219 @@
+@page "/history"
+@using QoffeeAutomat.Ui.Components.Pages.Dashboard
+@inherits LocalizedComponentBase
+
+@* The run history with filters and a detail view, and the recent events (PLAN.md T407). *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@L["History.Title"]</MudText>
+  <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="RefreshAllAsync" data-testid="history-refresh">@L["History.Refresh"]</MudButton>
+</div>
+
+<MudText Typo="Typo.h6" Class="mb-2">@L["History.Runs.Title"]</MudText>
+<MudPaper Class="pa-3 mb-3 qa-card" Elevation="1" data-testid="run-filters">
+  <MudGrid Spacing="2" Class="align-center">
+    <MudItem xs="12" md="4">
+      <div data-testid="run-filter-command">
+        <MudTextField T="string" @bind-Value="_command" Immediate="true" Clearable="true" Label="@L["History.Filter.Command"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </div>
+    </MudItem>
+    <MudItem xs="6" md="3">
+      <SelectBox Label="@L["History.Filter.Source"]" Value="@_source" ValueChanged="@(value => _source = value)" TestId="run-filter-source">
+        <option value="" selected="@(_source.Length == 0)">@L["History.Filter.AnySource"]</option>
+        @foreach (string source in Sources)
+        {
+          <option value="@source" selected="@(source == _source)">@L["History.Source." + source]</option>
+        }
+      </SelectBox>
+    </MudItem>
+    <MudItem xs="6" md="3">
+      <span data-testid="run-filter-failed" data-checked="@(_failedOnly ? "true" : "false")">
+        <MudSwitch T="bool" @bind-Value="_failedOnly" Color="Color.Error" Label="@L["History.Filter.FailedOnly"]" />
+      </span>
+    </MudItem>
+    <MudItem xs="12" md="2">
+      <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFiltersAsync" data-testid="run-filter-apply">@L["History.Filter.Apply"]</MudButton>
+    </MudItem>
+  </MudGrid>
+</MudPaper>
+
+<ErrorDisplay Error="_runsError" OnRetry="LoadRunsAsync" Class="mb-3" />
+@if (_loadingRuns)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_runs.Count == 0)
+{
+  if (_runsError is null)
+  {
+    <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="runs-none">@L["History.Runs.None"]</MudText>
+    </MudPaper>
+  }
+}
+else
+{
+  <MudPaper Class="qa-card mb-2" Elevation="1">
+    <MudSimpleTable Dense="true" Hover="true" data-testid="run-table">
+      <thead>
+        <tr>
+          <th>@L["History.Column.Command"]</th>
+          <th>@L["History.Column.Source"]</th>
+          <th>@L["History.Column.Started"]</th>
+          <th>@L["History.Column.Duration"]</th>
+          <th>@L["History.Column.Result"]</th>
+          <th>@L["History.Column.Actions"]</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (RunSummary run in _runs)
+        {
+          <tr @key="run.Id" data-testid="@($"run-{run.Id}")" data-result="@ResultKey(run)" data-selected="@(run.Id == _selectedId ? "true" : "false")">
+            <td>@run.Command</td>
+            <td>@SourceText(run.Source)</td>
+            <td>@DashboardFormat.LocalTime(run.StartedAt, L.Culture)</td>
+            <td>@DashboardFormat.Duration(run.DurationMs, L.Culture)</td>
+            <td>@ResultText(run)</td>
+            <td class="qa-row-actions">
+              <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => OpenAsync(run.Id))" data-testid="@($"run-open-{run.Id}")">@L["History.Details"]</MudButton>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  </MudPaper>
+  <div class="mb-4 d-flex align-center" data-testid="run-paging" data-offset="@_offset">
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@(_offset == 0)" OnClick="PreviousPageAsync" data-testid="runs-previous">@L["History.Previous"]</MudButton>
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" Class="ml-2" Disabled="@(!_hasMore)" OnClick="NextPageAsync" data-testid="runs-next">@L["History.Next"]</MudButton>
+  </div>
+}
+
+@if (_detailError is not null)
+{
+  <ErrorDisplay Error="_detailError" Class="mb-3" />
+}
+@if (_detail is not null)
+{
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="run-detail" data-run="@_detail.Id">
+    <div class="qa-card-header">
+      <MudText Typo="Typo.h6">@L.Format("History.Detail.Title", _detail.Command)</MudText>
+      <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="CloseDetail" data-testid="run-detail-close">@L["Common.Close"]</MudButton>
+    </div>
+    <MudSimpleTable Dense="true" Class="mb-3">
+      <tbody>
+        <tr><th>@L["History.Detail.Id"]</th><td><code>@_detail.Id</code></td></tr>
+        <tr><th>@L["History.Column.Source"]</th><td data-testid="detail-source" data-value="@_detail.Source">@SourceText(_detail.Source)</td></tr>
+        <tr><th>@L["History.Detail.State"]</th><td data-testid="detail-state">@StateText(_detail.State)</td></tr>
+        <tr><th>@L["History.Column.Started"]</th><td>@DashboardFormat.LocalTime(_detail.StartedAt, L.Culture)</td></tr>
+        <tr><th>@L["History.Column.Duration"]</th><td>@DashboardFormat.Duration(_detail.DurationMs, L.Culture)</td></tr>
+        <tr>
+          <th>@L["History.Detail.ExitCode"]</th>
+          <td data-testid="detail-exitcode">@(_detail.ExitCode?.ToString(L.Culture) ?? L["Common.Unavailable"])</td>
+        </tr>
+        @if (_detail.ErrorCode is not null)
+        {
+          <tr><th>@L["History.Detail.ErrorCode"]</th><td data-testid="detail-errorcode"><code>@_detail.ErrorCode</code></td></tr>
+        }
+        @if (_detail.ClientId is not null)
+        {
+          <tr><th>@L["History.Detail.Client"]</th><td data-testid="detail-client">@_detail.ClientId</td></tr>
+        }
+        @if (_detail.UserId is not null)
+        {
+          <tr><th>@L["History.Detail.User"]</th><td data-testid="detail-user">@_detail.UserId</td></tr>
+        }
+        @if (_detail.ParentRunId is not null)
+        {
+          <tr><th>@L["History.Detail.Parent"]</th><td><code>@_detail.ParentRunId</code></td></tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+
+    <MudText Typo="Typo.subtitle2">@L["History.Detail.Variables"]</MudText>
+    @if (_variables.Count == 0)
+    {
+      <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3" data-testid="detail-variables-none">@L["History.Detail.NoVariables"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Class="mb-3" data-testid="detail-variables">
+        <tbody>
+          @foreach ((string name, string value) in _variables)
+          {
+            <tr data-variable="@name"><th>@name</th><td><code>@value</code></td></tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+
+    <MudText Typo="Typo.subtitle2">@L["History.Detail.Output"]</MudText>
+    @if (_detail.StandardOutput.Length == 0)
+    {
+      <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3" data-testid="detail-stdout-none">@L["History.Detail.NoOutput"]</MudText>
+    }
+    else
+    {
+      <pre class="qa-run-output mb-3" data-testid="detail-stdout">@_detail.StandardOutput</pre>
+    }
+    @if (_detail.StandardError.Length > 0)
+    {
+      <MudText Typo="Typo.subtitle2">@L["History.Detail.Errors"]</MudText>
+      <pre class="qa-run-output qa-stderr mb-3" data-testid="detail-stderr">@_detail.StandardError</pre>
+    }
+    @if (_detail.OutputTruncated)
+    {
+      <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" data-testid="detail-truncated">@L["History.Detail.Truncated"]</MudAlert>
+    }
+  </MudPaper>
+}
+
+<MudText Typo="Typo.h6" Class="mb-2 mt-4">@L["History.Events.Title"]</MudText>
+<MudPaper Class="pa-3 mb-3 qa-card" Elevation="1" data-testid="event-filters">
+  <MudGrid Spacing="2" Class="align-center">
+    <MudItem xs="12" md="6">
+      <div data-testid="event-filter-type">
+        <MudTextField T="string" @bind-Value="_eventType" Immediate="true" Clearable="true" Label="@L["History.Filter.EventType"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </div>
+    </MudItem>
+    <MudItem xs="12" md="3">
+      <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadEventsAsync" data-testid="event-filter-apply">@L["History.Filter.Apply"]</MudButton>
+    </MudItem>
+  </MudGrid>
+</MudPaper>
+<ErrorDisplay Error="_eventsError" OnRetry="LoadEventsAsync" Class="mb-3" />
+@if (_loadingEvents)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_events.Count == 0)
+{
+  if (_eventsError is null)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="events-none">@L["History.Events.None"]</MudText>
+    </MudPaper>
+  }
+}
+else
+{
+  <MudPaper Class="qa-card" Elevation="1">
+    <MudSimpleTable Dense="true" Hover="true" data-testid="event-table">
+      <thead>
+        <tr>
+          <th>@L["History.Column.Time"]</th>
+          <th>@L["History.Column.Type"]</th>
+          <th>@L["History.Column.Data"]</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (EventInfo item in _events)
+        {
+          <tr @key="item.Id" data-testid="@($"event-{item.Id}")" data-type="@item.Type">
+            <td>@DashboardFormat.LocalTime(item.Timestamp, L.Culture)</td>
+            <td><code>@item.Type</code></td>
+            <td>@DashboardFormat.EventSummary(item.Data)</td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  </MudPaper>
+}

@@ -1,0 +1,49 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject Localizer L
+@inject SessionState Session
+
+@* The layout of the signed-in pages: app bar, navigation drawer and the session guard around the page. *@
+<MudLayout>
+  <MudAppBar Elevation="1">
+    <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" aria-label="@L["Nav.Menu"]" />
+    <img src="icon.svg" alt="" class="qa-appbar-logo" width="28" height="28" />
+    <MudText Typo="Typo.h6" Class="ml-2">@L["App.Name"]</MudText>
+    <MudSpacer />
+    <LanguageSwitch OnAppBar="true" />
+    @if (Session.Status == SignInStatus.SignedIn)
+    {
+      <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" OnClick="SignOutAsync" aria-label="@L["Nav.SignOut"]" />
+    }
+  </MudAppBar>
+  <MudDrawer @bind-Open="_drawerOpen" Elevation="1" Variant="DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always">
+    <NavMenu />
+  </MudDrawer>
+  <MudMainContent>
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
+      <SessionGuard>@Body</SessionGuard>
+    </MudContainer>
+  </MudMainContent>
+</MudLayout>
+
+@code {
+  private bool _drawerOpen = true;
+
+  protected override void OnInitialized()
+  {
+    L.Changed += OnChanged;
+    Session.Changed += OnChanged;
+  }
+
+  public void Dispose()
+  {
+    L.Changed -= OnChanged;
+    Session.Changed -= OnChanged;
+  }
+
+  private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+  private Task SignOutAsync() => Session.LogOutAsync();
+
+  private void OnChanged(object? sender, EventArgs e) => _ = InvokeAsync(StateHasChanged);
+}

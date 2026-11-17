@@ -1,0 +1,36 @@
+@inherits LocalizedComponentBase
+
+@* The one place that shows an error of the management API (problem details), so every page reports errors alike. *@
+@if (Error is not null)
+{
+  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="@Class" data-testid="error-display">
+    <div data-testid="error-message">@L.Describe(Error)</div>
+    @if (Error.ValidationErrors.Count > 0)
+    {
+      <ul class="qa-error-list">
+        @foreach (ApiValidationError item in Error.ValidationErrors)
+        {
+          <li><code>@item.Path</code> @item.Message</li>
+        }
+      </ul>
+    }
+    @if (OnRetry.HasDelegate)
+    {
+      <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="OnRetry" Class="mt-2">@L["Common.Retry"]</MudButton>
+    }
+  </MudAlert>
+}
+
+@code {
+  /// <summary>The error to show; nothing is rendered when it is null.</summary>
+  [Parameter]
+  public ApiException? Error { get; set; }
+
+  /// <summary>When set, a button offers to try again.</summary>
+  [Parameter]
+  public EventCallback OnRetry { get; set; }
+
+  /// <summary>Extra CSS classes of the alert.</summary>
+  [Parameter]
+  public string? Class { get; set; }
+}
