@@ -58,6 +58,7 @@ public sealed class CommandEditorPageTests : BunitContext, IAsyncLifetime
 
         // The parameter table: an enum and an int with a range.
         cut.Find("[data-testid=add-parameter]").Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=param-0-name] input")), Patience);
         cut.Find("[data-testid=param-0-name] input").Input("Profile");
         cut.Find("[data-testid=param-0-type]").Change(ParameterTypes.Choice);
         cut.Find("[data-testid=param-0-options] textarea").Input("Normal\nTV");
@@ -383,6 +384,7 @@ public sealed class CommandEditorPageTests : BunitContext, IAsyncLifetime
         cut.Find("[data-testid=field-name] input").Input("Good night");
         await cut.InvokeAsync(() => { });
         cut.Find("[data-testid=add-step-command]").Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=step-command-0]")), Patience);
         cut.Find("[data-testid=step-command-0]").Change("lock_screen");
         cut.Find("[data-testid=add-step-delay]").Click();
         cut.Find("[data-testid=step-delay-1] input").Input("2.5");
