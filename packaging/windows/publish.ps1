@@ -94,7 +94,7 @@ Invoke-Native "Publish the SessionHost ($rid, $Version)" {
 
 $agentExe = Join-Path $agentDir 'QoffeeAutomat.Agent.exe'
 $sessionHostExe = Join-Path $sessionHostDir 'QoffeeAutomat.SessionHost.exe'
-foreach ($required in @($agentExe, $sessionHostExe, (Join-Path $agentDir 'wwwroot' 'index.html'))) {
+foreach ($required in @($agentExe, $sessionHostExe, (Join-Path $agentDir 'wwwroot' 'index.html'), (Join-Path $agentDir 'templates' 'commands' 'set_volume.json'), (Join-Path $agentDir 'templates' 'sensors' 'disk_free_percent.json'), (Join-Path $agentDir 'templates' 'scripts' 'disk_free_percent.ps1'))) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw "The publish output lacks $required."
     }

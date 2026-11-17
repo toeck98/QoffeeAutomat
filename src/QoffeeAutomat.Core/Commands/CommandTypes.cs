@@ -22,6 +22,9 @@ public static class RunSources
     /// <summary>Another command: a step of a sequence.</summary>
     public const string Sequence = "sequence";
 
+    /// <summary>The agent itself: the <c>apply_default</c> behaviour of a mode group after an operating-system start (T717).</summary>
+    public const string Boot = "boot";
+
     /// <summary>A test run of a draft command from the editor (<c>POST /commands/test</c>); it is recorded in the history like any run.</summary>
     public const string Test = "test";
 }

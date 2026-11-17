@@ -165,6 +165,25 @@ internal static class Sensors
         new ProcessRunningSensorSource(process),
         IntervalSeconds: interval);
 
+    /// <summary>A sensor of type <c>state</c> (T714); a state sensor is event-driven and has no interval.</summary>
+    public static SensorDocument State(
+        string id,
+        string valueType = "number",
+        object? initial = null,
+        bool persist = false,
+        IReadOnlyList<string>? options = null,
+        int? precision = null) => new(
+            DocumentSchema.CurrentVersion,
+            id,
+            id,
+            true,
+            false,
+            valueType == "bool" ? "binary_sensor" : "sensor",
+            valueType,
+            new StateSensorSource(initial is null ? null : System.Text.Json.JsonSerializer.SerializeToElement(initial), persist),
+            Precision: precision,
+            Options: options);
+
     public static string MetricId(string id) => "custom." + id;
 }
 
@@ -172,6 +191,7 @@ internal static class Sensors
 internal sealed class SensorHarness : IAsyncDisposable
 {
     private readonly TempDirectory _temp;
+    private readonly StateSensorStore _states;
 
     private SensorHarness(
         TempDirectory temp,
@@ -181,9 +201,11 @@ internal sealed class SensorHarness : IAsyncDisposable
         FakeProcessNames processes,
         FakeEngineLocator locator,
         CustomSensorProvider provider,
-        MetricEngine engine)
+        MetricEngine engine,
+        StateSensorStore states)
     {
         _temp = temp;
+        _states = states;
         Clock = clock;
         Store = store;
         Launcher = launcher;
@@ -204,6 +226,9 @@ internal sealed class SensorHarness : IAsyncDisposable
     public FakeEngineLocator Locator { get; }
 
     public CustomSensorProvider Provider { get; }
+
+    /// <summary>The values of the state sensors (T714).</summary>
+    public StateSensorStore States => _states;
 
     public MetricEngine Engine { get; }
 
@@ -234,10 +259,23 @@ internal sealed class SensorHarness : IAsyncDisposable
             engineLocator,
             new PowerShellOptions { ScriptsDirectory = temp.Combine("scripts"), TempRoot = temp.Combine("run") },
             clock);
-        var provider = new CustomSensorProvider(store, runner, launcher, clock, processes, options, engineOptions, handlers);
+        var states = new StateSensorStore(store, clock, temp.Combine(StateFileName));
+        var provider = new CustomSensorProvider(store, runner, launcher, clock, processes, options, engineOptions, handlers, states);
         var engine = new MetricEngine(store, providers ?? [], clock, engineOptions, session: null, customSensors: provider);
-        return new SensorHarness(temp, clock, store, launcher, processes, engineLocator, provider, engine);
+
+        // What the agent host does (T714): a value that was set is published at once.
+        states.Changed += (_, change) => engine.RequestSample(change.MetricId);
+        return new SensorHarness(temp, clock, store, launcher, processes, engineLocator, provider, engine, states);
     }
+
+    /// <summary>The file name of the kept state values below the harness directory.</summary>
+    public const string StateFileName = "state-values.json";
+
+    /// <summary>The full path of the file that keeps the values of state sensors with persist.</summary>
+    public string StatePath => _temp.Combine(StateFileName);
+
+    /// <summary>A second store on the same configuration and file, the way a restarted agent finds them: nothing is in memory, only what was written.</summary>
+    public StateSensorStore RestartedStates() => new(Store, Clock, StatePath);
 
     public async Task SaveAsync(params SensorDocument[] sensors)
     {
@@ -281,6 +319,7 @@ internal sealed class SensorHarness : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await Engine.DisposeAsync();
+        _states.Dispose();
         Launcher.Dispose();
         Store.Dispose();
         _temp.Dispose();

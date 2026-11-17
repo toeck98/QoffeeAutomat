@@ -39,6 +39,7 @@ ERROR_CANCELLED: Final = "cancelled"
 ERROR_TIMEOUT: Final = "timeout"
 ERROR_PAUSED: Final = "paused"
 ERROR_INTERNAL: Final = "internal"
+ERROR_CONDITION_NOT_MET: Final = "condition_not_met"
 ERROR_CODES: Final = frozenset(
     {
         ERROR_UNAUTHORIZED,
@@ -55,6 +56,7 @@ ERROR_CODES: Final = frozenset(
         ERROR_TIMEOUT,
         ERROR_PAUSED,
         ERROR_INTERNAL,
+        ERROR_CONDITION_NOT_MET,
     }
 )
 

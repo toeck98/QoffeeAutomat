@@ -13,12 +13,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_FINGERPRINT, CONF_TOKEN
+from .const import CONF_FINGERPRINT, CONF_REVERSE_TOKEN_HASH, CONF_TOKEN
 from .runtime import QoffeeAutomatConfigEntry
 
 REDACTED_KEYS = frozenset(
     {
         CONF_TOKEN,
+        CONF_REVERSE_TOKEN_HASH,
         CONF_FINGERPRINT,
         "host",
         "hostname",
@@ -29,6 +30,7 @@ REDACTED_KEYS = frozenset(
         "mac",
         "macs",
         "mac_address",
+        "broadcast",
         "connections",
         "configuration_url",
         "ui_url",
@@ -55,10 +57,29 @@ def _entry_summary(entry: QoffeeAutomatConfigEntry) -> dict[str, Any]:
 def _agent_summary(entry: QoffeeAutomatConfigEntry) -> dict[str, Any]:
     """Return what the agent reported about itself and the state of the link."""
     runtime = entry.runtime_data
-    manifest = runtime.manifest_manager.manifest
-    agent = manifest.agent
     client = runtime.client
     last_error = client.last_error
+    connection = {
+        "online": runtime.connection.online,
+        "power_state": runtime.connection.power_state.value,
+        "auth_failed": client.auth_failed,
+        "last_error": type(last_error).__name__ if last_error else None,
+        "protocol": (
+            {"min": client.hello.protocol.min, "max": client.hello.protocol.max}
+            if client.hello
+            else None
+        ),
+    }
+    if not runtime.manifest_manager.loaded:
+        # An agent that dials Home Assistant and has not connected yet.
+        return {
+            "agent": None,
+            "connection": connection,
+            "manifest": None,
+            "subscribed_metrics": sorted(runtime.subscriptions.metric_ids),
+        }
+    manifest = runtime.manifest_manager.manifest
+    agent = manifest.agent
     return {
         "agent": async_redact_data(
             {
@@ -73,17 +94,7 @@ def _agent_summary(entry: QoffeeAutomatConfigEntry) -> dict[str, Any]:
             },
             REDACTED_KEYS,
         ),
-        "connection": {
-            "online": runtime.connection.online,
-            "power_state": runtime.connection.power_state.value,
-            "auth_failed": client.auth_failed,
-            "last_error": type(last_error).__name__ if last_error else None,
-            "protocol": (
-                {"min": client.hello.protocol.min, "max": client.hello.protocol.max}
-                if client.hello
-                else None
-            ),
-        },
+        "connection": connection,
         "manifest": {
             "rev": manifest.rev,
             "features": list(manifest.features),

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "bad_on_boot",
+  "name": "Bad on boot",
+  "enabled": true,
+  "exposeToHa": true,
+  "defaultMode": "normal",
+  "onBoot": "restore",
+  "modes": [
+    { "id": "normal", "name": "Normal" }
+  ]
+}

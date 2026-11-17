@@ -140,6 +140,23 @@ internal static class Samples
             Origin: DocumentOrigins.Local);
     }
 
+    /// <summary>A mode group whose modes have the given ids and display names (the id with a capital) and no steps; the first mode is the default.</summary>
+    public static ModeGroupDocument ModeGroup(string id, string? name = null, bool enabled = true, params string[] modes)
+    {
+        string[] ids = modes.Length == 0 ? ["normal", "study"] : modes;
+        return new ModeGroupDocument(
+            DocumentSchema.CurrentVersion,
+            id,
+            name ?? id,
+            enabled,
+            true,
+            ids[0],
+            [.. ids.Select(mode => new ModeDefinition(mode, char.ToUpperInvariant(mode[0]) + mode[1..]))],
+            Revision: 1,
+            UpdatedAt: Now,
+            Origin: DocumentOrigins.Local);
+    }
+
     public static MetricHistoryResponse History()
     {
         MetricPoint[] cpu = [Point(-120, 10), Point(-60, 11), Point(-1, 12.5)];

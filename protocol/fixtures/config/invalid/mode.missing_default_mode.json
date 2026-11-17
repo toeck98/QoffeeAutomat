@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "missing_default_mode",
+  "name": "Missing default mode",
+  "enabled": true,
+  "exposeToHa": true,
+  "modes": [
+    { "id": "normal", "name": "Normal" }
+  ]
+}

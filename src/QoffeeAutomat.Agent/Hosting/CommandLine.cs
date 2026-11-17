@@ -19,6 +19,19 @@ public enum AgentVerb
 
     /// <summary>Writes a new setup token so that the password can be set again in the UI (PLAN.md T212). Needs administrator or root.</summary>
     ResetPassword,
+
+    /// <summary>Sets or reads the value of a sensor of type <c>state</c> in the running agent: <c>state set &lt;id&gt; &lt;value&gt;</c> and <c>state get &lt;id&gt;</c> (PLAN.md T714).</summary>
+    State,
+}
+
+/// <summary>What the verb <c>state</c> does.</summary>
+public enum StateAction
+{
+    /// <summary><c>state set &lt;id&gt; &lt;value&gt;</c>.</summary>
+    Set,
+
+    /// <summary><c>state get &lt;id&gt;</c>.</summary>
+    Get,
 }
 
 /// <summary>The parsed command line.</summary>
@@ -33,6 +46,9 @@ public enum AgentVerb
 /// <param name="Error">A message when the command line is invalid; null otherwise.</param>
 /// <param name="EventName">The event name of the verb <c>emit</c>.</param>
 /// <param name="EventData">The value of <c>--data</c> of the verb <c>emit</c>: a JSON object as text.</param>
+/// <param name="StateAction">Whether the verb <c>state</c> sets or reads a value.</param>
+/// <param name="StateSensorId">The sensor id of the verb <c>state</c>.</param>
+/// <param name="StateValue">The value of <c>state set</c>, as typed (the agent converts it to the type of the sensor).</param>
 public sealed record AgentOptions(
     AgentVerb Verb = AgentVerb.Run,
     string? DataDir = null,
@@ -44,7 +60,10 @@ public sealed record AgentOptions(
     IReadOnlyList<string>? PassThrough = null,
     string? Error = null,
     string? EventName = null,
-    string? EventData = null)
+    string? EventData = null,
+    StateAction? StateAction = null,
+    string? StateSensorId = null,
+    string? StateValue = null)
 {
     /// <summary>The platforms that <c>--platform</c> accepts.</summary>
     public static readonly IReadOnlyList<string> KnownPlatforms = ["auto", "simulated", "windows", "linux"];
@@ -60,7 +79,7 @@ public static class CommandLine
 {
     /// <summary>The usage text.</summary>
     public const string Usage = """
-        Usage: qoffeeautomat [run|version|service|emit|reset-password] [options]
+        Usage: qoffeeautomat [run|version|service|emit|state|reset-password] [options]
 
         Verbs:
           run                  Run the agent (default).
@@ -71,7 +90,12 @@ public static class CommandLine
           emit <name> [--data <json>]
                                Send a custom event to the running agent, for example from a script
                                that the agent started. <json> must be an object.
-          reset-password       Write a new setup token file so that a new password can be set in the
+          state set <id> <value>
+                               Set the value of a sensor of type 'state' in the running agent; the value is
+                               checked against the value type and the options of the sensor and published
+                               at once. A value that starts with '-' goes after '--'.
+          state get <id>       Print the value of a sensor of type 'state'.
+          reset-password      Write a new setup token file so that a new password can be set in the
                                UI. Needs a local administrator (Windows) or root (Linux).
 
         Options:
@@ -98,6 +122,10 @@ public static class CommandLine
         int? linkPort = null;
         string? eventName = null;
         string? eventData = null;
+        StateAction? stateAction = null;
+        string? stateSensorId = null;
+        string? stateValue = null;
+        bool onlyPositional = false;
         var verbArguments = new List<string>();
         var passThrough = new List<string>();
 
@@ -108,6 +136,23 @@ public static class CommandLine
             if (verbSeen && verb == AgentVerb.Service)
             {
                 verbArguments.Add(argument);
+                continue;
+            }
+
+            // state <set|get> <id> [<value>]: a value may start with a single '-' (a negative number), and everything after '--'
+            // is a positional argument.
+            if (verbSeen && verb == AgentVerb.State
+                && (onlyPositional
+                    || !argument.StartsWith('-')
+                    || (stateAction == StateAction.Set && stateSensorId is not null && stateValue is null
+                        && !argument.StartsWith("--", StringComparison.Ordinal))))
+            {
+                string? problem = TakeStateArgument(argument, ref stateAction, ref stateSensorId, ref stateValue);
+                if (problem is not null)
+                {
+                    return Fail(problem);
+                }
+
                 continue;
             }
 
@@ -136,6 +181,9 @@ public static class CommandLine
             (string name, string? inlineValue) = SplitOption(argument);
             switch (name)
             {
+                case "--" when verb == AgentVerb.State:
+                    onlyPositional = true;
+                    break;
                 case "--help":
                 case "-h":
                     showHelp = true;
@@ -202,10 +250,78 @@ public static class CommandLine
             return Fail("emit needs an event name: emit <name> [--data <json>].");
         }
 
-        return new AgentOptions(verb, dataDir, platform, uiPort, linkPort, showHelp, verbArguments, passThrough, null, eventName, eventData);
+        if (verb == AgentVerb.State && !showHelp)
+        {
+            if (stateAction is null)
+            {
+                return Fail("state needs an action: state set <id> <value> or state get <id>.");
+            }
+
+            if (stateSensorId is null)
+            {
+                return Fail($"state {StateActionName(stateAction.Value)} needs a sensor id.");
+            }
+
+            if (stateAction == StateAction.Set && stateValue is null)
+            {
+                return Fail("state set needs a value: state set <id> <value>.");
+            }
+        }
+
+        return new AgentOptions(
+            verb,
+            dataDir,
+            platform,
+            uiPort,
+            linkPort,
+            showHelp,
+            verbArguments,
+            passThrough,
+            null,
+            eventName,
+            eventData,
+            stateAction,
+            stateSensorId,
+            stateValue);
     }
 
     private static AgentOptions Fail(string message) => new(Error: message);
+
+    private static string StateActionName(StateAction action) => action == StateAction.Set ? "set" : "get";
+
+    /// <summary>Takes the next positional argument of the verb <c>state</c>: the action, then the sensor id, then (for <c>set</c>) the value.</summary>
+    /// <returns>A message when the argument is not allowed; null otherwise.</returns>
+    private static string? TakeStateArgument(string argument, ref StateAction? action, ref string? sensorId, ref string? value)
+    {
+        if (action is null)
+        {
+            switch (argument.ToLowerInvariant())
+            {
+                case "set":
+                    action = StateAction.Set;
+                    return null;
+                case "get":
+                    action = StateAction.Get;
+                    return null;
+                default:
+                    return $"Unknown state action '{argument}'; use 'set' or 'get'. Try --help.";
+            }
+        }
+
+        if (sensorId is null)
+        {
+            sensorId = argument;
+            return null;
+        }
+
+        if (action == StateAction.Set && value is null)
+        {
+            value = argument;
+            return null;
+        }
+
+        return $"state {StateActionName(action.Value)} takes {(action == StateAction.Set ? "an id and a value" : "one id")}; '{argument}' is extra. Try --help.";
+    }
 
     private static bool TryParseVerb(string text, out AgentVerb verb)
     {
@@ -222,6 +338,9 @@ public static class CommandLine
                 return true;
             case "emit":
                 verb = AgentVerb.Emit;
+                return true;
+            case "state":
+                verb = AgentVerb.State;
                 return true;
             case "reset-password":
                 verb = AgentVerb.ResetPassword;

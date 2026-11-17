@@ -117,6 +117,8 @@ async def test_setup_creates_entities_of_the_manifest(
         ("button", "lock_session"),
         ("text", "say_text"),
         ("event", "_events"),
+        # The manifest of the fixture lists the feature notify (T702).
+        ("notify", "_notify"),
     ):
         assert find_entity_id(hass, domain, agent_id, key) is not None, key
     device = dr.async_get(hass).async_get_device_by_identifier(
@@ -139,6 +141,8 @@ async def test_setup_creates_entities_of_the_manifest(
             "lock_session",
             "say_text",
             "_events",
+            "_wake_on_lan",
+            "_notify",
         )
     }
 
@@ -471,15 +475,18 @@ async def test_bye_sleep_makes_everything_unavailable_but_connectivity_and_power
     assert state_of(hass, locked) == "unavailable"
     assert state_of(hass, connectivity) == "off"
     assert state_of(hass, power) == "sleep"
-    # Every entity of the device other than those two is unavailable.
+    # Every entity of the device other than those two and the Wake-on-LAN button (the
+    # button is for exactly this moment, T703) is unavailable.
     registry = er.async_get(hass)
     device = dr.async_get(hass).async_get_device_by_identifier(
         (DOMAIN, agent_id), entry.entry_id
     )
     assert device is not None
+    wake = entity_id_of(hass, "button", agent_id, "_wake_on_lan")
     for registered in er.async_entries_for_device(registry, device.id):
-        if registered.entity_id not in (connectivity, power):
+        if registered.entity_id not in (connectivity, power, wake):
             assert state_of(hass, registered.entity_id) == "unavailable"
+    assert state_of(hass, wake) != "unavailable"
 
     # The PC wakes up: the client reconnects and everything returns.
     client.trigger_connect()

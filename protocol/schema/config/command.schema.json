@@ -66,6 +66,37 @@
     "timeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
     "concurrency": { "enum": ["single", "queue", "parallel", "restart"] },
     "cooldownSeconds": { "type": "integer", "minimum": 0 },
-    "captureOutput": { "type": "boolean" }
+    "captureOutput": { "type": "boolean" },
+    "conditions": {
+      "description": "Schema version 2 (T705). A run that does not meet the conditions is rejected with the error condition_not_met.",
+      "type": "object",
+      "properties": {
+        "session": {
+          "description": "The session state that the command needs; absent means any.",
+          "enum": ["any", "logged_in", "unlocked", "locked"]
+        },
+        "timeWindow": {
+          "description": "The command only runs inside this window of the local day. An end that is not later than the start makes the window cross midnight.",
+          "type": "object",
+          "required": ["from", "to"],
+          "properties": {
+            "from": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+            "to": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+            "days": {
+              "description": "The days on which the window starts; absent or empty means every day.",
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] }
+            }
+          }
+        }
+      }
+    },
+    "secrets": {
+      "description": "Schema version 2 (T706). Names of the secrets that the run receives as the environment variables QA_SECRET_<NAME> (upper case). Only for powershell and process actions.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$" }
+    }
   }
 }

@@ -2,6 +2,12 @@
 
 This module must not import Home Assistant: it only depends on ``aiohttp`` and
 :mod:`.protocol`, so it can become a PyPI library later.
+
+:class:`LinkClient` is everything that does not depend on who opened the WebSocket:
+the handshake, requests, subscriptions and the frames the agent pushes.
+:class:`QoffeeLinkClient` dials the agent (the normal case, D-005);
+:class:`ReverseLinkClient` is given WebSockets that the agent opened itself (the
+reverse link of roaming devices, D-043, ADR 0003).
 """
 
 import asyncio
@@ -14,6 +20,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Final
 
 import aiohttp
+from aiohttp import web
 
 from .protocol import (
     CLOSE_UNAUTHORIZED,
@@ -55,6 +62,7 @@ BACKOFF_MAX: Final = 60.0
 FAST_RETRY_INTERVAL: Final = 1.0
 
 _SHA256_HEX_LENGTH: Final = 64
+_CLOSE_NORMAL: Final = 1000
 
 
 class QoffeeLinkError(Exception):
@@ -238,6 +246,11 @@ type Listener[T] = Callable[[T], None]
 
 type _Subscription = tuple[Sequence[str] | str, Mapping[str, float] | None]
 
+# The WebSocket of a connection: one that this client opened (``QoffeeLinkClient``) or
+# one that the agent opened and Home Assistant accepted (``ReverseLinkClient``). The
+# two classes of aiohttp have the same methods for everything the client does.
+type _Socket = aiohttp.ClientWebSocketResponse | web.WebSocketResponse
+
 
 class _Listeners[T]:
     """A set of callbacks; one failing callback does not affect the others."""
@@ -263,49 +276,31 @@ class _Listeners[T]:
                 _LOGGER.exception("Error in %s listener", self._name)
 
 
-class QoffeeLinkClient:
-    """A QoffeeLink connection to one agent that stays up by itself."""
+class LinkClient:
+    """A QoffeeLink client of one agent, whoever opened the WebSocket.
+
+    A subclass decides how connections come about (:class:`QoffeeLinkClient` dials,
+    :class:`ReverseLinkClient` is handed accepted sockets) and calls :meth:`_serve`
+    for every connection that completed the handshake.
+    """
 
     def __init__(
         self,
-        session: aiohttp.ClientSession,
-        host: str,
-        port: int,
-        token: str,
-        fingerprint: str,
         *,
         client_name: str = "Home Assistant",
         client_version: str = "0",
         request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
-        connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
-        backoff_min: float = BACKOFF_MIN,
-        backoff_max: float = BACKOFF_MAX,
-        fast_retry_interval: float = FAST_RETRY_INTERVAL,
         features: Sequence[str] = (),
     ) -> None:
         """Create the client; nothing happens until :meth:`start`."""
-        self._session = session
-        self._host = host
-        self._port = port
-        self._token = token
-        self._pin = _pin(fingerprint)
         self._client_name = client_name
         self._client_version = client_version
         self._request_timeout = request_timeout
-        self._connect_timeout = connect_timeout
-        self._backoff_min = backoff_min
-        self._backoff_max = backoff_max
-        self._fast_interval = fast_retry_interval
         self._features = tuple(features)
-        self._random = random.SystemRandom()
 
-        self._ws: aiohttp.ClientWebSocketResponse | None = None
+        self._ws: _Socket | None = None
         self._ready = False
         self._hello: Hello | None = None
-        self._task: asyncio.Task[None] | None = None
-        self._wake = asyncio.Event()
-        self._closing = False
-        self._attempt = 0
         self._fast_until = 0.0
         self._auth_failed = False
         self._last_error: QoffeeLinkError | None = None
@@ -322,16 +317,6 @@ class QoffeeLinkClient:
         self._auth_listeners = _Listeners[None]("auth_failed")
 
     # -- properties ----------------------------------------------------------
-
-    @property
-    def host(self) -> str:
-        """The host that is connected to."""
-        return self._host
-
-    @property
-    def port(self) -> int:
-        """The link port."""
-        return self._port
 
     @property
     def connected(self) -> bool:
@@ -388,64 +373,45 @@ class QoffeeLinkClient:
 
     # -- lifecycle -----------------------------------------------------------
 
-    async def probe(self) -> Hello:
-        """Connect once, read the ``hello`` and disconnect again.
-
-        Raises the typed error of the failure. Used to test the first connection
-        before a config entry is set up.
-        """
-        ws, hello = await self._open(heartbeat=None)
-        await ws.close()
-        await asyncio.sleep(0)
-        return hello
-
     def start(self) -> None:
-        """Start connecting and keep the connection up until :meth:`stop`."""
-        if self._task is None:
-            self._closing = False
-            self._task = asyncio.create_task(
-                self._supervise(), name="qoffeeautomat-link"
-            )
+        """Start connecting and keep the connection up until :meth:`stop`.
 
-    def _is_closing(self) -> bool:
-        return self._closing
+        A client whose connections are opened by the agent has nothing to start.
+        """
 
     async def stop(self) -> None:
-        """Close the connection and stop reconnecting."""
-        self._closing = True
-        self._wake.set()
-        task, self._task = self._task, None
-        if task is not None:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
-        if self._ws is not None:
+        """Close the connection and fail the requests that wait for an answer."""
+        ws = self._ws
+        if ws is not None:
             with contextlib.suppress(aiohttp.ClientError, OSError):
-                await self._ws.close()
+                await ws.close()
             await asyncio.sleep(0)
         self._fail_pending(NotConnectedError("the client was stopped"))
 
     def trigger_connect(self) -> None:
-        """Reset the backoff and try to connect right now."""
-        if self._ws is not None:
-            return
-        self._attempt = 0
-        self._wake.set()
+        """Try to connect right now.
+
+        Only a client that dials can do that. For a connection that the agent
+        opens it does nothing: the agent decides when to dial.
+        """
+
+    @property
+    def fast_retry_active(self) -> bool:
+        """True while a wake-up is in progress: the PC was woken and not seen yet.
+
+        A client that dials retries every second meanwhile; for a link that the
+        agent opens the flag only tells that the PC was woken a moment ago, so
+        that nothing wakes it twice.
+        """
+        return asyncio.get_running_loop().time() < self._fast_until
 
     def start_fast_retry(self, duration: float) -> None:
-        """Retry once per interval (one second) for ``duration`` seconds."""
+        """Retry once per interval (one second) for ``duration`` seconds.
+
+        Fast retry ends when the client is connected or ``duration`` has passed,
+        whichever comes first (after a Wake-on-LAN press, PLAN.md S10).
+        """
         self._fast_until = asyncio.get_running_loop().time() + duration
-        self.trigger_connect()
-
-    def update_address(self, host: str, port: int) -> None:
-        """Use another address for the next connection attempt."""
-        self._host = host
-        self._port = port
-
-    def update_token(self, token: str) -> None:
-        """Use a new link token (after reauthentication) and retry right away."""
-        self._token = token
-        self._auth_failed = False
         self.trigger_connect()
 
     # -- requests ------------------------------------------------------------
@@ -529,6 +495,267 @@ class QoffeeLinkClient:
 
     # -- connection ----------------------------------------------------------
 
+    async def _handshake(
+        self, ws: _Socket, *, expected_agent_id: str | None = None
+    ) -> Hello:
+        """Read ``hello``, check it and answer with ``client_hello``.
+
+        ``expected_agent_id`` is for a connection that the agent opened: a token
+        belongs to one agent, so a ``hello`` of another one ends the connection
+        with close code 4401 before anything is answered.
+        """
+        try:
+            async with asyncio.timeout(self._request_timeout):
+                message = await ws.receive()
+        except TimeoutError as err:
+            msg = "the agent sent no hello"
+            raise CannotConnectError(msg) from err
+        if message.type is not aiohttp.WSMsgType.TEXT:
+            raise _closed_error(ws.close_code)
+        try:
+            hello = parse_frame(message.data)
+        except ProtocolError as err:
+            msg = f"invalid hello: {err}"
+            raise UnexpectedResponseError(msg) from err
+        if not isinstance(hello, Hello):
+            msg = "the first frame was not a hello"
+            raise UnexpectedResponseError(msg)
+
+        if expected_agent_id is not None and hello.agent.id != expected_agent_id:
+            await ws.close(code=CLOSE_UNAUTHORIZED, message=b"wrong agent")
+            msg = "the agent is not the one of this entry"
+            raise AuthenticationError(msg)
+
+        chosen = min(hello.protocol.max, PROTOCOL_VERSION)
+        if chosen < hello.protocol.min:
+            await ws.close(code=aiohttp.WSCloseCode.PROTOCOL_ERROR)
+            agent_range = f"{hello.protocol.min}-{hello.protocol.max}"
+            msg = (
+                f"the agent supports protocol {agent_range}, "
+                f"this client supports 1-{PROTOCOL_VERSION}"
+            )
+            raise UnsupportedProtocolError(
+                msg, (hello.protocol.min, hello.protocol.max)
+            )
+        await ws.send_json(
+            build_client_hello(
+                chosen,
+                kind=CLIENT_KIND,
+                name=self._client_name,
+                version=self._client_version,
+                features=self._features,
+            )
+        )
+        return hello
+
+    def _connection_established(self) -> None:
+        """Reset what a successful connection makes obsolete (a subclass extends it)."""
+        # Connected: the fast retry did its job. A later drop backs off as usual.
+        self._fast_until = 0.0
+
+    async def _serve(self, ws: _Socket, hello: Hello) -> None:
+        """Run one established connection until it ends."""
+        self._ws = ws
+        self._hello = hello
+        self._last_bye = None
+        self._last_error = None
+        self._auth_failed = False
+        self._connection_established()
+        reader = asyncio.create_task(self._read_loop(ws), name="qoffeeautomat-read")
+        announced = False
+        try:
+            await self._resubscribe()
+            announced = True
+            self._ready = True
+            self._connection_listeners.fire(True)
+            await reader
+        except QoffeeLinkError as err:
+            self._last_error = err
+            _LOGGER.debug("Connection dropped: %s", err)
+        finally:
+            # A newer connection may have taken the place of this one already; it
+            # has told everybody and failed the requests, and must not be disturbed.
+            current = self._ws is ws
+            if current:
+                self._ready = False
+                self._ws = None
+            reader.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await reader
+            with contextlib.suppress(aiohttp.ClientError, OSError):
+                await ws.close()
+            # Let aiohttp cancel its heartbeat timer before the task ends.
+            await asyncio.sleep(0)
+            if current:
+                self._fail_pending(NotConnectedError("connection lost"))
+                if announced:
+                    self._connection_listeners.fire(False)
+        self._classify_close(ws.close_code)
+
+    def _classify_close(self, code: int | None) -> None:
+        if code == CLOSE_UNAUTHORIZED:
+            self._on_auth_failed(AuthenticationError("the link token was revoked"))
+        elif code == CLOSE_UNSUPPORTED_VERSION:
+            self._last_error = UnsupportedProtocolError("unsupported protocol version")
+
+    def _on_auth_failed(self, error: AuthenticationError) -> None:
+        self._last_error = error
+        if not self._auth_failed:
+            self._auth_failed = True
+            self._auth_listeners.fire(None)
+
+    async def _resubscribe(self) -> None:
+        if self._subscription is None:
+            return
+        metrics, intervals = self._subscription
+        await self._request(lambda i: build_subscribe(i, metrics, intervals))
+
+    async def _read_loop(self, ws: _Socket) -> None:
+        try:
+            async for message in ws:
+                if message.type is aiohttp.WSMsgType.ERROR or self._ws is not ws:
+                    # A failed socket, or a newer connection took this one's place.
+                    break
+                if message.type is not aiohttp.WSMsgType.TEXT:
+                    continue
+                try:
+                    frame = parse_frame(message.data)
+                except ProtocolError as err:
+                    _LOGGER.debug("Ignoring invalid frame: %s", err)
+                    continue
+                self._dispatch(frame)
+        except (aiohttp.ClientError, OSError) as err:
+            _LOGGER.debug("Reading from the agent failed: %s", err)
+
+    def _dispatch(self, frame: Message) -> None:
+        match frame:
+            case Result():
+                future = self._pending.get(frame.id)
+                if future is not None and not future.done():
+                    future.set_result(frame)
+            case State():
+                self._state_listeners.fire(frame)
+            case Event():
+                self._event_listeners.fire(frame)
+            case ManifestChanged():
+                self._manifest_listeners.fire(frame)
+            case Bye():
+                self._last_bye = frame
+                self._bye_listeners.fire(frame)
+            case _:
+                pass  # hello after the handshake and unknown types are ignored
+
+
+class QoffeeLinkClient(LinkClient):
+    """A QoffeeLink connection to one agent that Home Assistant dials and keeps up."""
+
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        host: str,
+        port: int,
+        token: str,
+        fingerprint: str,
+        *,
+        client_name: str = "Home Assistant",
+        client_version: str = "0",
+        request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
+        connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
+        backoff_min: float = BACKOFF_MIN,
+        backoff_max: float = BACKOFF_MAX,
+        fast_retry_interval: float = FAST_RETRY_INTERVAL,
+        features: Sequence[str] = (),
+    ) -> None:
+        """Create the client; nothing happens until :meth:`start`."""
+        super().__init__(
+            client_name=client_name,
+            client_version=client_version,
+            request_timeout=request_timeout,
+            features=features,
+        )
+        self._session = session
+        self._host = host
+        self._port = port
+        self._token = token
+        self._pin = _pin(fingerprint)
+        self._connect_timeout = connect_timeout
+        self._backoff_min = backoff_min
+        self._backoff_max = backoff_max
+        self._fast_interval = fast_retry_interval
+        self._random = random.SystemRandom()
+
+        self._task: asyncio.Task[None] | None = None
+        self._wake = asyncio.Event()
+        self._closing = False
+        self._attempt = 0
+
+    # -- properties ----------------------------------------------------------
+
+    @property
+    def host(self) -> str:
+        """The host that is connected to."""
+        return self._host
+
+    @property
+    def port(self) -> int:
+        """The link port."""
+        return self._port
+
+    # -- lifecycle -----------------------------------------------------------
+
+    async def probe(self) -> Hello:
+        """Connect once, read the ``hello`` and disconnect again.
+
+        Raises the typed error of the failure. Used to test the first connection
+        before a config entry is set up.
+        """
+        ws, hello = await self._open(heartbeat=None)
+        await ws.close()
+        await asyncio.sleep(0)
+        return hello
+
+    def start(self) -> None:
+        """Start connecting and keep the connection up until :meth:`stop`."""
+        if self._task is None:
+            self._closing = False
+            self._task = asyncio.create_task(
+                self._supervise(), name="qoffeeautomat-link"
+            )
+
+    def _is_closing(self) -> bool:
+        return self._closing
+
+    async def stop(self) -> None:
+        """Close the connection and stop reconnecting."""
+        self._closing = True
+        self._wake.set()
+        task, self._task = self._task, None
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        await super().stop()
+
+    def trigger_connect(self) -> None:
+        """Reset the backoff and try to connect right now."""
+        if self._ws is not None:
+            return
+        self._attempt = 0
+        self._wake.set()
+
+    def update_address(self, host: str, port: int) -> None:
+        """Use another address for the next connection attempt."""
+        self._host = host
+        self._port = port
+
+    def update_token(self, token: str) -> None:
+        """Use a new link token (after reauthentication) and retry right away."""
+        self._token = token
+        self._auth_failed = False
+        self.trigger_connect()
+
+    # -- connection ----------------------------------------------------------
+
     async def _open(
         self, *, heartbeat: float | None = HEARTBEAT_SECONDS
     ) -> tuple[aiohttp.ClientWebSocketResponse, Hello]:
@@ -566,46 +793,6 @@ class QoffeeLinkClient:
                 await ws.close()
         return ws, hello
 
-    async def _handshake(self, ws: aiohttp.ClientWebSocketResponse) -> Hello:
-        try:
-            async with asyncio.timeout(self._request_timeout):
-                message = await ws.receive()
-        except TimeoutError as err:
-            msg = "the agent sent no hello"
-            raise CannotConnectError(msg) from err
-        if message.type is not aiohttp.WSMsgType.TEXT:
-            raise _closed_error(ws.close_code)
-        try:
-            hello = parse_frame(message.data)
-        except ProtocolError as err:
-            msg = f"invalid hello: {err}"
-            raise UnexpectedResponseError(msg) from err
-        if not isinstance(hello, Hello):
-            msg = "the first frame was not a hello"
-            raise UnexpectedResponseError(msg)
-
-        chosen = min(hello.protocol.max, PROTOCOL_VERSION)
-        if chosen < hello.protocol.min:
-            await ws.close(code=aiohttp.WSCloseCode.PROTOCOL_ERROR)
-            agent_range = f"{hello.protocol.min}-{hello.protocol.max}"
-            msg = (
-                f"the agent supports protocol {agent_range}, "
-                f"this client supports 1-{PROTOCOL_VERSION}"
-            )
-            raise UnsupportedProtocolError(
-                msg, (hello.protocol.min, hello.protocol.max)
-            )
-        await ws.send_json(
-            build_client_hello(
-                chosen,
-                kind=CLIENT_KIND,
-                name=self._client_name,
-                version=self._client_version,
-                features=self._features,
-            )
-        )
-        return hello
-
     async def _supervise(self) -> None:
         """Connect, serve, and reconnect with backoff until stopped."""
         while not self._closing:
@@ -625,92 +812,10 @@ class QoffeeLinkClient:
                 break
             await self._sleep(None if self._auth_failed else self._next_delay())
 
-    async def _serve(self, ws: aiohttp.ClientWebSocketResponse, hello: Hello) -> None:
-        """Run one established connection until it ends."""
-        self._ws = ws
-        self._hello = hello
-        self._last_bye = None
-        self._last_error = None
-        self._auth_failed = False
+    def _connection_established(self) -> None:
+        super()._connection_established()
         self._attempt = 0
         self._wake.clear()
-        reader = asyncio.create_task(self._read_loop(ws), name="qoffeeautomat-read")
-        announced = False
-        try:
-            await self._resubscribe()
-            announced = True
-            self._ready = True
-            self._connection_listeners.fire(True)
-            await reader
-        except QoffeeLinkError as err:
-            self._last_error = err
-            _LOGGER.debug("Connection dropped: %s", err)
-        finally:
-            self._ready = False
-            self._ws = None
-            reader.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await reader
-            with contextlib.suppress(aiohttp.ClientError, OSError):
-                await ws.close()
-            # Let aiohttp cancel its heartbeat timer before the task ends.
-            await asyncio.sleep(0)
-            self._fail_pending(NotConnectedError("connection lost"))
-            if announced:
-                self._connection_listeners.fire(False)
-        self._classify_close(ws.close_code)
-
-    def _classify_close(self, code: int | None) -> None:
-        if code == CLOSE_UNAUTHORIZED:
-            self._on_auth_failed(AuthenticationError("the link token was revoked"))
-        elif code == CLOSE_UNSUPPORTED_VERSION:
-            self._last_error = UnsupportedProtocolError("unsupported protocol version")
-
-    def _on_auth_failed(self, error: AuthenticationError) -> None:
-        self._last_error = error
-        if not self._auth_failed:
-            self._auth_failed = True
-            self._auth_listeners.fire(None)
-
-    async def _resubscribe(self) -> None:
-        if self._subscription is None:
-            return
-        metrics, intervals = self._subscription
-        await self._request(lambda i: build_subscribe(i, metrics, intervals))
-
-    async def _read_loop(self, ws: aiohttp.ClientWebSocketResponse) -> None:
-        try:
-            async for message in ws:
-                if message.type is aiohttp.WSMsgType.ERROR:
-                    break
-                if message.type is not aiohttp.WSMsgType.TEXT:
-                    continue
-                try:
-                    frame = parse_frame(message.data)
-                except ProtocolError as err:
-                    _LOGGER.debug("Ignoring invalid frame: %s", err)
-                    continue
-                self._dispatch(frame)
-        except (aiohttp.ClientError, OSError) as err:
-            _LOGGER.debug("Reading from the agent failed: %s", err)
-
-    def _dispatch(self, frame: Message) -> None:
-        match frame:
-            case Result():
-                future = self._pending.get(frame.id)
-                if future is not None and not future.done():
-                    future.set_result(frame)
-            case State():
-                self._state_listeners.fire(frame)
-            case Event():
-                self._event_listeners.fire(frame)
-            case ManifestChanged():
-                self._manifest_listeners.fire(frame)
-            case Bye():
-                self._last_bye = frame
-                self._bye_listeners.fire(frame)
-            case _:
-                pass  # hello after the handshake and unknown types are ignored
 
     # -- backoff -------------------------------------------------------------
 
@@ -731,6 +836,106 @@ class QoffeeLinkClient:
             async with asyncio.timeout(delay):
                 await self._wake.wait()
         self._wake.clear()
+
+
+class ReverseLinkClient(LinkClient):
+    """The link to an agent that dials Home Assistant (D-043, ADR 0003).
+
+    Nothing here connects: the endpoint of the integration accepts the WebSocket that
+    the agent opens and hands it to :meth:`async_serve`, which runs the connection
+    until it ends. After the handshake everything is as on a link that Home Assistant
+    dialled, so the entities cannot tell the difference. There is at most one
+    connection; a newer one replaces the older (after a change of network the old
+    TCP connection of a laptop can stay half open for minutes).
+    """
+
+    def __init__(
+        self,
+        agent_id: str,
+        *,
+        client_name: str = "Home Assistant",
+        client_version: str = "0",
+        request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
+        features: Sequence[str] = (),
+    ) -> None:
+        """Create the client of the agent with the id ``agent_id``."""
+        super().__init__(
+            client_name=client_name,
+            client_version=client_version,
+            request_timeout=request_timeout,
+            features=features,
+        )
+        self._agent_id = agent_id
+        self._closing = False
+        self._closers: set[asyncio.Task[None]] = set()
+
+    @property
+    def agent_id(self) -> str:
+        """The id of the agent that may use this link."""
+        return self._agent_id
+
+    @property
+    def closing(self) -> bool:
+        """True after :meth:`stop`: no connection is accepted any more."""
+        return self._closing
+
+    async def stop(self) -> None:
+        """Close the connection and accept no more."""
+        self._closing = True
+        await super().stop()
+        if self._closers:
+            await asyncio.gather(*self._closers, return_exceptions=True)
+
+    async def async_serve(self, ws: web.WebSocketResponse) -> None:
+        """Run the connection that the agent opened until it ends.
+
+        ``ws`` must be prepared already (the upgrade is done). Returns when the
+        connection has ended; a connection that fails the handshake is closed.
+        """
+        if self._closing:
+            await ws.close(code=aiohttp.WSCloseCode.GOING_AWAY)
+            return
+        try:
+            hello = await self._handshake(ws, expected_agent_id=self._agent_id)
+        except AuthenticationError as err:
+            self._on_auth_failed(err)
+            await self._close_quietly(ws)
+            return
+        except QoffeeLinkError as err:
+            self._last_error = err
+            _LOGGER.debug("The handshake of a reverse connection failed: %s", err)
+            await self._close_quietly(ws)
+            return
+        if self._closing:
+            await self._close_quietly(ws)  # type: ignore[unreachable]
+            return
+        # Only a connection that completed the handshake replaces the current one, so
+        # a connection that sends garbage cannot push the real agent out.
+        self._replace_current()
+        await self._serve(ws, hello)
+
+    def _replace_current(self) -> None:
+        """End the current connection: a newer one takes its place."""
+        ws = self._ws
+        if ws is None:
+            return
+        self._ws = None
+        was_ready, self._ready = self._ready, False
+        self._fail_pending(NotConnectedError("replaced by a newer connection"))
+        if was_ready:
+            self._connection_listeners.fire(False)
+        task = asyncio.create_task(
+            self._close_quietly(ws), name="qoffeeautomat-reverse-replace"
+        )
+        self._closers.add(task)
+        task.add_done_callback(self._closers.discard)
+
+    @staticmethod
+    async def _close_quietly(ws: _Socket) -> None:
+        with contextlib.suppress(aiohttp.ClientError, OSError, ConnectionError):
+            await ws.close(code=_CLOSE_NORMAL)
+        # Let aiohttp cancel its heartbeat timer before the handler returns.
+        await asyncio.sleep(0)
 
 
 def _closed_error(code: int | None) -> QoffeeLinkError:

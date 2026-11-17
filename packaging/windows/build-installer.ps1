@@ -67,7 +67,7 @@ if (-not $StageDirectory) {
     $StageDirectory = Join-Path $OutputDirectory 'stage' "win-$Arch"
 }
 $StageDirectory = [System.IO.Path]::GetFullPath($StageDirectory)
-foreach ($required in @('QoffeeAutomat.Agent.exe', 'QoffeeAutomat.SessionHost.exe', 'wwwroot\index.html')) {
+foreach ($required in @('QoffeeAutomat.Agent.exe', 'QoffeeAutomat.SessionHost.exe', 'wwwroot\index.html', 'templates\commands\set_volume.json', 'templates\sensors\disk_free_percent.json', 'templates\scripts\disk_free_percent.ps1')) {
     if (-not (Test-Path -LiteralPath (Join-Path $StageDirectory $required))) {
         throw "$StageDirectory lacks $required. Run publish.ps1 -Arch $Arch first."
     }

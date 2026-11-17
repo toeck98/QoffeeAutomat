@@ -91,10 +91,16 @@ internal static class MetricCatalogBuilder
 
     /// <summary>
     /// The sampling interval of a custom sensor: null and invalid values become the default, zero stays zero
-    /// (event-driven), positive values get the minimum, which is higher for script sensors.
+    /// (event-driven), positive values get the minimum, which is higher for script sensors. A sensor of type
+    /// <c>state</c> is never sampled on a timer, so its interval is always zero (T714).
     /// </summary>
     public static double EffectiveSensorInterval(SensorDocument sensor, MetricEngineOptions options)
     {
+        if (sensor.Source is StateSensorSource)
+        {
+            return 0;
+        }
+
         bool isScript = sensor.Source is PowerShellSensorSource;
         double minimum = isScript
             ? Math.Max(options.MinimumIntervalSeconds, options.MinimumScriptIntervalSeconds)
@@ -132,14 +138,31 @@ internal static class MetricCatalogBuilder
     }
 }
 
-/// <summary>Exposes the user metrics of the session bridge as a provider (context <c>user</c>).</summary>
-internal sealed class SessionMetricProvider : IMetricProvider
+/// <summary>
+/// Exposes the user metrics of the session bridge as a provider (context <c>user</c>). It is a dynamic provider: it raises
+/// <see cref="DescriptorsChanged"/> when the bridge reports <see cref="ISessionBridge.UserMetricsChanged"/>, because the options of
+/// some of the metrics (the audio devices, T713) follow the PC.
+/// </summary>
+internal sealed class SessionMetricProvider : IDynamicMetricProvider, IDisposable
 {
     private readonly ISessionBridge _bridge;
 
     public SessionMetricProvider(ISessionBridge bridge)
     {
         _bridge = bridge;
+        _bridge.UserMetricsChanged += OnBridgeChanged;
+    }
+
+    public event EventHandler? DescriptorsChanged;
+
+    public void Dispose()
+    {
+        _bridge.UserMetricsChanged -= OnBridgeChanged;
+    }
+
+    private void OnBridgeChanged(object? sender, EventArgs e)
+    {
+        DescriptorsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public IReadOnlyList<MetricDescriptor> Describe()

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QoffeeAutomat.Contracts.Config;
+using QoffeeAutomat.Contracts.Session;
 using QoffeeAutomat.Core.Config;
 using QoffeeAutomat.Core.IO;
 using QoffeeAutomat.Core.Platform;
@@ -69,12 +70,38 @@ public sealed class DefaultCommandSeeder
     /// <summary>The default commands: the power actions run in the service, the session actions in the session of the user.</summary>
     public static IReadOnlyList<CommandDocument> DefaultCommands { get; } =
     [
-        Command(WindowsActionNames.Shutdown, "power_shutdown", "Shut down", "Shuts the computer down.", "mdi:power", RunAsValues.System, withForce: true),
-        Command(WindowsActionNames.Restart, "power_restart", "Restart", "Restarts the computer.", "mdi:restart", RunAsValues.System, withForce: true),
-        Command(WindowsActionNames.Sleep, "power_sleep", "Sleep", "Puts the computer to sleep.", "mdi:power-sleep", RunAsValues.System, withForce: false),
-        Command(WindowsActionNames.Hibernate, "power_hibernate", "Hibernate", "Hibernates the computer.", "mdi:power-sleep", RunAsValues.System, withForce: false),
-        Command(WindowsActionNames.LockSession, "session_lock", "Lock", "Locks the session of the logged-in user.", "mdi:lock", RunAsValues.User, withForce: false),
-        Command(WindowsActionNames.Logoff, "session_logoff", "Log off", "Logs the logged-in user off.", "mdi:logout", RunAsValues.User, withForce: true),
+        // The commands that can wait (T715) carry all variables of their action (Force, DelaySeconds, Message), so an automation can pass a
+        // delay; their timeout is longer than the longest delay, because the run waits for the countdown.
+        Command(WindowsActionNames.Shutdown, "power_shutdown", "Shut down", "Shuts the computer down.", "mdi:power", RunAsValues.System, withParameters: true),
+        Command(WindowsActionNames.Restart, "power_restart", "Restart", "Restarts the computer.", "mdi:restart", RunAsValues.System, withParameters: true),
+        Command(WindowsActionNames.Sleep, "power_sleep", "Sleep", "Puts the computer to sleep.", "mdi:power-sleep", RunAsValues.System, withParameters: true),
+        Command(WindowsActionNames.Hibernate, "power_hibernate", "Hibernate", "Hibernates the computer.", "mdi:power-sleep", RunAsValues.System, withParameters: true),
+        Command(WindowsActionNames.CancelPending, "power_cancel", "Cancel pending power action", "Cancels the delayed shutdown, restart, sleep, hibernate or log off that is waiting.", "mdi:cancel", RunAsValues.System, withParameters: false),
+        Command(WindowsActionNames.LockSession, "session_lock", "Lock", "Locks the session of the logged-in user.", "mdi:lock", RunAsValues.User, withParameters: false),
+        Command(WindowsActionNames.Logoff, "session_logoff", "Log off", "Logs the logged-in user off.", "mdi:logout", RunAsValues.User, withParameters: true),
+
+        // The keep-awake switch (T715): a switch in Home Assistant whose state is the real one, the metric power.keep_awake, so it turns
+        // off by itself when the time is over. Like the others it is disabled and not exposed until the user switches it on.
+        KeepAwakeSwitch(),
+
+        // The audio device switches (T713): a select in Home Assistant that lists the active devices (optionsFrom) and shows the
+        // current default device (the state metric). Like the others they are disabled and not exposed until the user switches them on.
+        DeviceSelect(
+            WindowsActionNames.SetDefaultOutput,
+            "audio_output_device",
+            "Audio output device",
+            "Switches the default audio playback device. The options are the active playback devices.",
+            "mdi:speaker",
+            SessionMetricIds.AudioOutputDevice,
+            "playback"),
+        DeviceSelect(
+            WindowsActionNames.SetDefaultInput,
+            "audio_input_device",
+            "Audio input device",
+            "Switches the default audio recording device. The options are the active recording devices.",
+            "mdi:microphone-settings",
+            SessionMetricIds.AudioInputDevice,
+            "recording"),
     ];
 
     /// <summary>Creates the default commands when this is the first start with an empty configuration.</summary>
@@ -122,12 +149,36 @@ public sealed class DefaultCommandSeeder
         return new SeedOutcome(SeedStatus.Seeded, created);
     }
 
-    private static CommandDocument Command(string action, string id, string name, string description, string icon, string runAs, bool withForce)
+    /// <summary>The command <c>power_keep_awake</c>: a switch on the variable <c>On</c> whose state is the metric <c>power.keep_awake</c>.</summary>
+    private static CommandDocument KeepAwakeSwitch()
+    {
+        BuiltinActionDescriptor descriptor = WindowsActionCatalog.Find(WindowsActionNames.KeepAwake)
+            ?? throw new InvalidOperationException($"The built-in action '{WindowsActionNames.KeepAwake}' is not in the catalog.");
+        return new CommandDocument(
+            DocumentSchema.CommandVersion,
+            "power_keep_awake",
+            "Keep awake",
+            Enabled: false,
+            ExposeToHa: false,
+            RunAsValues.System,
+            new BuiltinAction(WindowsActionNames.KeepAwake),
+            "Keeps the computer from going to sleep while the switch is on. The request ends with the agent and is not restored after a restart.",
+            "mdi:coffee",
+            Parameters: descriptor.Parameters,
+            HaControl: new HaControl(HaControlTypes.Switch, PowerActionSpec.On, PowerActionSpec.KeepAwakeMetric),
+            TimeoutSeconds: 30,
+            Concurrency: ConcurrencyModes.Exclusive,
+            CooldownSeconds: 0,
+            CaptureOutput: true,
+            Origin: DocumentOrigins.Local);
+    }
+
+    private static CommandDocument Command(string action, string id, string name, string description, string icon, string runAs, bool withParameters)
     {
         BuiltinActionDescriptor descriptor = WindowsActionCatalog.Find(action)
             ?? throw new InvalidOperationException($"The built-in action '{action}' is not in the catalog.");
         return new CommandDocument(
-            DocumentSchema.CurrentVersion,
+            DocumentSchema.CommandVersion,
             id,
             name,
             Enabled: false,
@@ -136,8 +187,43 @@ public sealed class DefaultCommandSeeder
             new BuiltinAction(action),
             description,
             icon,
-            Parameters: withForce ? descriptor.Parameters : null,
+            Parameters: withParameters ? descriptor.Parameters : null,
             HaControl: new HaControl(HaControlTypes.Button),
+            TimeoutSeconds: descriptor.Parameters.Any(parameter => parameter.Name == PowerActionSpec.DelaySeconds)
+                ? PowerActionSpec.MaxDelaySeconds + 60
+                : 30,
+            Concurrency: ConcurrencyModes.Exclusive,
+            CooldownSeconds: 0,
+            CaptureOutput: true,
+            Origin: DocumentOrigins.Local);
+    }
+
+    /// <summary>
+    /// A command that switches an audio device: the variable <c>Device</c> is an enum whose options come from the device metric
+    /// (<c>optionsFrom</c>), the Home Assistant control is a <c>select</c> on that variable, and the same metric reports the state.
+    /// </summary>
+    private static CommandDocument DeviceSelect(string action, string id, string name, string description, string icon, string metricId, string kind)
+    {
+        return new CommandDocument(
+            DocumentSchema.CommandVersion,
+            id,
+            name,
+            Enabled: false,
+            ExposeToHa: false,
+            RunAsValues.User,
+            new BuiltinAction(action),
+            description,
+            icon,
+            Parameters:
+            [
+                new ParameterDefinition(
+                    AudioDeviceSpec.Device,
+                    ParameterTypes.Choice,
+                    Required: true,
+                    OptionsFrom: metricId,
+                    Description: "The " + kind + " device that becomes the default."),
+            ],
+            HaControl: new HaControl(HaControlTypes.Select, AudioDeviceSpec.Device, metricId),
             TimeoutSeconds: 30,
             Concurrency: ConcurrencyModes.Exclusive,
             CooldownSeconds: 0,

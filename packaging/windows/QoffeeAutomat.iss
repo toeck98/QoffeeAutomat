@@ -118,6 +118,8 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignorevers
 [InstallDelete]
 ; The files of the UI have hashes in their names; remove the old ones so that an upgrade leaves nothing behind.
 Type: filesandordirs; Name: "{app}\wwwroot"
+; The template gallery (T701) is part of the installation; a template that a newer version dropped must not stay.
+Type: filesandordirs; Name: "{app}\templates"
 
 [INI]
 ; The Start menu shortcut to the UI: an internet shortcut, because the address depends on the UI port.

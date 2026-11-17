@@ -18,9 +18,17 @@ from .client import (
     AuthenticationError,
     QoffeeLinkClient,
     QoffeeLinkError,
+    ReverseLinkClient,
     UnsupportedProtocolError,
 )
-from .const import CONF_FINGERPRINT, CONF_LAST_BOOT_ID, CONF_TOKEN, DOMAIN
+from .const import (
+    CONF_FINGERPRINT,
+    CONF_LAST_BOOT_ID,
+    CONF_REVERSE,
+    CONF_REVERSE_TOKEN_HASH,
+    CONF_TOKEN,
+    DOMAIN,
+)
 from .entity import async_load_translation_keys
 from .manifest_manager import ManifestManager
 from .protocol import ProtocolError
@@ -28,6 +36,7 @@ from .repairs import (
     async_create_protocol_mismatch_issue,
     async_delete_protocol_mismatch_issue,
 )
+from .reverse import async_ensure_view, async_get_reverse_links
 from .runtime import (
     ConnectionState,
     QoffeeAutomatConfigEntry,
@@ -40,19 +49,34 @@ PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.EVENT,
+    Platform.MEDIA_PLAYER,
+    Platform.NOTIFY,
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
     Platform.SWITCH,
     Platform.TEXT,
+    Platform.UPDATE,
 ]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register the actions of the integration."""
+    """Register the actions of the integration and the tokens of reverse entries.
+
+    The reverse entries are set up one after the other, but the agents that belong to
+    them start dialling the moment Home Assistant is up. The endpoint therefore has to
+    know every token from the start; an entry that is not set up yet only makes the
+    agent wait (HTTP 503), a token that nobody knows is rejected for good (HTTP 401).
+    """
     async_setup_services(hass)
+    links = async_get_reverse_links(hass)
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.data.get(CONF_REVERSE):
+            links.know(entry.entry_id, entry.data[CONF_REVERSE_TOKEN_HASH])
+    if links.has_entries:
+        async_ensure_view(hass)
     return True
 
 
@@ -69,6 +93,8 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: QoffeeAutomatConfigEntry
 ) -> bool:
     """Set up QoffeeAutomat from a config entry."""
+    if entry.data.get(CONF_REVERSE):
+        return await _async_setup_reverse_entry(hass, entry)
     integration = await async_get_integration(hass, DOMAIN)
     host: str = entry.data[CONF_HOST]
     port: int = entry.data[CONF_PORT]
@@ -158,6 +184,64 @@ async def async_setup_entry(
     return True
 
 
+async def _async_setup_reverse_entry(
+    hass: HomeAssistant, entry: QoffeeAutomatConfigEntry
+) -> bool:
+    """Set up an agent that dials Home Assistant (reverse link, D-043, ADR 0003).
+
+    There is nothing to connect to and no reason to wait: the agent may be a laptop
+    that is somewhere else. The entry loads at once with the entities that do not need
+    the manifest; the first connection of the agent loads it and the platforms add the
+    rest.
+    """
+    agent_id = entry.unique_id
+    token_hash = entry.data.get(CONF_REVERSE_TOKEN_HASH)
+    if agent_id is None or not token_hash:
+        raise ConfigEntryError(
+            translation_domain=DOMAIN, translation_key="reverse_entry_invalid"
+        )
+    if not async_ensure_view(hass):
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN, translation_key="reverse_no_http"
+        )
+    integration = await async_get_integration(hass, DOMAIN)
+    client = ReverseLinkClient(
+        agent_id,
+        client_name=hass.config.location_name,
+        client_version=str(integration.version or "0"),
+    )
+    manager = ManifestManager(hass, entry, client)
+    connection = ConnectionState(
+        client,
+        entry.title,
+        last_boot_id=entry.data.get(CONF_LAST_BOOT_ID),
+        store_boot_id=partial(_store_boot_id, hass, entry),
+        on_manifest_rev=manager.handle_hello_rev,
+    )
+    subscriptions = SubscriptionManager(hass, client, entry.title)
+    links = async_get_reverse_links(hass)
+    links.know(entry.entry_id, token_hash)
+    # Callbacks run in reverse order: subscriptions, manifest, connection, client,
+    # and last the registration, so a connection that arrives meanwhile is refused.
+    entry.async_on_unload(links.attach(entry.entry_id, client))
+    entry.async_on_unload(client.stop)
+    entry.async_on_unload(connection.close)
+    entry.async_on_unload(manager.close)
+    entry.async_on_unload(subscriptions.async_shutdown)
+
+    manager.start_following()
+    entry.runtime_data = QoffeeAutomatRuntimeData(
+        client=client,
+        manifest_manager=manager,
+        connection=connection,
+        subscriptions=subscriptions,
+        agent_id=agent_id,
+        translation_keys=await async_load_translation_keys(hass),
+    )
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
 async def async_unload_entry(
     hass: HomeAssistant, entry: QoffeeAutomatConfigEntry
 ) -> bool:
@@ -168,5 +252,6 @@ async def async_unload_entry(
 async def async_remove_entry(
     hass: HomeAssistant, entry: QoffeeAutomatConfigEntry
 ) -> None:
-    """Remove the repair issue of a deleted config entry."""
+    """Remove the repair issue of a deleted config entry and forget its token."""
     async_delete_protocol_mismatch_issue(hass, entry.entry_id)
+    async_get_reverse_links(hass).forget(entry.entry_id)

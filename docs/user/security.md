@@ -33,6 +33,13 @@ your job.
   addresses lock everybody out for 15 minutes.
 * The password is reset with `QoffeeAutomat.Agent.exe reset-password` as a local administrator (see
   [First-run setup](first-run.md#forgotten-password)).
+* **One-click login from the tray.** If you are a member of the local Administrators group, **Open UI** in the tray menu signs
+  you in without typing the password: the agent hands the tray a login token that is valid for **30 seconds**, works **once**
+  and only from **this PC** (a request from the network never works, and trying it uses the token up). Opening it starts a
+  normal session. The agent decides who gets a token, not the tray program: it looks at the account that is logged on at the
+  console, so a standard user, another user's background session and a tampered tray program never get one and see the normal
+  login page. If User Account Control is switched off, Windows gives no sign of administrator rights, and you also see the login
+  page.
 
 ### A web interface that stays on the PC
 
@@ -66,6 +73,22 @@ So `"; Remove-Item C:\ -Recurse"` as a value of a text variable is just a string
 assistant or a notification action. What a command *does with* a string (your script may well pass it to `Invoke-Expression`!)
 is still up to you: **do not write scripts that execute their parameters**.
 
+### Secrets for scripts
+
+Passwords and keys that a script needs are stored as **named secrets** (page *Secrets*), not in scripts or variables:
+
+* The value is **write-only**. The UI and the API create, replace and delete a secret but never return the value.
+* It is encrypted in the secrets file (Windows DPAPI, machine scope; a key file with mode 0600 on Linux) like the password hash
+  and the link tokens.
+* Only a command that **lists** the secret receives it, and only as the environment variable `QA_SECRET_<NAME>` of its own
+  process: never as an argument, in the parameter file or in a script.
+* It never appears in the run history, the logs, the audit log, the configuration export or the diagnostics bundle, and when a
+  script prints it, the captured output is **masked** (`***`) before it is stored or shown. The export contains the *names* a
+  command uses, never a value.
+
+Anybody who can edit a command can list any secret in it and print it into the environment of a program that they choose, so a
+secret is as safe as the password of the web interface that guards the editor.
+
 ### Files and processes
 
 * The folders `config`, `scripts` and `secrets` in `%ProgramData%\QoffeeAutomat` can only be written by `SYSTEM` and Administrators.
@@ -89,8 +112,14 @@ Every run is written to the **audit log** with source (`ha`, `ui`, `cli`, `seque
 
 Releases are built by a public workflow with pinned actions. Every asset has a **checksum**, an **SPDX software bill of
 materials** and a **build provenance attestation**; the executables are signed when the signing service is configured. See
-[Verify your download](verify-download.md). The product itself makes no connections to the internet and loads no assets from
-other hosts.
+[Verify your download](verify-download.md). The product loads no assets from other hosts. The only request the agent makes to
+the internet **on its own** is the daily [update check](updates.md): one HTTPS request to the GitHub releases page of the
+project, without credentials or an identifier of the PC; switch it off in the settings and it makes none. The agent installs an
+update only when an authorized client asks for it, and only after the checksum (and, for a signed build, the signature) of the
+installer is verified. The one request it makes for someone else is the picture of a
+[notification](notifications.md#the-picture): when Home Assistant sends an `image_url`, the agent fetches that address
+(`http` or `https`, no credentials, no link-local address, at most three redirects, ten seconds, 1 MiB, only PNG, JPEG, GIF or
+BMP). Nothing is fetched unless an authorized client asks for it.
 
 ## Recommendations
 

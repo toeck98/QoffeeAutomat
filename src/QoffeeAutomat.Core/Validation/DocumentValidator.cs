@@ -2,6 +2,9 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using QoffeeAutomat.Contracts.Config;
+using QoffeeAutomat.Core.Commands;
+using QoffeeAutomat.Core.Commands.Conditions;
+using QoffeeAutomat.Core.Secrets.Named;
 
 namespace QoffeeAutomat.Core.Validation;
 
@@ -16,6 +19,9 @@ public static class DocumentValidator
     private const int MaxNameLength = 100;
     private const int MaxDescriptionLength = 2000;
     private const int MaxTimeoutSeconds = 86400;
+    private const int MaxPrometheusMetrics = 500;
+    private const int MaxHotkeys = 32;
+    private const int MaxModeGroupIdLength = 58;
 
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
@@ -41,6 +47,14 @@ public static class DocumentValidator
         ConcurrencyModes.Queue,
         ConcurrencyModes.Parallel,
         ConcurrencyModes.Restart,
+    };
+
+    private static readonly HashSet<string> SessionRequirementSet = new(StringComparer.Ordinal)
+    {
+        SessionRequirements.Any,
+        SessionRequirements.LoggedIn,
+        SessionRequirements.Unlocked,
+        SessionRequirements.Locked,
     };
 
     private static readonly HashSet<string> ParameterTypeSet = new(StringComparer.Ordinal)
@@ -73,6 +87,13 @@ public static class DocumentValidator
         PowerShellEngines.Auto,
         PowerShellEngines.Pwsh,
         PowerShellEngines.PowerShell,
+    };
+
+    private static readonly HashSet<string> ModeBootSet = new(StringComparer.Ordinal)
+    {
+        ModeBootBehaviors.Keep,
+        ModeBootBehaviors.Reset,
+        ModeBootBehaviors.ApplyDefault,
     };
 
     private static readonly HashSet<string> SensorKindSet = new(StringComparer.Ordinal) { "sensor", "binary_sensor" };
@@ -122,8 +143,13 @@ public static class DocumentValidator
         ArgumentNullException.ThrowIfNull(document);
         var errors = new List<ValidationError>();
 
-        CheckHeader(document, errors);
+        CheckHeader(document, errors, DocumentSchema.CommandVersion);
         CheckId(document.Id, "/id", errors);
+        if (SystemCommands.IsReservedId(document.Id))
+        {
+            Add(errors, "/id", ValidationCodes.Conflict, "This id is reserved for a command that the agent provides itself.");
+        }
+
         CheckName(document.Name, "/name", errors);
         CheckDescriptionAndIcon(document.Description, document.Icon, errors);
 
@@ -154,6 +180,8 @@ public static class DocumentValidator
         CheckParameters(document.Parameters, errors);
         CheckHaControl(document.HaControl, document.Parameters, errors);
         CheckAction(document, lookup, errors);
+        CheckConditions(document.Conditions, errors);
+        CheckSecrets(document, errors);
 
         return new ValidationResult(errors);
     }
@@ -271,7 +299,257 @@ public static class DocumentValidator
             Add(errors, "/retention/auditLogDays", ValidationCodes.Invalid, "auditLogDays must be at least 1.");
         }
 
+        CheckPrometheus(document.Prometheus, errors);
+        CheckReverseLink(document.ReverseLink, errors);
+        CheckHotkeys(document.Hotkeys, errors);
+
+        if (document.Updates?.IntervalHours is { } hours
+            && (hours < AgentSettingsDefaults.MinUpdateIntervalHours || hours > AgentSettingsDefaults.MaxUpdateIntervalHours))
+        {
+            Add(
+                errors,
+                "/updates/intervalHours",
+                ValidationCodes.Invalid,
+                $"intervalHours must be between {AgentSettingsDefaults.MinUpdateIntervalHours} and {AgentSettingsDefaults.MaxUpdateIntervalHours}.");
+        }
+
         return new ValidationResult(errors);
+    }
+
+    /// <summary>
+    /// Validates a mode group document (PLAN.md S06, T717): the header, id and name, <c>onBoot</c> and <c>onError</c>, unique mode ids, a
+    /// <c>defaultMode</c> that is one of the modes and the steps of every mode. A step is checked like the step of a sequence; in addition
+    /// it cannot run the generated command of a mode group (a step cannot switch a mode).
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="lookup">
+    /// Optional lookup of the stored commands by id. When it is given, every step must name an existing command (a stored one or one of
+    /// the <see cref="SystemCommands"/>), and the group id must not be taken by a stored command <c>mode_&lt;id&gt;</c>, which the generated
+    /// command would shadow. Without it only what the document itself shows is checked (the store reads documents without it).
+    /// </param>
+    /// <returns>The errors; empty when the document is valid.</returns>
+    public static ValidationResult ValidateModeGroup(ModeGroupDocument document, Func<string, CommandDocument?>? lookup = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        var errors = new List<ValidationError>();
+
+        CheckHeader(document, errors);
+        CheckId(document.Id, "/id", errors);
+        if (document.Id is { Length: > MaxModeGroupIdLength })
+        {
+            Add(errors, "/id", ValidationCodes.Invalid, "The id must not be longer than 58 characters so that the generated command id mode_<id> is a valid id.");
+        }
+        else if (!string.IsNullOrEmpty(document.Id) && lookup?.Invoke(ModeNames.CommandId(document.Id)) is not null)
+        {
+            Add(errors, "/id", ValidationCodes.Conflict, $"A command with the id '{ModeNames.CommandId(document.Id)}' exists; the mode group provides a command with this id.");
+        }
+
+        CheckName(document.Name, "/name", errors);
+        CheckDescriptionAndIcon(document.Description, document.Icon, errors);
+
+        if (!ModeBootSet.Contains(document.OnBoot ?? string.Empty))
+        {
+            Add(errors, "/onBoot", ValidationCodes.Invalid, "onBoot must be keep, reset or apply_default.");
+        }
+
+        if (!string.Equals(document.OnError, SequenceErrorModes.Stop, StringComparison.Ordinal)
+            && !string.Equals(document.OnError, SequenceErrorModes.Continue, StringComparison.Ordinal))
+        {
+            Add(errors, "/onError", ValidationCodes.Invalid, "onError must be stop or continue.");
+        }
+
+        var modeIds = new HashSet<string>(StringComparer.Ordinal);
+        if (document.Modes is null || document.Modes.Count == 0)
+        {
+            Add(errors, "/modes", ValidationCodes.Required, "A mode group needs at least one mode.");
+        }
+        else
+        {
+            for (int index = 0; index < document.Modes.Count; index++)
+            {
+                CheckMode(document, document.Modes[index], JsonPointer.Index("/modes", index), modeIds, lookup, errors);
+            }
+        }
+
+        if (string.IsNullOrEmpty(document.DefaultMode))
+        {
+            Add(errors, "/defaultMode", ValidationCodes.Required, "defaultMode is required.");
+        }
+        else if (modeIds.Count > 0 && !modeIds.Contains(document.DefaultMode))
+        {
+            Add(errors, "/defaultMode", ValidationCodes.UnknownReference, "defaultMode must be the id of one of the modes.");
+        }
+
+        return new ValidationResult(errors);
+    }
+
+    private static void CheckMode(
+        ModeGroupDocument group,
+        ModeDefinition? mode,
+        string path,
+        HashSet<string> modeIds,
+        Func<string, CommandDocument?>? lookup,
+        List<ValidationError> errors)
+    {
+        if (mode is null)
+        {
+            Add(errors, path, ValidationCodes.Required, "A mode must be an object.");
+            return;
+        }
+
+        string idPath = JsonPointer.Member(path, "id");
+        CheckId(mode.Id, idPath, errors);
+        if (!string.IsNullOrEmpty(mode.Id) && !modeIds.Add(mode.Id))
+        {
+            Add(errors, idPath, ValidationCodes.Duplicate, "Mode ids must be unique in a group.");
+        }
+
+        CheckName(mode.Name, JsonPointer.Member(path, "name"), errors);
+        CheckModeSteps(group, mode.Enter, JsonPointer.Member(path, "enter"), lookup, errors);
+        CheckModeSteps(group, mode.Exit, JsonPointer.Member(path, "exit"), lookup, errors);
+    }
+
+    private static void CheckModeSteps(
+        ModeGroupDocument group,
+        IReadOnlyList<SequenceStep>? steps,
+        string path,
+        Func<string, CommandDocument?>? lookup,
+        List<ValidationError> errors)
+    {
+        if (steps is null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < steps.Count; index++)
+        {
+            string stepPath = JsonPointer.Index(path, index);
+            SequenceStep step = steps[index];
+            CheckStep(step, stepPath, errors);
+
+            if (step?.Command is not { Length: > 0 } command || !IdPattern.IsMatch(command))
+            {
+                continue;
+            }
+
+            string commandPath = JsonPointer.Member(stepPath, "command");
+            if (string.Equals(command, ModeNames.CommandId(group.Id ?? string.Empty), StringComparison.Ordinal))
+            {
+                Add(errors, commandPath, ValidationCodes.Conflict, "A step cannot switch a mode.");
+            }
+            else if (lookup is not null && SystemCommands.TryGet(command) is null && lookup(command) is null)
+            {
+                // The generated command of a mode group is not a stored command, so it ends up here as well; say what is wrong.
+                if (ModeNames.TryGetGroupId(command, out _))
+                {
+                    Add(errors, commandPath, ValidationCodes.Conflict, "A step cannot switch a mode, and there is no stored command with this id.");
+                }
+                else
+                {
+                    Add(errors, commandPath, ValidationCodes.UnknownReference, "There is no command with this id.");
+                }
+            }
+        }
+    }
+
+    private static void CheckReverseLink(ReverseLinkSettings? reverseLink, List<ValidationError> errors)
+    {
+        if (reverseLink is null)
+        {
+            return;
+        }
+
+        if (reverseLink.Url is not null && OutboundLinkRules.CheckUrl(reverseLink.Url) is { } urlProblem)
+        {
+            Add(errors, "/reverseLink/url", ValidationCodes.Invalid, urlProblem);
+        }
+
+        if (reverseLink.Enabled == true && string.IsNullOrEmpty(reverseLink.Url))
+        {
+            Add(errors, "/reverseLink/url", ValidationCodes.Required, "url is required when the reverse link is enabled.");
+        }
+
+        if (reverseLink.Fingerprint is not null && !OutboundLinkRules.TryNormalizeFingerprint(reverseLink.Fingerprint, out _))
+        {
+            Add(errors, "/reverseLink/fingerprint", ValidationCodes.Invalid, "fingerprint must be a SHA-256 fingerprint of 64 hexadecimal digits.");
+        }
+    }
+
+    /// <summary>
+    /// The hotkeys (T708): a name that fits the id pattern and is unique, keys that <see cref="HotkeyGesture"/>
+    /// understands, and no combination twice among the enabled hotkeys. Whether Windows grants a combination cannot be known here;
+    /// the SessionHost reports that as a conflict at registration time.
+    /// </summary>
+    private static void CheckHotkeys(IReadOnlyList<HotkeySettings>? hotkeys, List<ValidationError> errors)
+    {
+        if (hotkeys is null)
+        {
+            return;
+        }
+
+        if (hotkeys.Count > MaxHotkeys)
+        {
+            Add(errors, "/hotkeys", ValidationCodes.Invalid, $"At most {MaxHotkeys} hotkeys can be defined.");
+        }
+
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var combinations = new HashSet<string>(StringComparer.Ordinal);
+        for (int index = 0; index < hotkeys.Count; index++)
+        {
+            string path = JsonPointer.Index("/hotkeys", index);
+            HotkeySettings? hotkey = hotkeys[index];
+            if (hotkey is null)
+            {
+                Add(errors, path, ValidationCodes.Invalid, "A hotkey is expected.");
+                continue;
+            }
+
+            if (string.IsNullOrEmpty(hotkey.Name) || !IdPattern.IsMatch(hotkey.Name))
+            {
+                Add(errors, path + "/name", ValidationCodes.Invalid, "name must start with a lower-case letter and have at most 63 lower-case letters, digits or underscores.");
+            }
+            else if (!names.Add(hotkey.Name))
+            {
+                Add(errors, path + "/name", ValidationCodes.Duplicate, "Each hotkey name can be used once.");
+            }
+
+            if (!HotkeyGesture.TryParse(hotkey.Keys, out HotkeyGesture? gesture, out string? problem))
+            {
+                Add(errors, path + "/keys", ValidationCodes.Invalid, problem ?? "The keys are not valid.");
+            }
+            else if (hotkey.EffectiveEnabled && !combinations.Add(gesture!.Canonical))
+            {
+                Add(errors, path + "/keys", ValidationCodes.Conflict, "Another enabled hotkey already uses " + gesture.Canonical + ".");
+            }
+        }
+    }
+
+    private static void CheckPrometheus(PrometheusSettings? prometheus, List<ValidationError> errors)
+    {
+        if (prometheus?.Metrics is not { } metrics)
+        {
+            return;
+        }
+
+        if (metrics.Count > MaxPrometheusMetrics)
+        {
+            Add(errors, "/prometheus/metrics", ValidationCodes.Invalid, $"At most {MaxPrometheusMetrics} metrics can be exposed.");
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (int index = 0; index < metrics.Count; index++)
+        {
+            string path = JsonPointer.Index("/prometheus/metrics", index);
+            string? id = metrics[index];
+            if (string.IsNullOrEmpty(id) || !MetricIdPattern.IsMatch(id))
+            {
+                Add(errors, path, ValidationCodes.Invalid, "A metric id such as cpu.usage or custom.my_sensor is expected.");
+            }
+            else if (!seen.Add(id))
+            {
+                Add(errors, path, ValidationCodes.Duplicate, "Each metric can be listed once.");
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -283,13 +561,13 @@ public static class DocumentValidator
         errors.Add(new ValidationError(path, code, message));
     }
 
-    private static void CheckHeader(IConfigDocument document, List<ValidationError> errors)
+    private static void CheckHeader(IConfigDocument document, List<ValidationError> errors, int maxVersion = DocumentSchema.CurrentVersion)
     {
         if (document.SchemaVersion < 1)
         {
             Add(errors, "/schemaVersion", ValidationCodes.Invalid, "schemaVersion must be at least 1.");
         }
-        else if (document.SchemaVersion > DocumentSchema.CurrentVersion)
+        else if (document.SchemaVersion > maxVersion)
         {
             Add(errors, "/schemaVersion", ValidationCodes.Unsupported, "The schemaVersion is newer than this agent understands.");
         }
@@ -653,6 +931,97 @@ public static class DocumentValidator
     // ------------------------------------------------------------------
     // Actions
     // ------------------------------------------------------------------
+
+    // ------------------------------------------------------------------
+    // Conditions and secrets (schema version 2, T705, T706)
+    // ------------------------------------------------------------------
+
+    private static void CheckConditions(CommandConditions? conditions, List<ValidationError> errors)
+    {
+        if (conditions is null)
+        {
+            return;
+        }
+
+        if (conditions.Session is not null && !SessionRequirementSet.Contains(conditions.Session))
+        {
+            Add(errors, "/conditions/session", ValidationCodes.Invalid, "session must be any, logged_in, unlocked or locked.");
+        }
+
+        if (conditions.TimeWindow is not { } window)
+        {
+            return;
+        }
+
+        const string windowPath = "/conditions/timeWindow";
+        CheckWindowTime(window.From, JsonPointer.Member(windowPath, "from"), errors);
+        CheckWindowTime(window.To, JsonPointer.Member(windowPath, "to"), errors);
+
+        if (window.Days is null)
+        {
+            return;
+        }
+
+        var days = new HashSet<string>(StringComparer.Ordinal);
+        for (int index = 0; index < window.Days.Count; index++)
+        {
+            string path = JsonPointer.Index(JsonPointer.Member(windowPath, "days"), index);
+            string? day = window.Days[index];
+            if (day is null || !WeekdayNames.All.Contains(day, StringComparer.Ordinal))
+            {
+                Add(errors, path, ValidationCodes.Invalid, "A day must be mon, tue, wed, thu, fri, sat or sun.");
+            }
+            else if (!days.Add(day))
+            {
+                Add(errors, path, ValidationCodes.Duplicate, "Each day may appear once.");
+            }
+        }
+    }
+
+    private static void CheckWindowTime(string? time, string path, List<ValidationError> errors)
+    {
+        if (string.IsNullOrEmpty(time))
+        {
+            Add(errors, path, ValidationCodes.Required, "A time of day such as 22:30 is required.");
+        }
+        else if (!CommandConditionEvaluator.TryParseTime(time, out _))
+        {
+            Add(errors, path, ValidationCodes.Invalid, "The time must look like 22:30 (HH:mm, 24-hour clock).");
+        }
+    }
+
+    private static void CheckSecrets(CommandDocument document, List<ValidationError> errors)
+    {
+        if (document.Secrets is not { Count: > 0 } secrets)
+        {
+            return;
+        }
+
+        if (document.Action is not (PowerShellAction or ProcessAction))
+        {
+            Add(errors, "/secrets", ValidationCodes.NotApplicable, "Secrets can only be used by powershell and process actions.");
+            return;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (int index = 0; index < secrets.Count; index++)
+        {
+            string path = JsonPointer.Index("/secrets", index);
+            string? name = secrets[index];
+            if (string.IsNullOrEmpty(name))
+            {
+                Add(errors, path, ValidationCodes.Required, "A secret name is required.");
+            }
+            else if (!NamedSecretNames.IsValid(name))
+            {
+                Add(errors, path, ValidationCodes.Invalid, "The name must match ^[a-z][a-z0-9_]{0,62}$.");
+            }
+            else if (!seen.Add(name))
+            {
+                Add(errors, path, ValidationCodes.Duplicate, "Each secret may be listed once.");
+            }
+        }
+    }
 
     private static void CheckAction(CommandDocument document, Func<string, CommandDocument?>? lookup, List<ValidationError> errors)
     {

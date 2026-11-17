@@ -185,7 +185,7 @@ public static class ApiDocuments
     {
         ArgumentNullException.ThrowIfNull(document);
 
-        return document with { SchemaVersion = DocumentSchema.CurrentVersion, Revision = null, UpdatedAt = null, Origin = DocumentOrigins.Local };
+        return document with { SchemaVersion = DocumentSchema.CommandVersion, Revision = null, UpdatedAt = null, Origin = DocumentOrigins.Local };
     }
 
     /// <summary>Sets the members that the store owns.</summary>

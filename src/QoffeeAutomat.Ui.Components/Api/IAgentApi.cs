@@ -43,6 +43,16 @@ public interface IAgentApi
     /// <returns>The status.</returns>
     Task<AgentStatus> GetStatusAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Reads which global hotkeys are registered and which conflict (<c>GET /hotkeys</c>, T708).</summary>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The status of the hotkeys.</returns>
+    Task<HotkeyStatusResponse> GetHotkeyStatusAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Reads whether the optional hardware sensors run and whether their kernel driver is installed (<c>GET /hardware-sensors</c>, T707).</summary>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The status of the hardware sensors.</returns>
+    Task<HardwareSensorStatus> GetHardwareSensorStatusAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Lists the paired QoffeeLink clients (<c>GET /link/clients</c>).</summary>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The clients.</returns>
@@ -205,6 +215,103 @@ public interface IAgentApi
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The parsed value or the error.</returns>
     Task<SensorTestResult> TestSensorAsync(SensorDocument draft, CancellationToken cancellationToken = default);
+
+    /// <summary>Reads the value of a sensor of type <c>state</c> (<c>GET /sensors/{id}/value</c>); answers 404 for an unknown sensor and 409 for a sensor of another type.</summary>
+    /// <param name="id">The sensor id.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The value; it has none while nothing was set and the sensor has no initial value.</returns>
+    Task<SensorValue> GetSensorValueAsync(string id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the value of a sensor of type <c>state</c> (<c>PUT /sensors/{id}/value</c>). The text is read like the value of <c>state set</c>
+    /// on the command line, according to the value type of the sensor. A value that does not fit fails with status 422, an unknown
+    /// sensor with 404 and a sensor of another type with 409.
+    /// </summary>
+    /// <param name="id">The sensor id.</param>
+    /// <param name="value">The value as typed.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The value as it is published.</returns>
+    Task<SensorValue> SetSensorValueAsync(string id, string value, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists the mode groups with their current state (<c>GET /modes</c>, T717).</summary>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The groups, ordered by id.</returns>
+    Task<ModeGroupList> GetModeGroupsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Creates a mode group (<c>POST /modes</c>); answers 409 when the id exists and 422 for an invalid group.</summary>
+    /// <param name="group">The new group.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The group as saved.</returns>
+    Task<ModeGroupDocument> CreateModeGroupAsync(ModeGroupDocument group, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Replaces a mode group (<c>PUT /modes/{id}</c>) if nobody saved it in the meantime: the <c>Revision</c> of the document is sent as
+    /// <c>If-Match</c>, and a stale revision fails with status 412.
+    /// </summary>
+    /// <param name="group">The group; its id is the one in the URL.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The group as saved.</returns>
+    Task<ModeGroupDocument> ReplaceModeGroupAsync(ModeGroupDocument group, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a mode group (<c>DELETE /modes/{id}</c>); its earlier revisions are kept.</summary>
+    /// <param name="id">The group id.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>A task that completes when the group is deleted.</returns>
+    Task DeleteModeGroupAsync(string id, CancellationToken cancellationToken = default);
+
+    /// <summary>Reads the state of a mode group (<c>GET /modes/{id}/switch</c>): the current mode and whether a switch is running; answers 404 for an unknown group.</summary>
+    /// <param name="id">The group id.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The state.</returns>
+    Task<ModeState> GetModeStateAsync(string id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Starts a switch to a mode (<c>POST /modes/{id}/switch</c>) and returns as soon as it is accepted. A second request while a switch is
+    /// running fails with status 409 and the code <c>busy</c>; an unknown group fails with 404 and an unknown mode with 422.
+    /// </summary>
+    /// <param name="id">The group id.</param>
+    /// <param name="mode">The id of the mode to enter.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The run of the switch.</returns>
+    Task<ModeSwitchStarted> SwitchModeAsync(string id, string mode, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists the templates of the gallery (<c>GET /templates</c>).</summary>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The templates, commands first, each group ordered by id.</returns>
+    Task<TemplateList> GetTemplatesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Reads a template with its document and scripts for the preview (<c>GET /templates/{id}</c>); answers 404 for an unknown id.</summary>
+    /// <param name="id">The template id.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The template.</returns>
+    Task<TemplateDetail> GetTemplateAsync(string id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds a template as a new command or sensor (<c>POST /templates/{id}/instantiate</c>): the id is made unique and the
+    /// scripts are copied. Answers 404 for an unknown template and 422 when the copy is not valid.
+    /// </summary>
+    /// <param name="id">The template id.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>What was created.</returns>
+    Task<TemplateInstantiation> InstantiateTemplateAsync(string id, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists the named secrets of scripts (<c>GET /secrets</c>): names and the commands that use them, never values.</summary>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The secrets, ordered by name.</returns>
+    Task<SecretList> GetSecretsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Creates a secret or replaces its value (<c>PUT /secrets/{name}</c>); the value is write-only. Answers 422 for an invalid name or value.</summary>
+    /// <param name="name">The secret name.</param>
+    /// <param name="value">The value.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The secret as saved (without its value).</returns>
+    Task<SecretSummary> PutSecretAsync(string name, string value, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a secret (<c>DELETE /secrets/{name}</c>); an unknown name fails with status 404.</summary>
+    /// <param name="name">The secret name.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>A task that completes when the secret is deleted.</returns>
+    Task DeleteSecretAsync(string name, CancellationToken cancellationToken = default);
 
     /// <summary>Starts pairing (<c>POST /link/pairing</c>): creates a one-time code. Fails with status 503 when the agent has no certificate.</summary>
     /// <param name="cancellationToken">Cancels the call.</param>

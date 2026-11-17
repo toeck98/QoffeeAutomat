@@ -1,0 +1,128 @@
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The conditions of a command (PLAN.md S06, T705): the session that it needs and an optional window of the local day. A command
+   without conditions keeps no "conditions" member in its document. *@
+<MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="section-conditions">
+  <MudText Typo="Typo.h6" Class="mb-1">@L["Editor.Conditions.Title"]</MudText>
+  <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">@L["Editor.Conditions.Help"]</MudText>
+
+  <SelectBox Label="@L["Editor.Conditions.Session"]"
+             @bind-Value="Draft.ConditionSession"
+             @bind-Value:after="NotifyAsync"
+             Error="@Errors.Has("/conditions/session")"
+             TestId="field-condition-session">
+    @if (!SessionChoices.Contains(Draft.ConditionSession))
+    {
+      <option value="@Draft.ConditionSession">@Draft.ConditionSession</option>
+    }
+    @foreach (string requirement in SessionChoices)
+    {
+      <option value="@requirement">@L["Editor.Conditions.Session." + requirement]</option>
+    }
+  </SelectBox>
+  <FieldError Errors="Errors" Path="/conditions/session" />
+
+  <div class="mt-2">
+    <MudSwitch T="bool"
+               @bind-Value="Draft.WindowEnabled"
+               @bind-Value:after="NotifyAsync"
+               Label="@L["Editor.Conditions.Window.Enable"]"
+               Color="Color.Primary"
+               data-testid="field-window-enabled" />
+  </div>
+
+  @if (Draft.WindowEnabled)
+  {
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">@L["Editor.Conditions.Window.Help"]</MudText>
+    <MudGrid Spacing="2">
+      <MudItem xs="12" md="6">
+        <div data-testid="field-window-from">
+          <MudTextField T="string"
+                        @bind-Value="Draft.WindowFrom"
+                        @bind-Value:after="NotifyAsync"
+                        Immediate="true"
+                        InputType="InputType.Time"
+                        Label="@L["Editor.Conditions.Window.From"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Error="@Errors.Has("/conditions/timeWindow/from")" />
+        </div>
+        <FieldError Errors="Errors" Path="/conditions/timeWindow/from" />
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <div data-testid="field-window-to">
+          <MudTextField T="string"
+                        @bind-Value="Draft.WindowTo"
+                        @bind-Value:after="NotifyAsync"
+                        Immediate="true"
+                        InputType="InputType.Time"
+                        Label="@L["Editor.Conditions.Window.To"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Error="@Errors.Has("/conditions/timeWindow/to")" />
+        </div>
+        <FieldError Errors="Errors" Path="/conditions/timeWindow/to" />
+      </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.subtitle2" Class="mt-2">@L["Editor.Conditions.Window.Days"]</MudText>
+    <div class="qa-check-group" role="group" aria-label="@L["Editor.Conditions.Window.Days"]" data-testid="window-days">
+      @foreach (string day in WeekdayNames.All)
+      {
+        string current = day;
+        <label class="qa-check" data-testid="@($"window-day-{current}")">
+          <input type="checkbox"
+                 checked="@Draft.WindowDays.Contains(current)"
+                 @onchange="@((ChangeEventArgs args) => ToggleDayAsync(current, args.Value is true))"
+                 data-testid="@($"window-day-input-{current}")" />
+          <span>@L["Editor.Day." + current]</span>
+        </label>
+      }
+    </div>
+    <FieldError Errors="Errors" Path="/conditions/timeWindow" />
+    @for (int index = 0; index < Draft.WindowDays.Count; index++)
+    {
+      <FieldError Errors="Errors" Path="@("/conditions/timeWindow/days/" + index)" />
+    }
+  }
+</MudPaper>
+
+@code {
+  private static readonly string[] SessionChoices =
+  [
+    SessionRequirements.Any,
+    SessionRequirements.LoggedIn,
+    SessionRequirements.Unlocked,
+    SessionRequirements.Locked,
+  ];
+
+  /// <summary>The draft.</summary>
+  [Parameter]
+  [EditorRequired]
+  public CommandDraft Draft { get; set; } = null!;
+
+  /// <summary>The problems of the draft.</summary>
+  [Parameter]
+  public DraftErrors Errors { get; set; } = DraftErrors.Empty;
+
+  /// <summary>Raised after every change of the draft.</summary>
+  [Parameter]
+  public EventCallback OnChanged { get; set; }
+
+  private Task NotifyAsync() => OnChanged.InvokeAsync();
+
+  private Task ToggleDayAsync(string day, bool selected)
+  {
+    if (selected && !Draft.WindowDays.Contains(day))
+    {
+      Draft.WindowDays.Add(day);
+    }
+    else if (!selected)
+    {
+      Draft.WindowDays.Remove(day);
+    }
+
+    return NotifyAsync();
+  }
+}

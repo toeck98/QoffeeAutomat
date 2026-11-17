@@ -110,7 +110,8 @@ The **History** page shows every run with its error code. The codes and their ca
 | `invalid_vars` | A value is missing, unknown or out of range. The message names the variable. Check the parameter definition and the template that produced the value. |
 | `busy` | The command is running and its mode is *Refuse the new run*. Use *Queue* or *Stop the old run and start again* if that is what you want. |
 | `cooldown` | The cooldown after the previous run has not passed. |
-| `paused` | Commands were paused with the tray icon (*Resume commands*), or the agent was paused. Restarting the agent clears it. |
+| `paused` | Commands were paused with the tray icon (*Resume commands*), or the *Maintenance mode* switch in Home Assistant is on. Restarting the agent clears it. |
+| `condition_not_met` | The command has *Conditions* (session state or time window) and they do not hold right now, for example *Unlocked* while the screen is locked. |
 | `timeout` / `timed_out` | The run exceeded *Timeout* and its process tree was killed. Raise the timeout or make the script faster. |
 | `cancelled` | Another run cancelled it (*restart* mode), or you stopped it. |
 | `internal` | Something unexpected, or a built-in action that this version does not have. See the log. |

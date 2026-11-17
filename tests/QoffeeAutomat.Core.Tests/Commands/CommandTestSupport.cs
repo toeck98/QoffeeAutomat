@@ -7,6 +7,7 @@ using QoffeeAutomat.Core.Events;
 using QoffeeAutomat.Core.Execution;
 using QoffeeAutomat.Core.History;
 using QoffeeAutomat.Core.Platform;
+using QoffeeAutomat.Core.Secrets.Named;
 using QoffeeAutomat.Core.Tests.Config;
 using QoffeeAutomat.Platform.Simulated;
 
@@ -228,7 +229,8 @@ internal sealed class CommandHarness : IAsyncDisposable
         bool withGate = true,
         IRunHistory? historyOverride = null,
         Action<TempDirectory>? seed = null,
-        IActionHandler? powerShell = null)
+        IActionHandler? powerShell = null,
+        INamedSecretStore? secrets = null)
     {
         var temp = new TempDirectory();
         var clock = new SimulatedClock();
@@ -263,7 +265,7 @@ internal sealed class CommandHarness : IAsyncDisposable
             handlers.Add(powerShell);
         }
 
-        var engine = new CommandEngine(registry, handlers, launcher, history, bus, clock, engineOptions, pause);
+        var engine = new CommandEngine(registry, handlers, launcher, history, bus, clock, engineOptions, pause, platform.Session, secrets);
         return new CommandHarness(temp, clock, platform, config, runner, gate, sqliteHistory, history, eventStore, bus, registry, pause, engine);
     }
 

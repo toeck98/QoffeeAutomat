@@ -26,6 +26,7 @@ public sealed class MetricEngine : IAsyncDisposable, IDisposable
     private readonly List<(MetricDescriptor Descriptor, IMetricProvider Owner)> _builtIns = [];
     private readonly List<IDynamicMetricProvider> _dynamicProviders = [];
     private readonly ISessionBridge? _session;
+    private readonly SessionMetricProvider? _sessionProvider;
     private readonly IMetricProvider? _customSensors;
     private readonly ConfigSubscription _configSubscription;
     private readonly Dictionary<string, MetricState> _states = new(StringComparer.Ordinal);
@@ -78,7 +79,12 @@ public sealed class MetricEngine : IAsyncDisposable, IDisposable
 
         if (session is not null)
         {
-            AddBuiltIns(new SessionMetricProvider(session));
+            // The session metrics are a dynamic provider: the options of some of them (the audio devices, T713) follow the PC, and
+            // the bridge says when they change.
+            _sessionProvider = new SessionMetricProvider(session);
+            AddBuiltIns(_sessionProvider);
+            _dynamicProviders.Add(_sessionProvider);
+            _sessionProvider.DescriptorsChanged += OnDescriptorsChanged;
             session.StateChanged += OnSessionStateChanged;
         }
 
@@ -244,6 +250,8 @@ public sealed class MetricEngine : IAsyncDisposable, IDisposable
         {
             dynamicProvider.DescriptorsChanged -= OnDescriptorsChanged;
         }
+
+        _sessionProvider?.Dispose();
 
         await _stop.CancelAsync();
         if (loop is not null)

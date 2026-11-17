@@ -16,6 +16,8 @@ public static class ConfigurationEndpoints
         CommandEndpoints.Map(api);
         ScriptEndpoints.Map(api);
         SensorEndpoints.Map(api);
+        TemplateEndpoints.Map(api);
+        SecretEndpoints.Map(api);
         MetricEndpoints.Map(api);
         SettingsAndStatusEndpoints.Map(api);
         RevisionEndpoints.Map(api);

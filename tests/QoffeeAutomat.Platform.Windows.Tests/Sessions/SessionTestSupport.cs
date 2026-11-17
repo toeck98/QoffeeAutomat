@@ -485,7 +485,7 @@ internal sealed class SessionHarness : IDisposable
     public Task StartAsync() => Manager.StartAsync(CancellationToken.None);
 
     /// <summary>Starts a SessionHost client for the session of the harness.</summary>
-    public RunningHost StartHost(int? sessionId = null, IUserMetricProbe? metrics = null, Action<SessionHostClient>? beforeStart = null)
+    public RunningHost StartHost(int? sessionId = null, IUserMetricProbe? metrics = null, Action<SessionHostClient>? beforeStart = null, IMetricChangeSource? changes = null)
     {
         var options = new SessionHostClientOptions
         {
@@ -496,7 +496,7 @@ internal sealed class SessionHarness : IDisposable
             ReconnectDelay = TimeSpan.FromMilliseconds(50),
             MaxReconnectDelay = TimeSpan.FromMilliseconds(200),
         };
-        var client = new SessionHostClient(options, Verifier, HostRunner, HostBuiltins, Locator, TimeProvider.System, log: null, metrics);
+        var client = new SessionHostClient(options, Verifier, HostRunner, HostBuiltins, Locator, TimeProvider.System, log: null, metrics, changes);
 
         // Subscribers must exist before the client runs, or they miss the first events.
         beforeStart?.Invoke(client);

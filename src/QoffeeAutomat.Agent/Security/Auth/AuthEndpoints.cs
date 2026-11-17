@@ -38,6 +38,11 @@ public static class AuthEndpoints
             .Takes<LoginRequest>()
             .Returns<AuthMeResponse>()
             .Fails(StatusCodes.Status400BadRequest, StatusCodes.Status401Unauthorized, StatusCodes.Status429TooManyRequests);
+        auth.MapGet("/one-time", OneTimeLogIn).AllowAnonymous()
+            .Describe(tag, "oneTimeLogIn", "Signs in with the single-use token of the tray icon (loopback only, valid 30 seconds) and redirects to the UI.")
+            .Query("token", "string", "The single-use login token.")
+            .ReturnsNothing(StatusCodes.Status302Found)
+            .Fails(StatusCodes.Status401Unauthorized);
         auth.MapPost("/logout", Logout)
             .Describe(tag, "logOut", "Ends the session.")
             .ReturnsNothing();
@@ -114,6 +119,34 @@ public static class AuthEndpoints
 
         AccountResult result = await accounts.LoginAsync(Caller(context), request.Password, cancellationToken).ConfigureAwait(false);
         return Signed(context, result, logger);
+    }
+
+    /// <summary>
+    /// The browser that the tray icon opens arrives here once (T711). A valid token starts a session exactly like a password
+    /// does and the browser is sent on to the UI, so the token leaves the address bar at once. Nothing is revealed about why a
+    /// token failed except in the log.
+    /// </summary>
+    private static IResult OneTimeLogIn(
+        HttpContext context,
+        OneTimeLoginService oneTime,
+        SessionStore sessions,
+        ILogger<OneTimeLoginService> logger)
+    {
+        // The token is in the address: neither cached nor passed on as a referrer.
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+
+        string? token = context.Request.Query["token"];
+        OneTimeLoginOutcome outcome = oneTime.Redeem(token, context.Connection.RemoteIpAddress);
+        if (outcome != OneTimeLoginOutcome.Accepted)
+        {
+            SecurityLog.OneTimeLoginRefused(logger, outcome);
+            return ApiResults.Problem(StatusCodes.Status401Unauthorized, "invalid_login_token", "The login link is not valid any more. Open the UI again.");
+        }
+
+        SessionCookie.Write(context, sessions.Create());
+        SecurityLog.OneTimeLoginUsed(logger);
+        return Results.Redirect("/");
     }
 
     private static IResult Logout(HttpContext context, SessionStore sessions)

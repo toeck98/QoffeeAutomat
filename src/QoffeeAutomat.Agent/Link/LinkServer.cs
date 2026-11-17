@@ -122,7 +122,31 @@ public sealed class LinkServer
         ArgumentNullException.ThrowIfNull(socket);
         ArgumentNullException.ThrowIfNull(client);
 
-        var connection = new LinkConnection(this, socket, client);
+        _ = await ServeCoreAsync(socket, client, isPaired: true, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Serves a socket that the agent opened itself (the outbound mode of ADR 0003, T710; later the hub link, T905). The
+    /// peer authenticated the agent's credential during the upgrade, so there is no link token to check: the connection is
+    /// not registered with the pairing service (nothing there can revoke it) and ends when the peer closes it or the agent
+    /// stops. Everything after that is the same as for an accepted socket: the agent sends <c>hello</c> first, the peer
+    /// answers with <c>client_hello</c> and then uses the standard messages.
+    /// </summary>
+    /// <param name="socket">The connected WebSocket; it is disposed when the connection ends.</param>
+    /// <param name="peer">Describes the peer for the audit log and for the source of runs; its kind is <c>homeassistant</c> or <c>hub</c>.</param>
+    /// <param name="cancellationToken">Cancels the connection.</param>
+    /// <returns>The WebSocket close code that the peer sent, or null when it did not send one (it went away, or the agent closed first).</returns>
+    public Task<int?> ServeOutboundAsync(WebSocket socket, LinkClient peer, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(socket);
+        ArgumentNullException.ThrowIfNull(peer);
+
+        return ServeCoreAsync(socket, peer, isPaired: false, cancellationToken);
+    }
+
+    private async Task<int?> ServeCoreAsync(WebSocket socket, LinkClient client, bool isPaired, CancellationToken cancellationToken)
+    {
+        var connection = new LinkConnection(this, socket, client, isPaired);
         bool refused;
         lock (_gate)
         {
@@ -140,10 +164,11 @@ public sealed class LinkServer
                 // The agent is going away: say so instead of opening a connection that is closed a moment later.
                 connection.Abort();
                 socket.Dispose();
-                return;
+                return null;
             }
 
             await connection.RunAsync(cancellationToken).ConfigureAwait(false);
+            return connection.PeerCloseStatus;
         }
         finally
         {
@@ -237,7 +262,7 @@ public sealed class LinkServer
             manifest.Agent,
             manifest.Rev,
             Platform.BootId,
-            []);
+            manifest.Features ?? []);
     }
 
     private LinkConnection[] Snapshot()

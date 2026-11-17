@@ -26,4 +26,10 @@ internal static partial class SecurityLog
 
     [LoggerMessage(EventId = 136, Level = LogLevel.Warning, Message = "Sign-in attempts are locked out for {Seconds} seconds after repeated failures.")]
     public static partial void LoginLockedOut(ILogger logger, int seconds);
+
+    [LoggerMessage(EventId = 137, Level = LogLevel.Information, Message = "A one-time login link from the tray icon started a session.")]
+    public static partial void OneTimeLoginUsed(ILogger logger);
+
+    [LoggerMessage(EventId = 138, Level = LogLevel.Warning, Message = "A one-time login link was refused: {Outcome}.")]
+    public static partial void OneTimeLoginRefused(ILogger logger, Auth.OneTimeLoginOutcome outcome);
 }

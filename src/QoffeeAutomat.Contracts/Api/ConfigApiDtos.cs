@@ -91,6 +91,29 @@ public sealed record MetricList(IReadOnlyList<MetricInfo> Metrics);
 /// <param name="DurationMs">How long the sample took.</param>
 public sealed record SensorTestResult(bool Succeeded, JsonElement? Value, string? Error, long DurationMs);
 
+/// <summary>Body of <c>PUT /api/v1/sensors/{id}/value</c>: the new value of a sensor of type <c>state</c> (T714).</summary>
+/// <param name="Value">
+/// The value: a number for the value type <c>number</c>, a boolean for <c>bool</c>, a string for <c>string</c>, <c>timestamp</c> (ISO 8601) and
+/// <c>enum</c> (one of the options). A string is also accepted for a number or a boolean, as the command line sends it.
+/// </param>
+public sealed record SensorValueRequest(JsonElement Value);
+
+/// <summary>The value of a sensor of type <c>state</c> (<c>GET</c> and <c>PUT /api/v1/sensors/{id}/value</c>, T714).</summary>
+/// <param name="Id">The sensor id.</param>
+/// <param name="Value">The value as it is published (rounded to the precision of the sensor); absent when the sensor has none, because nothing was set and it has no initial value.</param>
+/// <param name="UpdatedAt">When the value was set; absent while the sensor shows its initial value or none.</param>
+public sealed record SensorValue(string Id, JsonElement? Value, DateTimeOffset? UpdatedAt);
+
+/// <summary>Response of <c>GET /api/v1/prometheus</c>: the state of the optional Prometheus endpoint (T709).</summary>
+/// <param name="Enabled">Whether <c>GET /metrics</c> on the HTTPS listener answers (the setting <c>prometheus.enabled</c>).</param>
+/// <param name="TokenSet">Whether a read-only token exists; without one every request is refused.</param>
+/// <param name="Metrics">The ids of the metrics that are exported (the setting <c>prometheus.metrics</c>).</param>
+public sealed record PrometheusStatus(bool Enabled, bool TokenSet, IReadOnlyList<string> Metrics);
+
+/// <summary>Response of <c>POST /api/v1/prometheus/token</c>: the new read-only token of the Prometheus endpoint (T709).</summary>
+/// <param name="Token">The token. It is shown only in this answer; the agent keeps a hash and cannot show it again.</param>
+public sealed record PrometheusToken(string Token);
+
 /// <summary>The platform as shown in the status.</summary>
 /// <param name="Kind">The selected platform: <c>windows</c>, <c>linux</c> or <c>simulated</c>.</param>
 /// <param name="Os">The operating system family.</param>
@@ -111,6 +134,60 @@ public sealed record SessionStatus(bool Ready, string? UserName, bool Locked, bo
 /// <param name="PairedClients">The number of paired clients.</param>
 /// <param name="Connections">The number of open QoffeeLink connections.</param>
 public sealed record LinkStatus(int Port, int PairedClients, int Connections);
+
+/// <summary>What became of one global hotkey of the settings (T708).</summary>
+/// <param name="Name">The name of the hotkey.</param>
+/// <param name="Keys">The key combination as configured.</param>
+/// <param name="State">
+/// <c>registered</c>, <c>conflict</c> (another program or another hotkey already uses the combination) or <c>invalid</c> (the combination
+/// cannot be registered).
+/// </param>
+/// <param name="Message">An explanation when the state is not <c>registered</c>.</param>
+public sealed record HotkeyStatusEntry(string Name, string Keys, string State, string? Message = null);
+
+/// <summary>Response of <c>GET /api/v1/hotkeys</c>: the outcome of the last registration, so that the UI can report conflicts.</summary>
+/// <param name="Supported">False on a platform without global hotkeys; the settings are kept but nothing is registered.</param>
+/// <param name="Hotkeys">One entry per enabled hotkey that a session helper has answered for; empty when none has yet (nobody is logged on).</param>
+public sealed record HotkeyStatusResponse(bool Supported, IReadOnlyList<HotkeyStatusEntry> Hotkeys);
+
+/// <summary>Values of <see cref="HardwareSensorStatus.State"/> (T707).</summary>
+public static class HardwareSensorStates
+{
+    /// <summary>The setting is off: no library and no driver is loaded.</summary>
+    public const string Off = "off";
+
+    /// <summary>The setting is on and the library is being opened (this can take a few seconds).</summary>
+    public const string Starting = "starting";
+
+    /// <summary>The library is open and sensors are read.</summary>
+    public const string Running = "running";
+
+    /// <summary>The library is open but the kernel driver is not installed, so only the sensors that need no driver are read (drives, graphics cards).</summary>
+    public const string DriverMissing = "driver_missing";
+
+    /// <summary>The library could not be opened; <see cref="HardwareSensorStatus.Message"/> says why.</summary>
+    public const string Failed = "failed";
+
+    /// <summary>The platform has no hardware sensors.</summary>
+    public const string Unsupported = "unsupported";
+}
+
+/// <summary>Response of <c>GET /api/v1/hardware-sensors</c>: what became of the optional hardware sensors (T707, ADR 0002).</summary>
+/// <param name="Supported">False on a platform without hardware sensors; the setting is kept but nothing is read.</param>
+/// <param name="Enabled">Whether the setting is on.</param>
+/// <param name="State">One of <see cref="HardwareSensorStates"/>.</param>
+/// <param name="Driver">The kernel driver that the library needs for processor and mainboard sensors, for the UI warning (<c>PawnIO</c>).</param>
+/// <param name="DriverInstalled">Whether that driver is installed; null while the setting is off (the agent does not look).</param>
+/// <param name="SensorCount">The number of sensors that were found; 0 while the setting is off.</param>
+/// <param name="Message">An explanation when the state is <c>failed</c> or <c>driver_missing</c>.</param>
+public sealed record HardwareSensorStatus(
+    bool Supported,
+    bool Enabled,
+    string State,
+    string Driver,
+    bool? DriverInstalled,
+    int SensorCount,
+    string? Message = null);
 
 /// <summary>Response of <c>GET /api/v1/status</c>.</summary>
 /// <param name="Version">The agent version.</param>

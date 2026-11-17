@@ -4,8 +4,14 @@ Steps: discovery (zeroconf) or manual host and port, then the certificate finger
 for the user to compare, then the one-time pairing code, then the entry is created with
 host, port, link token and pinned fingerprint. Also reauthentication (the token was
 revoked), reconfiguration of host and port, and address updates from rediscovery.
+
+A roaming PC that cannot be dialled is added the other way round (D-043, ADR 0003):
+Home Assistant creates a reverse token, shows the enrollment string for the agent and
+waits for the agent to dial in; the entry then has no host or link token, only the hash
+of the reverse token. Reconfiguring such an entry creates a new token.
 """
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Mapping
 from typing import Any
@@ -16,10 +22,12 @@ from homeassistant.config_entries import (
     ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
+    OptionsFlow,
 )
 from homeassistant.const import CONF_HOST, CONF_PORT
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .client import (
@@ -32,9 +40,31 @@ from .client import (
     UnsupportedProtocolError,
     async_fetch_fingerprint,
     async_pair,
+    normalize_fingerprint,
 )
-from .const import CONF_CODE, CONF_FINGERPRINT, CONF_TOKEN, DEFAULT_PORT, DOMAIN
+from .const import (
+    CONF_BROADCAST,
+    CONF_CODE,
+    CONF_FINGERPRINT,
+    CONF_REVERSE,
+    CONF_REVERSE_TOKEN_HASH,
+    CONF_REVERSE_URL,
+    CONF_TOKEN,
+    DEFAULT_BROADCAST,
+    DEFAULT_PORT,
+    DOMAIN,
+    REVERSE_ENROLL_TIMEOUT_SECONDS,
+)
 from .protocol import PROTOCOL_VERSION, Hello
+from .reverse import (
+    async_ensure_view,
+    async_get_reverse_links,
+    build_enrollment,
+    create_token,
+    hash_token,
+    websocket_url,
+)
+from .wol import validate_broadcast
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +77,12 @@ USER_SCHEMA = vol.Schema(
     }
 )
 PAIR_SCHEMA = vol.Schema({vol.Required(CONF_CODE): str})
+REVERSE_SCHEMA = vol.Schema(
+    {vol.Required(CONF_REVERSE_URL): str, vol.Optional(CONF_FINGERPRINT): str}
+)
+OPTIONS_SCHEMA = vol.Schema(
+    {vol.Required(CONF_BROADCAST, default=DEFAULT_BROADCAST): str}
+)
 
 
 class _StepError(Exception):
@@ -137,10 +173,37 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
         self._port = DEFAULT_PORT
         self._name = ""
         self._fingerprint = ""
+        # The reverse link (an agent that dials Home Assistant).
+        self._reverse_url = ""
+        self._reverse_pin: str | None = None
+        self._reverse_token = ""
+        self._reverse_hash = ""
+        self._reverse_task: asyncio.Task[Hello] | None = None
+        self._reverse_hello: Hello | None = None
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> QoffeeAutomatOptionsFlow:
+        """Return the options flow (the Wake-on-LAN broadcast address)."""
+        return QoffeeAutomatOptionsFlow()
+
+    @callback
+    def async_remove(self) -> None:
+        """Stop waiting for an agent when the flow ends."""
+        if self._reverse_task is not None and not self._reverse_task.done():
+            self._reverse_task.cancel()
+        if self._reverse_hash:
+            async_get_reverse_links(self.hass).remove_pending(self._reverse_hash)
 
     # -- manual and discovered setup ------------------------------------------
 
     async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask whether Home Assistant dials the PC or the PC dials Home Assistant."""
+        return self.async_show_menu(step_id="user", menu_options=["manual", "reverse"])
+
+    async def async_step_manual(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Ask for host and port of the agent."""
@@ -158,7 +221,7 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._fingerprint = fingerprint
                 return await self.async_step_confirm()
         return self.async_show_form(
-            step_id="user",
+            step_id="manual",
             data_schema=self.add_suggested_values_to_schema(USER_SCHEMA, user_input),
             errors=errors,
         )
@@ -197,8 +260,11 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle an announcement of an agent that already has an entry.
 
         Store a new address and make the entry's client connect right now instead
-        of waiting for its backoff (PLAN.md S10).
+        of waiting for its backoff (PLAN.md S10). An entry whose agent dials Home
+        Assistant has no address and nothing to connect.
         """
+        if entry.data.get(CONF_REVERSE):
+            return
         changed = (entry.data[CONF_HOST], entry.data[CONF_PORT]) != (host, port)
         if changed:
             self.hass.config_entries.async_update_entry(
@@ -256,6 +322,12 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = err.key
             else:
                 await self.async_set_unique_id(paired.agent_id)
+                existing = self.hass.config_entries.async_entry_for_domain_unique_id(
+                    DOMAIN, paired.agent_id
+                )
+                if existing is not None and existing.data.get(CONF_REVERSE):
+                    # The PC is added already, and dials Home Assistant itself.
+                    return self.async_abort(reason="already_configured")
                 self._abort_if_unique_id_configured(
                     updates={CONF_HOST: self._host, CONF_PORT: self._port}
                 )
@@ -275,6 +347,142 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders=_placeholders(
                 self._name, self._host, self._port, self._fingerprint
             ),
+        )
+
+    # -- a PC that dials Home Assistant (reverse link) --------------------------
+
+    def _reverse_placeholders(self) -> dict[str, str]:
+        return {
+            "url": self._reverse_url,
+            "enrollment": build_enrollment(
+                self._reverse_url, self._reverse_token, self._reverse_pin
+            ),
+        }
+
+    def _read_reverse_form(
+        self, user_input: dict[str, Any], errors: dict[str, str]
+    ) -> bool:
+        """Take the address of Home Assistant and the pin from the form."""
+        try:
+            self._reverse_url = websocket_url(user_input[CONF_REVERSE_URL])
+        except ValueError:
+            errors[CONF_REVERSE_URL] = "invalid_reverse_url"
+            return False
+        self._reverse_pin = None
+        if pin := (user_input.get(CONF_FINGERPRINT) or "").strip():
+            try:
+                self._reverse_pin = normalize_fingerprint(pin)
+            except ValueError:
+                errors[CONF_FINGERPRINT] = "invalid_fingerprint"
+                return False
+        return True
+
+    def _suggested_reverse_input(self) -> dict[str, str]:
+        """Suggest the external address of Home Assistant (Nabu Casa included)."""
+        try:
+            return {
+                CONF_REVERSE_URL: get_url(self.hass, prefer_external=True),
+            }
+        except NoURLAvailableError:
+            return {}
+
+    async def async_step_reverse(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask where the PC can reach Home Assistant."""
+        errors: dict[str, str] = {}
+        if user_input is not None and self._read_reverse_form(user_input, errors):
+            return await self.async_step_reverse_wait()
+        return self.async_show_form(
+            step_id="reverse",
+            data_schema=self.add_suggested_values_to_schema(
+                REVERSE_SCHEMA, user_input or self._suggested_reverse_input()
+            ),
+            errors=errors,
+        )
+
+    async def _async_wait_for_agent(self, hello: asyncio.Future[Hello]) -> Hello:
+        async with asyncio.timeout(REVERSE_ENROLL_TIMEOUT_SECONDS):
+            return await hello
+
+    async def async_step_reverse_wait(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show the enrollment string and wait until the PC uses it."""
+        if self._reverse_task is None:
+            if not async_ensure_view(self.hass):
+                return self.async_abort(reason="reverse_no_http")
+            self._reverse_token = create_token()
+            self._reverse_hash = hash_token(self._reverse_token)
+            future = async_get_reverse_links(self.hass).add_pending(self._reverse_hash)
+            self._reverse_task = self.hass.async_create_task(
+                self._async_wait_for_agent(future)
+            )
+        if not self._reverse_task.done():
+            return self.async_show_progress(
+                step_id="reverse_wait",
+                progress_action="waiting_for_agent",
+                description_placeholders=self._reverse_placeholders(),
+                progress_task=self._reverse_task,
+            )
+        try:
+            self._reverse_hello = self._reverse_task.result()
+        except TimeoutError, asyncio.CancelledError:
+            return self.async_show_progress_done(next_step_id="reverse_timeout")
+        return self.async_show_progress_done(next_step_id="reverse_finish")
+
+    async def async_step_reverse_timeout(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Give up: no PC used the enrollment string in time."""
+        return self.async_abort(reason="reverse_timeout")
+
+    async def async_step_reverse_finish(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Create the entry of the PC that dialled in."""
+        hello = self._reverse_hello
+        if hello is None:
+            return self.async_abort(reason="unknown")
+        await self.async_set_unique_id(hello.agent.id)
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title=hello.agent.name,
+            data={
+                CONF_REVERSE: True,
+                CONF_REVERSE_TOKEN_HASH: self._reverse_hash,
+            },
+        )
+
+    async def async_step_reverse_rotate(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Create a new token for an entry of a PC that dials Home Assistant."""
+        errors: dict[str, str] = {}
+        if user_input is not None and self._read_reverse_form(user_input, errors):
+            self._reverse_token = create_token()
+            self._reverse_hash = hash_token(self._reverse_token)
+            return await self.async_step_reverse_show()
+        return self.async_show_form(
+            step_id="reverse_rotate",
+            data_schema=self.add_suggested_values_to_schema(
+                REVERSE_SCHEMA, user_input or self._suggested_reverse_input()
+            ),
+            errors=errors,
+        )
+
+    async def async_step_reverse_show(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show the new enrollment string; the old token stops working on submit."""
+        if user_input is not None:
+            return self.async_update_reload_and_abort(
+                self._get_reconfigure_entry(),
+                data_updates={CONF_REVERSE_TOKEN_HASH: self._reverse_hash},
+            )
+        return self.async_show_form(
+            step_id="reverse_show",
+            description_placeholders=self._reverse_placeholders(),
         )
 
     # -- reauthentication -------------------------------------------------------
@@ -330,6 +538,9 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Change host and port; the agent must still be the same one."""
         entry = self._get_reconfigure_entry()
+        if entry.data.get(CONF_REVERSE):
+            # There is no address to change; the way to a new start is a new token.
+            return await self.async_step_reverse_rotate()
         errors: dict[str, str] = {}
         if user_input is not None:
             host = user_input[CONF_HOST].strip()
@@ -356,6 +567,33 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             data_schema=self.add_suggested_values_to_schema(
                 USER_SCHEMA, user_input or entry.data
+            ),
+            errors=errors,
+        )
+
+
+class QoffeeAutomatOptionsFlow(OptionsFlow):
+    """The options of an entry: the broadcast address of Wake-on-LAN (T703).
+
+    The button reads the option when it is pressed, so a change needs no reload.
+    """
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for the broadcast address the magic packets are sent to."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                broadcast = validate_broadcast(user_input[CONF_BROADCAST])
+            except ValueError:
+                errors[CONF_BROADCAST] = "invalid_broadcast"
+            else:
+                return self.async_create_entry(data={CONF_BROADCAST: broadcast})
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(
+                OPTIONS_SCHEMA, user_input or self.config_entry.options
             ),
             errors=errors,
         )

@@ -187,77 +187,7 @@
   }
   else if (Draft.ActionType == ActionTypes.Sequence)
   {
-    <div class="mt-1" data-testid="sequence-steps">
-      @for (int index = 0; index < Draft.Steps.Count; index++)
-      {
-        int position = index;
-        StepDraft step = Draft.Steps[position];
-        string path = "/action/steps/" + position;
-        <div class="qa-step" @key="step.Key" data-testid="@($"step-{position}")" data-kind="@step.Kind">
-          <div class="qa-step-header">
-            <MudText Typo="Typo.subtitle2">@L.Format("Editor.Sequence.Step", position + 1)</MudText>
-            <span>
-              <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="@(position == 0)" OnClick="@(() => MoveStepAsync(position, -1))" aria-label="@L["Editor.Move.Up"]" data-testid="@($"step-up-{position}")" />
-              <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="@(position == Draft.Steps.Count - 1)" OnClick="@(() => MoveStepAsync(position, 1))" aria-label="@L["Editor.Move.Down"]" data-testid="@($"step-down-{position}")" />
-              <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveStepAsync(position))" aria-label="@L["Editor.Remove"]" data-testid="@($"step-remove-{position}")" />
-            </span>
-          </div>
-          @if (step.Kind == StepKinds.Delay)
-          {
-            <div data-testid="@($"step-delay-{position}")">
-              <MudTextField T="string"
-                            @bind-Value="step.DelayText"
-                            @bind-Value:after="NotifyAsync"
-                            Immediate="true"
-                            InputType="InputType.Number"
-                            Label="@L["Editor.Sequence.Delay"]"
-                            Variant="Variant.Outlined"
-                            Margin="Margin.Dense"
-                            Error="@Errors.Has(path + "/delaySeconds")" />
-            </div>
-            <FieldError Errors="Errors" Path="@(path + "/delaySeconds")" />
-          }
-          else
-          {
-            <SelectBox Label="@L["Editor.Sequence.Command"]"
-                       @bind-Value="step.CommandId"
-                       @bind-Value:after="NotifyAsync"
-                       Error="@Errors.Has(path + "/command")"
-                       TestId="@($"step-command-{position}")">
-              <option value="">@L["Editor.Sequence.Choose"]</option>
-              @if (step.CommandId.Length > 0 && !CommandIds.Contains(step.CommandId))
-              {
-                <option value="@step.CommandId">@step.CommandId</option>
-              }
-              @foreach (string commandId in CommandIds)
-              {
-                <option value="@commandId">@commandId</option>
-              }
-            </SelectBox>
-            <FieldError Errors="Errors" Path="@(path + "/command")" />
-            <div data-testid="@($"step-vars-{position}")">
-              <MudTextField T="string"
-                            @bind-Value="step.VarsText"
-                            @bind-Value:after="NotifyAsync"
-                            Immediate="true"
-                            Label="@L["Editor.Sequence.Vars"]"
-                            HelperText="@L["Editor.Sequence.Vars.Help"]"
-                            Variant="Variant.Outlined"
-                            Margin="Margin.Dense"
-                            Error="@Errors.Has(path + "/vars")"
-                            spellcheck="false" />
-            </div>
-            <FieldError Errors="Errors" Path="@(path + "/vars")" />
-          }
-          <FieldError Errors="Errors" Path="@path" />
-        </div>
-      }
-      <FieldError Errors="Errors" Path="/action/steps" />
-      <div class="qa-run-actions">
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => AddStepAsync(StepKinds.Command))" data-testid="add-step-command">@L["Editor.Sequence.AddCommand"]</MudButton>
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Timer" OnClick="@(() => AddStepAsync(StepKinds.Delay))" data-testid="add-step-delay">@L["Editor.Sequence.AddDelay"]</MudButton>
-      </div>
-    </div>
+    <StepListEditor Steps="Draft.Steps" Path="/action/steps" Errors="Errors" CommandIds="CommandIds" OnChanged="OnChanged" />
     <SelectBox Label="@L["Editor.Sequence.OnError"]"
                @bind-Value="Draft.SequenceOnError"
                @bind-Value:after="NotifyAsync"
@@ -321,29 +251,6 @@
   private Task PickBuiltinAsync(string name)
   {
     Draft.BuiltinName = name;
-    return NotifyAsync();
-  }
-
-  private Task AddStepAsync(string kind)
-  {
-    Draft.Steps.Add(new StepDraft { Kind = kind });
-    return NotifyAsync();
-  }
-
-  private Task RemoveStepAsync(int index)
-  {
-    Draft.Steps.RemoveAt(index);
-    return NotifyAsync();
-  }
-
-  private Task MoveStepAsync(int index, int offset)
-  {
-    int target = index + offset;
-    if (target >= 0 && target < Draft.Steps.Count)
-    {
-      (Draft.Steps[index], Draft.Steps[target]) = (Draft.Steps[target], Draft.Steps[index]);
-    }
-
     return NotifyAsync();
   }
 }

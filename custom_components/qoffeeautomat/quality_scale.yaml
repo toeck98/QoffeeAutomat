@@ -39,9 +39,7 @@ rules:
   # -- Silver ----------------------------------------------------------------------
   action-exceptions: done
   config-entry-unloading: done
-  docs-configuration-parameters:
-    status: exempt
-    comment: The integration has no options; host and port are changed by the reconfiguration flow, which docs/user/pairing.md and docs/user/install-integration.md describe.
+  docs-configuration-parameters: done # docs/user/wake-on-lan.md (the broadcast address option); host and port are changed by the reconfiguration flow, see docs/user/pairing.md
   docs-installation-parameters: done # docs/user/pairing.md (host, port, pairing code)
   entity-unavailable: done
   integration-owner: done

@@ -6,6 +6,7 @@ using QoffeeAutomat.Agent.Hosting;
 using QoffeeAutomat.Agent.Link.Pairing;
 using QoffeeAutomat.Agent.Security.Auth;
 using QoffeeAutomat.Agent.Security.Tls;
+using QoffeeAutomat.Core.Platform;
 using QoffeeAutomat.Core.Secrets;
 
 namespace QoffeeAutomat.Agent.Security;
@@ -41,6 +42,10 @@ public static class SecurityServices
         services.TryAddSingleton<SessionStore>();
         services.TryAddSingleton<AttemptLimiter>();
         services.TryAddSingleton<AccountService>();
+
+        // One-click UI login from the tray (T711).
+        services.TryAddSingleton<OneTimeLoginService>();
+        services.TryAddSingleton<ILoginTokenIssuer>(provider => provider.GetRequiredService<OneTimeLoginService>());
 
         services.AddAuthentication(AuthNames.Scheme)
             .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(AuthNames.Scheme, _ => { });

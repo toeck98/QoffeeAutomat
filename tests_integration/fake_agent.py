@@ -122,6 +122,9 @@ class FakeAgent:
         self.run_errors: dict[str, tuple[str, str]] = {}
         # ``data`` of a successful ``run`` result instead of the fixture's.
         self.run_result: dict[str, Any] | None = None
+        # When set, a ``run`` is not answered: the agent says ``bye`` with this reason
+        # and closes the connections, like an agent that an installer stops (T704).
+        self.bye_on_run: str | None = None
         self.rejected_connections = 0
         # The manifest answered to ``get_manifest`` and announced by ``hello``; tests
         # change it with :meth:`set_manifest`.
@@ -260,13 +263,21 @@ class FakeAgent:
             return web.json_response({"code": "unauthorized"}, status=401)
         ws = web.WebSocketResponse(protocols=(SUBPROTOCOL,))
         await ws.prepare(request)
-        connection = FakeConnection(ws, request.transport)
+        await self.serve_socket(ws, request.transport)
+        return ws
+
+    async def serve_socket(self, ws: Any, transport: asyncio.Transport | None) -> None:
+        """Speak the agent's side of QoffeeLink on an open WebSocket until it ends.
+
+        Used for the sockets that Home Assistant accepted, and for the one that the
+        agent itself opened when it dials Home Assistant (the reverse link, T710).
+        """
+        connection = FakeConnection(ws, transport)
         self.connections.append(connection)
         await ws.send_json(self._hello())
         async for message in ws:
             if message.type is WSMsgType.TEXT:
                 await self._handle(connection, json.loads(message.data))
-        return ws
 
     def _snapshot(self, metrics: list[str] | str) -> dict[str, Any]:
         state = load_fixture("state.json")
@@ -294,7 +305,10 @@ class FakeAgent:
                 await ws.send_json(self._snapshot(frame["metrics"]))
             case "run":
                 self.runs.append(frame)
-                await ws.send_json(self._run_result(frame))
+                if self.bye_on_run is not None:
+                    await self.send_bye(self.bye_on_run)
+                else:
+                    await ws.send_json(self._run_result(frame))
             case _:
                 pass
 

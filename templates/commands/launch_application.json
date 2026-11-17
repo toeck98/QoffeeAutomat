@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "launch_application",
+  "name": "Launch application",
+  "description": "Starts a program on the desktop of the logged-in user. Give the full path of the program when you run the command.",
+  "icon": "mdi:application-import",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "builtin", "name": "app.launch" },
+  "parameters": [
+    {
+      "name": "Path",
+      "type": "string",
+      "required": true,
+      "maxLength": 1024,
+      "description": "The full path of the program, for example C:\\Program Files\\App\\app.exe."
+    },
+    {
+      "name": "Arguments",
+      "type": "string",
+      "default": "",
+      "maxLength": 2048,
+      "description": "The arguments for the program."
+    }
+  ],
+  "haControl": { "type": "none" },
+  "timeoutSeconds": 30,
+  "concurrency": "parallel",
+  "cooldownSeconds": 0,
+  "captureOutput": false
+}

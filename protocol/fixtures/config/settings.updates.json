@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "revision": 4,
+  "updatedAt": "2026-11-17T09:00:00Z",
+  "origin": "local",
+  "name": "Gaming-PC",
+  "uiPort": 8480,
+  "linkPort": 8481,
+  "remoteUi": false,
+  "updates": {
+    "check": true,
+    "intervalHours": 24
+  }
+}

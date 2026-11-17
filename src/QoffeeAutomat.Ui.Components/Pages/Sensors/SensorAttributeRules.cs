@@ -42,6 +42,7 @@ public static class SensorAttributeRules
     [
         SensorSourceTypes.PowerShell,
         SensorSourceTypes.ProcessRunning,
+        SensorSourceTypes.State,
     ];
 
     private static readonly string[] WindowsSourceTypes =
@@ -53,8 +54,8 @@ public static class SensorAttributeRules
 
     /// <summary>
     /// The source types that the agent of a platform can sample and that the editor can author. Performance counters, CIM queries
-    /// and service states exist on Windows only. The <c>state</c> type is not offered: its value is set from outside, which this
-    /// version has no way to do.
+    /// and service states exist on Windows only. The <c>state</c> type (a value that a script, the API or the editor sets, T714) is
+    /// offered on every platform.
     /// </summary>
     /// <param name="platform">The <c>platform.kind</c> of the agent status: <c>windows</c>, <c>linux</c> or <c>simulated</c>; <c>null</c> when it is not known.</param>
     /// <returns>The source types, in the order the editor offers them.</returns>

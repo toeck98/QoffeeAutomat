@@ -1,9 +1,13 @@
+using System.Globalization;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Contracts.Link;
 using QoffeeAutomat.Contracts.Session;
 using QoffeeAutomat.Core.Execution.PowerShell;
 using QoffeeAutomat.Core.Platform;
+using QoffeeAutomat.Platform.Windows.Actions;
+using QoffeeAutomat.Platform.Windows.Actions.Power;
 using QoffeeAutomat.Platform.Windows.Metrics.SessionMetrics;
+using QoffeeAutomat.Platform.Windows.Notifications;
 using QoffeeAutomat.Platform.Windows.Service;
 
 namespace QoffeeAutomat.Platform.Windows.Sessions;
@@ -52,6 +56,7 @@ public sealed class WindowsSessionBridge : ISessionBridge, IUserContextPowerShel
         _metrics.Attach(_publishedConnection);
         _monitor.StateChanged += OnSourceChanged;
         _manager.ConnectionsChanged += OnSourceChanged;
+        _metrics.OptionsChanged += OnOptionsChanged;
     }
 
     /// <inheritdoc />
@@ -77,7 +82,30 @@ public sealed class WindowsSessionBridge : ISessionBridge, IUserContextPowerShel
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<MetricDescriptor> DescribeUserMetrics() => SessionMetricCatalog.All;
+    public event EventHandler? UserMetricsChanged;
+
+    /// <summary>
+    /// The session metrics. The options of the audio device metrics (T713) are the devices that the SessionHost of the active
+    /// session reported last, so they follow the PC: a metric without any option (no SessionHost, no device) is announced without
+    /// the member, and the revision of the manifest changes when devices appear or disappear.
+    /// </summary>
+    /// <returns>The descriptors.</returns>
+    public IReadOnlyList<MetricDescriptor> DescribeUserMetrics()
+    {
+        IReadOnlyDictionary<string, IReadOnlyList<string>> options = _metrics.MetricOptions;
+        if (options.Count == 0)
+        {
+            return SessionMetricCatalog.All;
+        }
+
+        return
+        [
+            .. SessionMetricCatalog.All.Select(descriptor =>
+                options.TryGetValue(descriptor.Id, out IReadOnlyList<string>? current) && current.Count > 0
+                    ? descriptor with { Options = current }
+                    : descriptor),
+        ];
+    }
 
     /// <summary>
     /// Samples the session metrics (T305). <c>session.ready</c>, <c>session.locked</c> and <c>session.user</c> come from the
@@ -177,7 +205,13 @@ public sealed class WindowsSessionBridge : ISessionBridge, IUserContextPowerShel
     {
         _monitor.StateChanged -= OnSourceChanged;
         _manager.ConnectionsChanged -= OnSourceChanged;
+        _metrics.OptionsChanged -= OnOptionsChanged;
         _metrics.Dispose();
+    }
+
+    private void OnOptionsChanged(object? sender, EventArgs e)
+    {
+        UserMetricsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private static ExecutionResult NoSession()
@@ -247,31 +281,117 @@ public sealed class UserContextBuiltinActions : IBuiltinActionProvider
 
     private readonly IBuiltinActionProvider _inner;
     private readonly WindowsSessionBridge _bridge;
+    private readonly INotificationImageFetcher _images;
+    private readonly PowerActionScheduler _scheduler;
 
     /// <summary>Creates the decorator.</summary>
     /// <param name="inner">The actions that run in the service.</param>
     /// <param name="bridge">Reaches the SessionHost.</param>
-    public UserContextBuiltinActions(IBuiltinActionProvider inner, WindowsSessionBridge bridge)
+    /// <param name="images">Fetches the picture of <c>notify.toast</c> (T702); null creates the fetcher with the standard limits.</param>
+    /// <param name="scheduler">
+    /// Holds the one delayed power action (T715); <c>session.logoff</c> with <c>DelaySeconds</c> waits in it, exactly like the power actions of
+    /// the service, so that only one can be pending. It must be the scheduler of the <see cref="WindowsBuiltinActions"/>; null creates
+    /// one that shows no dialog.
+    /// </param>
+    public UserContextBuiltinActions(
+        IBuiltinActionProvider inner,
+        WindowsSessionBridge bridge,
+        INotificationImageFetcher? images = null,
+        PowerActionScheduler? scheduler = null)
     {
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentNullException.ThrowIfNull(bridge);
 
         _inner = inner;
         _bridge = bridge;
+        _images = images ?? new NotificationImageFetcher();
+        _scheduler = scheduler ?? new PowerActionScheduler();
     }
 
     /// <inheritdoc />
     public IReadOnlyList<BuiltinActionDescriptor> Actions => _inner.Actions;
 
     /// <inheritdoc />
-    public ValueTask<ExecutionResult> ExecuteAsync(
+    public async ValueTask<ExecutionResult> ExecuteAsync(
         string name,
         IReadOnlyDictionary<string, object> variables,
         CancellationToken cancellationToken)
     {
         BuiltinActionDescriptor? descriptor = _inner.Actions.FirstOrDefault(action => string.Equals(action.Name, name, StringComparison.Ordinal));
-        return descriptor?.RunAs == RunAsValues.User
-            ? _bridge.RunBuiltinAsync(name, variables, DefaultTimeout, cancellationToken)
-            : _inner.ExecuteAsync(name, variables, cancellationToken);
+        if (descriptor?.RunAs != RunAsValues.User)
+        {
+            return await _inner.ExecuteAsync(name, variables, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (string.Equals(name, NotifyToastSpec.ActionName, StringComparison.Ordinal))
+        {
+            return await NotifyAsync(name, variables, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (string.Equals(name, WindowsActionNames.Logoff, StringComparison.Ordinal))
+        {
+            return await LogoffAsync(name, variables, descriptor.Title, cancellationToken).ConfigureAwait(false);
+        }
+
+        return await _bridge.RunBuiltinAsync(name, variables, DefaultTimeout, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// <c>session.logoff</c> (T715): with <c>DelaySeconds</c> the countdown runs in the agent (the scheduler, which shows the dialog through the
+    /// SessionHost) and the log off is handed to the SessionHost when the time is over; the delay and the message do not go on. Without a delay
+    /// the action goes to the SessionHost as it is. Nobody logged in means nothing to log off: the run ends with <see cref="ErrorCodes.NoSession"/>
+    /// at once instead of after the delay.
+    /// </summary>
+    private async ValueTask<ExecutionResult> LogoffAsync(
+        string name,
+        IReadOnlyDictionary<string, object> variables,
+        string title,
+        CancellationToken cancellationToken)
+    {
+        if (!WindowsBuiltinActions.TryReadDelay(variables, out int delaySeconds))
+        {
+            return ExecutionResult.Failure(
+                ErrorCodes.InvalidVars,
+                "DelaySeconds must be a whole number from 0 to " + PowerActionSpec.MaxDelaySeconds.ToString(CultureInfo.InvariantCulture) + ".");
+        }
+
+        if (delaySeconds == 0)
+        {
+            return await _bridge.RunBuiltinAsync(name, variables, DefaultTimeout, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (!_bridge.IsReady)
+        {
+            return ExecutionResult.Failure(ErrorCodes.NoSession, "Nobody is logged in, so there is nobody to log off.");
+        }
+
+        Dictionary<string, object> immediate = variables
+            .Where(entry => entry.Key is not (PowerActionSpec.DelaySeconds or PowerActionSpec.Message))
+            .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
+        return await _scheduler.RunDelayedAsync(
+            name,
+            title,
+            delaySeconds,
+            WindowsBuiltinActions.ReadMessage(variables),
+            token => _bridge.RunBuiltinAsync(name, immediate, DefaultTimeout, token),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// <c>notify.toast</c> (T702): the agent fetches the picture from <c>ImageUrl</c> and hands the bytes to the SessionHost as
+    /// <c>ImageData</c>; the address itself does not go on. A picture that cannot be fetched does not stop the notification, it
+    /// appears without the picture and the result says why. A caller cannot hand the session a picture of its own: the member
+    /// <c>ImageData</c> is dropped first.
+    /// </summary>
+    private async ValueTask<ExecutionResult> NotifyAsync(
+        string name,
+        IReadOnlyDictionary<string, object> variables,
+        CancellationToken cancellationToken)
+    {
+        (IReadOnlyDictionary<string, object> prepared, string? skipped) = await NotifyToastVariables.PrepareAsync(variables, _images, cancellationToken).ConfigureAwait(false);
+        ExecutionResult result = await _bridge.RunBuiltinAsync(name, prepared, DefaultTimeout, cancellationToken).ConfigureAwait(false);
+        return skipped is not null && result.Succeeded
+            ? result with { StandardOutput = result.StandardOutput + " The picture was left out: " + skipped }
+            : result;
     }
 }

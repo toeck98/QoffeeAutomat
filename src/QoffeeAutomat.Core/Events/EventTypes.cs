@@ -35,6 +35,22 @@ public static class EventTypes
     /// <summary>The computer woke up from sleep or hibernation.</summary>
     public const string Resumed = "resumed";
 
+    /// <summary>The current mode of a mode group changed (T717); the data carries <c>group</c>, <c>from</c> (absent when the state was unknown) and <c>to</c>.</summary>
+    public const string ModeChanged = "mode_changed";
+
+    /// <summary>A global hotkey that the user defined was pressed (T708); the data carries <c>name</c>, the configured name of the hotkey.</summary>
+    public const string HotkeyPressed = "hotkey_pressed";
+
+    /// <summary>A button of a notification from Home Assistant was pressed (T702); the data carries <c>action</c>, the id of the button, and <c>tag</c> when the notification had one.</summary>
+    public const string NotificationAction = "notification_action";
+
+    /// <summary>
+    /// A delayed power action (shutdown, restart, sleep, hibernate, log off) was cancelled before it acted (T715); the data carries <c>action</c>
+    /// (for example <c>power.shutdown</c>), <c>source</c> (<c>dialog</c>: the user pressed cancel in the countdown dialog, <c>action</c>: the action
+    /// <c>power.cancel</c>, <c>run</c>: the run itself was cancelled or timed out) and <c>delay_seconds</c>.
+    /// </summary>
+    public const string PowerActionCancelled = "power_action_cancelled";
+
     /// <summary>An event raised by a script or the command line (<c>qoffeeautomat emit</c>); the data carries <c>name</c> and optional <c>data</c>.</summary>
     public const string Custom = "custom";
 
@@ -63,6 +79,10 @@ public static class EventCatalog
         new(EventTypes.UserLoggedOut, "User logged out"),
         new(EventTypes.SessionReady, "Session ready"),
         new(EventTypes.Resumed, "Resumed"),
+        new(EventTypes.ModeChanged, "Mode changed"),
+        new(EventTypes.HotkeyPressed, "Hotkey pressed"),
+        new(EventTypes.NotificationAction, "Notification button pressed"),
+        new(EventTypes.PowerActionCancelled, "Power action cancelled"),
         new(EventTypes.Custom, "Custom event"),
     ];
 

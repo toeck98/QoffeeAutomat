@@ -1,6 +1,7 @@
 {
   "domain": "qoffeeautomat",
   "name": "QoffeeAutomat",
+  "after_dependencies": ["http"],
   "codeowners": ["@toeck98"],
   "config_flow": true,
   "documentation": "https://github.com/toeck98/QoffeeAutomat",

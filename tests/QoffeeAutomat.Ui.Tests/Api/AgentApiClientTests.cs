@@ -883,6 +883,52 @@ public sealed class AgentApiClientTests : IDisposable
     }
 
     [Fact]
+    public async Task Reading_a_state_value_gets_the_value_resource_of_the_escaped_id()
+    {
+        var value = new SensorValue("a b", Samples.Text("Eco"), Samples.Now);
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, JsonSerializer.Serialize(value, ApiJsonContext.Default.SensorValue)));
+        AgentApiClient client = Client(handler);
+
+        SensorValue answer = await client.GetSensorValueAsync("a b");
+
+        Assert.Equal("Eco", answer.Value!.Value.GetString());
+        RecordedRequest request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.Equal("/api/v1/sensors/a%20b/value", request.Uri.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task Setting_a_state_value_puts_the_text_as_a_json_string()
+    {
+        var value = new SensorValue("level", Samples.Number(42), Samples.Now);
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, JsonSerializer.Serialize(value, ApiJsonContext.Default.SensorValue)));
+        AgentApiClient client = Client(handler);
+
+        SensorValue answer = await client.SetSensorValueAsync("level", "42");
+
+        Assert.Equal(42, answer.Value!.Value.GetDouble());
+        RecordedRequest request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Put, request.Method);
+        Assert.Equal("/api/v1/sensors/level/value", request.Uri.AbsolutePath);
+        Assert.Equal("1", request.Headers[ApiHeaders.CsrfName]);
+        Assert.Equal("{\"value\":\"42\"}", request.Body);
+    }
+
+    [Fact]
+    public async Task A_state_value_that_does_not_fit_fails_with_the_error_at_value()
+    {
+        var handler = new StubHandler(_ => Problem(
+            HttpStatusCode.UnprocessableContent,
+            Samples.Problem(422, "validation_failed", "The request has a validation error.", new ApiValidationError("/value", "invalid", "'warm' is not a number."))));
+        AgentApiClient client = Client(handler);
+
+        ApiException exception = await Assert.ThrowsAsync<ApiException>(() => client.SetSensorValueAsync("level", "warm"));
+
+        Assert.Equal(422, exception.StatusCode);
+        Assert.Equal("/value", Assert.Single(exception.ValidationErrors).Path);
+    }
+
+    [Fact]
     public async Task Starting_pairing_posts_to_the_pairing_endpoint_and_reads_the_code()
     {
         var info = new PairingInfo("123456", Samples.Now.AddMinutes(5), "AB:CD");

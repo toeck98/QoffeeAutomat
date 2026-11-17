@@ -18,11 +18,13 @@ public sealed class BuiltinActionValidationTests
     private static readonly Dictionary<string, (string Name, string Json)[]> ValidInputs = new()
     {
         [WindowsActionNames.Shutdown] = [],
-        [WindowsActionNames.Restart] = [(WindowsActionParameters.Force, "true")],
-        [WindowsActionNames.Sleep] = [],
+        [WindowsActionNames.Restart] = [(WindowsActionParameters.Force, "true"), (PowerActionSpec.DelaySeconds, "300")],
+        [WindowsActionNames.Sleep] = [(PowerActionSpec.DelaySeconds, "60"), (PowerActionSpec.Message, "\"Going to sleep\"")],
         [WindowsActionNames.Hibernate] = [],
+        [WindowsActionNames.KeepAwake] = [(PowerActionSpec.On, "true"), (PowerActionSpec.Display, "true"), (PowerActionSpec.Minutes, "90")],
+        [WindowsActionNames.CancelPending] = [],
         [WindowsActionNames.LockSession] = [],
-        [WindowsActionNames.Logoff] = [(WindowsActionParameters.Force, "false")],
+        [WindowsActionNames.Logoff] = [(WindowsActionParameters.Force, "false"), (PowerActionSpec.DelaySeconds, "3600")],
         [WindowsActionNames.DisplayOff] = [],
         [WindowsActionNames.SetVolume] = [(WindowsActionParameters.Level, "35")],
         [WindowsActionNames.SetMute] = [(WindowsActionParameters.Muted, "false")],
@@ -30,6 +32,20 @@ public sealed class BuiltinActionValidationTests
         [WindowsActionNames.AppLaunch] = [(WindowsActionParameters.Path, "\"C:\\\\Tools\\\\app.exe\""), (WindowsActionParameters.Arguments, "\"--quiet\"")],
         [WindowsActionNames.UrlOpen] = [(WindowsActionParameters.Url, "\"https://example.com/\"")],
         [WindowsActionNames.ProcessKill] = [(WindowsActionParameters.Name, "\"notepad.exe\"")],
+        [WindowsActionNames.NotifyToast] =
+        [
+            (NotifyToastSpec.Title, "\"Doorbell\""),
+            (NotifyToastSpec.Message, "\"Somebody is at the door\""),
+            (NotifyToastSpec.ImageUrl, "\"http://homeassistant.local:8123/local/door.png\""),
+            (NotifyToastSpec.Tag, "\"door\""),
+            ("Action1Id", "\"open\""),
+            ("Action1Title", "\"Open the door\""),
+            ("Action2Id", "\"ignore\""),
+            ("Action2Title", "\"Ignore\""),
+        ],
+        [WindowsActionNames.MediaControl] = [(MediaControlSpec.ActionParameter, "\"play_pause\"")],
+        [WindowsActionNames.SetDefaultOutput] = [(AudioDeviceSpec.Device, "\"Speakers (Realtek Audio)\"")],
+        [WindowsActionNames.SetDefaultInput] = [(AudioDeviceSpec.Device, "\"Headset Microphone\"")],
     };
 
     public static TheoryData<string> AllActions()
@@ -180,6 +196,69 @@ public sealed class BuiltinActionValidationTests
         BindResult result = Bind(WindowsActionNames.SetVolume, (WindowsActionParameters.Level, ActionTestData.Json(level)));
 
         Assert.False(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData(WindowsActionNames.Shutdown)]
+    [InlineData(WindowsActionNames.Restart)]
+    [InlineData(WindowsActionNames.Sleep)]
+    [InlineData(WindowsActionNames.Hibernate)]
+    [InlineData(WindowsActionNames.Logoff)]
+    public void The_delay_of_a_power_action_accepts_whole_seconds_from_0_to_3600_and_defaults_to_0(string action)
+    {
+        BindResult none = VariableBinder.Bind(Descriptor(action).Parameters, null);
+        BindResult zero = Bind(action, (PowerActionSpec.DelaySeconds, ActionTestData.Json("0")));
+        BindResult longest = Bind(action, (PowerActionSpec.DelaySeconds, ActionTestData.Json("3600")));
+
+        Assert.True(none.IsValid);
+        Assert.Equal(0L, BuiltinActionVariables.GetLong(none.Values, PowerActionSpec.DelaySeconds));
+        Assert.True(zero.IsValid);
+        Assert.True(longest.IsValid);
+        Assert.Equal(3600L, BuiltinActionVariables.GetLong(longest.Values, PowerActionSpec.DelaySeconds));
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("3601")]
+    [InlineData("1.5")]
+    [InlineData("\"soon\"")]
+    public void The_delay_of_a_power_action_refuses_values_outside_the_range_or_of_the_wrong_kind(string delay)
+    {
+        BindResult result = Bind(WindowsActionNames.Shutdown, (PowerActionSpec.DelaySeconds, ActionTestData.Json(delay)));
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void The_message_of_a_power_action_is_limited_to_256_characters()
+    {
+        BindResult fits = BindText(WindowsActionNames.Restart, PowerActionSpec.Message, new string('m', 256));
+        BindResult tooLong = BindText(WindowsActionNames.Restart, PowerActionSpec.Message, new string('m', 257));
+
+        Assert.True(fits.IsValid);
+        Assert.False(tooLong.IsValid);
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("10081")]
+    [InlineData("2.5")]
+    public void Keep_awake_refuses_minutes_outside_the_range(string minutes)
+    {
+        BindResult result = Bind(WindowsActionNames.KeepAwake, (PowerActionSpec.Minutes, ActionTestData.Json(minutes)));
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void Keep_awake_defaults_to_on_without_the_display_and_without_a_time()
+    {
+        BindResult result = VariableBinder.Bind(Descriptor(WindowsActionNames.KeepAwake).Parameters, null);
+
+        Assert.True(result.IsValid);
+        Assert.True(BuiltinActionVariables.GetBool(result.Values, PowerActionSpec.On, fallback: false));
+        Assert.False(BuiltinActionVariables.GetBool(result.Values, PowerActionSpec.Display, fallback: true));
+        Assert.Equal(0L, BuiltinActionVariables.GetLong(result.Values, PowerActionSpec.Minutes));
     }
 
     [Theory]

@@ -1,0 +1,19 @@
+{
+  "description": "The reverse handshake (ADR 0003): the agent dials the endpoint of the integration with the reverse token, the upgrade succeeds, the agent sends hello first, the client answers with client_hello. After that the connection is an ordinary QoffeeLink v1 connection. Frames refer to the fixtures of the same name in protocol/fixtures.",
+  "request": {
+    "method": "GET",
+    "path": "/api/qoffeeautomat/reverse/v1",
+    "headers": {
+      "Authorization": "Bearer qalr_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "Sec-WebSocket-Protocol": "qoffeelink.v1"
+    }
+  },
+  "response": {
+    "status": 101,
+    "headers": { "Sec-WebSocket-Protocol": "qoffeelink.v1" }
+  },
+  "frames": [
+    { "from": "agent", "fixture": "hello.json" },
+    { "from": "client", "fixture": "client_hello.json" }
+  ]
+}

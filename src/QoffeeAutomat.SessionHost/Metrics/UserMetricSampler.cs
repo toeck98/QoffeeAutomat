@@ -107,6 +107,23 @@ public sealed class UserMetricSampler : IDisposable
         }
     }
 
+    /// <summary>
+    /// Samples some metrics at once, whatever their interval, for a source that knows that they changed (the audio devices, T713).
+    /// Only metrics that are subscribed are read; the others cost nothing (D-007).
+    /// </summary>
+    /// <param name="metricIds">The metrics that changed.</param>
+    /// <returns>The values, or null when none of them is subscribed.</returns>
+    public SessionMetricsStateMessage? Resample(IReadOnlyCollection<string> metricIds)
+    {
+        ArgumentNullException.ThrowIfNull(metricIds);
+
+        lock (_gate)
+        {
+            List<string> due = [.. metricIds.Distinct(StringComparer.Ordinal).Where(_subscribed.Contains)];
+            return due.Count == 0 ? null : Sample(due, _time.GetUtcNow());
+        }
+    }
+
     /// <summary>Samples the metrics whose interval has passed since their last sample.</summary>
     /// <returns>The values, or null when nothing is due or nothing is subscribed.</returns>
     public SessionMetricsStateMessage? SampleDue()

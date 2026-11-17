@@ -61,6 +61,12 @@ public sealed class ParameterDraft
     /// <summary>The allowed values, one per line (enum).</summary>
     public string OptionsText { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The id of the enum metric that supplies the options (enum, T713). The editor does not edit it, but keeps it, so that saving a
+    /// command that has it (the audio device selects) does not lose it; while it is set the options text is not sent.
+    /// </summary>
+    public string OptionsFrom { get; set; } = string.Empty;
+
     /// <summary>The value is redacted in history and logs.</summary>
     public bool Secret { get; set; }
 
@@ -93,6 +99,7 @@ public sealed class ParameterDraft
             Pattern = definition.Pattern ?? string.Empty,
             MaxLength = definition.MaxLength?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
             OptionsText = string.Join('\n', definition.Options ?? []),
+            OptionsFrom = definition.OptionsFrom ?? string.Empty,
             Secret = definition.Secret,
             Unit = definition.Unit ?? string.Empty,
             Description = definition.Description ?? string.Empty,
@@ -124,8 +131,8 @@ public sealed class ParameterDraft
             number ? ParseDouble(Step, path + "/step", problems) : null,
             Type == ParameterTypes.Text ? Blank(Pattern) : null,
             Type == ParameterTypes.Text ? ParseInt(MaxLength, path + "/maxLength", problems) : null,
-            Type == ParameterTypes.Choice ? Options : null,
-            null,
+            Type == ParameterTypes.Choice && Blank(OptionsFrom) is null ? Options : null,
+            Type == ParameterTypes.Choice ? Blank(OptionsFrom) : null,
             Secret,
             Blank(Unit),
             Blank(Description));

@@ -152,7 +152,7 @@ function Invoke-Uninstall {
 
 function Assert-Installed {
     param([string]$Version)
-    foreach ($file in @('QoffeeAutomat.Agent.exe', 'QoffeeAutomat.SessionHost.exe', 'wwwroot\index.html', 'unins000.exe')) {
+    foreach ($file in @('QoffeeAutomat.Agent.exe', 'QoffeeAutomat.SessionHost.exe', 'wwwroot\index.html', 'templates\commands\set_volume.json', 'templates\scripts\disk_free_percent.ps1', 'unins000.exe')) {
         Assert-That (Test-Path -LiteralPath (Join-Path $installDirectory $file)) "$file is installed in Program Files"
     }
 
@@ -274,7 +274,7 @@ try {
             Expand-Archive -LiteralPath $PortableZip -DestinationPath $extract
             $top = @(Get-ChildItem -LiteralPath $extract -Directory)
             Assert-That ($top.Count -eq 1) 'the zip has one top-level folder'
-            foreach ($file in @('QoffeeAutomat.Agent.exe', 'QoffeeAutomat.SessionHost.exe', 'wwwroot\index.html', 'README-portable.txt', 'LICENSE')) {
+            foreach ($file in @('QoffeeAutomat.Agent.exe', 'QoffeeAutomat.SessionHost.exe', 'wwwroot\index.html', 'templates\commands\set_volume.json', 'README-portable.txt', 'LICENSE')) {
                 Assert-That (Test-Path -LiteralPath (Join-Path $top[0].FullName $file)) "the zip contains $file"
             }
             $version = (& (Join-Path $top[0].FullName 'QoffeeAutomat.Agent.exe') version) -join ' '

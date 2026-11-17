@@ -6,6 +6,7 @@ from enum import StrEnum
 
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -103,6 +104,16 @@ class QoffeeAutomatEntity(Entity):
         """
         if self._added:
             await self.async_remove()
+
+    @callback
+    def async_refresh(self) -> None:
+        """Write the state again, for example after the manifest changed.
+
+        An entity that is not added to Home Assistant (yet, or any more) has nothing
+        to write.
+        """
+        if self._added:
+            self.async_write_ha_state()
 
     @callback
     def _handle_connection_change(self) -> None:
@@ -252,6 +263,58 @@ def find_variable(
         control.type,
     )
     return None
+
+
+type FeatureEntityBuilder = Callable[
+    [QoffeeAutomatRuntimeData], QoffeeAutomatEntity | None
+]
+
+
+async def async_setup_feature_platform(
+    hass: HomeAssistant,
+    entry: QoffeeAutomatConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+    *,
+    feature: str,
+    domain: str,
+    key: str,
+    build: FeatureEntityBuilder,
+) -> None:
+    """Keep one entity equal to an optional feature of the agent (T702, T716).
+
+    The entity exists only while the manifest lists ``feature``. When the agent starts
+    to announce it, the entity is added; when the agent stops, it is removed together
+    with its registry entry (the stale cleanup leaves keys that start with ``_``
+    alone). While the feature stays, every change of the manifest makes the entity
+    write its state again, because what it supports follows the commands and metrics
+    of the manifest. No reload of the config entry is needed.
+    """
+    runtime = entry.runtime_data
+    entity: QoffeeAutomatEntity | None = None
+
+    async def apply(diff: ManifestDiff) -> None:
+        nonlocal entity
+        manifest = runtime.manifest_manager.manifest
+        wanted = feature in manifest.features
+        if wanted and entity is None:
+            entity = build(runtime)
+            if entity is not None:
+                async_add_entities([entity])
+        elif not wanted:
+            if entity is not None:
+                await entity.async_discard()
+                entity = None
+            # Also an entry that an earlier run left behind: without the feature there
+            # is no entity, not even an unavailable one.
+            registry = er.async_get(hass)
+            if entity_id := registry.async_get_entity_id(
+                domain, DOMAIN, unique_id(runtime.agent_id, key)
+            ):
+                registry.async_remove(entity_id)
+        elif entity is not None:
+            entity.async_refresh()
+
+    entry.async_on_unload(await runtime.manifest_manager.async_add_listener(apply))
 
 
 type CommandEntityBuilder = Callable[

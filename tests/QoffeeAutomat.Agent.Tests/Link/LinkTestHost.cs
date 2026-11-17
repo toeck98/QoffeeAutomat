@@ -86,7 +86,8 @@ internal sealed class LinkTestHost : IAsyncDisposable
     private bool _disposed;
 
     /// <param name="options">Limits and timings of the link server; null keeps the defaults of the specification.</param>
-    public LinkTestHost(LinkOptions? options = null)
+    /// <param name="configure">Registers or replaces more services, for example the connector of an outbound link (T710).</param>
+    public LinkTestHost(LinkOptions? options = null, Action<IServiceCollection>? configure = null)
     {
         Agent = new TestAgent(_data.Path, services =>
         {
@@ -97,6 +98,8 @@ internal sealed class LinkTestHost : IAsyncDisposable
                 services.RemoveAll<LinkOptions>();
                 services.AddSingleton(options);
             }
+
+            configure?.Invoke(services);
         });
     }
 

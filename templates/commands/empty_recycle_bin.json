@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "empty_recycle_bin",
+  "name": "Empty the recycle bin",
+  "description": "Permanently deletes everything in the recycle bin of the logged-in user, without asking.",
+  "icon": "mdi:delete-empty",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "powershell", "source": "file", "script": "empty_recycle_bin.ps1", "engine": "auto" },
+  "haControl": { "type": "button" },
+  "timeoutSeconds": 120,
+  "concurrency": "single",
+  "cooldownSeconds": 0,
+  "captureOutput": true
+}

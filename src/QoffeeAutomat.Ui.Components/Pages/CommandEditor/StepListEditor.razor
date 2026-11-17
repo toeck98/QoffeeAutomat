@@ -1,0 +1,129 @@
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The list of steps of a sequence: commands to run (with variables) and waits. It is the step editor of the sequence action
+   (command editor) and of the enter and exit steps of the modes (T717); it edits the given list in place. *@
+<div class="mt-1" data-testid="@(IdPrefix + "sequence-steps")">
+  @for (int index = 0; index < Steps.Count; index++)
+  {
+    int position = index;
+    StepDraft step = Steps[position];
+    string path = Path + "/" + position;
+    <div class="qa-step" @key="step.Key" data-testid="@($"{IdPrefix}step-{position}")" data-kind="@step.Kind">
+      <div class="qa-step-header">
+        <MudText Typo="Typo.subtitle2">@L.Format("Editor.Sequence.Step", position + 1)</MudText>
+        <span>
+          <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="@(position == 0)" OnClick="@(() => MoveStepAsync(position, -1))" aria-label="@L["Editor.Move.Up"]" data-testid="@($"{IdPrefix}step-up-{position}")" />
+          <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="@(position == Steps.Count - 1)" OnClick="@(() => MoveStepAsync(position, 1))" aria-label="@L["Editor.Move.Down"]" data-testid="@($"{IdPrefix}step-down-{position}")" />
+          <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveStepAsync(position))" aria-label="@L["Editor.Remove"]" data-testid="@($"{IdPrefix}step-remove-{position}")" />
+        </span>
+      </div>
+      @if (step.Kind == StepKinds.Delay)
+      {
+        <div data-testid="@($"{IdPrefix}step-delay-{position}")">
+          <MudTextField T="string"
+                        @bind-Value="step.DelayText"
+                        @bind-Value:after="NotifyAsync"
+                        Immediate="true"
+                        InputType="InputType.Number"
+                        Label="@L["Editor.Sequence.Delay"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Error="@Errors.Has(path + "/delaySeconds")" />
+        </div>
+        <FieldError Errors="Errors" Path="@(path + "/delaySeconds")" />
+      }
+      else
+      {
+        <SelectBox Label="@L["Editor.Sequence.Command"]"
+                   @bind-Value="step.CommandId"
+                   @bind-Value:after="NotifyAsync"
+                   Error="@Errors.Has(path + "/command")"
+                   TestId="@($"{IdPrefix}step-command-{position}")">
+          <option value="">@L["Editor.Sequence.Choose"]</option>
+          @if (step.CommandId.Length > 0 && !CommandIds.Contains(step.CommandId))
+          {
+            <option value="@step.CommandId">@step.CommandId</option>
+          }
+          @foreach (string commandId in CommandIds)
+          {
+            <option value="@commandId">@commandId</option>
+          }
+        </SelectBox>
+        <FieldError Errors="Errors" Path="@(path + "/command")" />
+        <div data-testid="@($"{IdPrefix}step-vars-{position}")">
+          <MudTextField T="string"
+                        @bind-Value="step.VarsText"
+                        @bind-Value:after="NotifyAsync"
+                        Immediate="true"
+                        Label="@L["Editor.Sequence.Vars"]"
+                        HelperText="@L["Editor.Sequence.Vars.Help"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Error="@Errors.Has(path + "/vars")"
+                        spellcheck="false" />
+        </div>
+        <FieldError Errors="Errors" Path="@(path + "/vars")" />
+      }
+      <FieldError Errors="Errors" Path="@path" />
+    </div>
+  }
+  <FieldError Errors="Errors" Path="@Path" />
+  <div class="qa-run-actions">
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => AddStepAsync(StepKinds.Command))" data-testid="@(IdPrefix + "add-step-command")">@L["Editor.Sequence.AddCommand"]</MudButton>
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Timer" OnClick="@(() => AddStepAsync(StepKinds.Delay))" data-testid="@(IdPrefix + "add-step-delay")">@L["Editor.Sequence.AddDelay"]</MudButton>
+  </div>
+</div>
+
+@code {
+  /// <summary>The steps; the editor adds, removes, moves and changes them in place.</summary>
+  [Parameter]
+  [EditorRequired]
+  public List<StepDraft> Steps { get; set; } = null!;
+
+  /// <summary>The JSON pointer of the list in the document, for example <c>/action/steps</c> or <c>/modes/0/enter</c>.</summary>
+  [Parameter]
+  [EditorRequired]
+  public string Path { get; set; } = string.Empty;
+
+  /// <summary>A prefix of the <c>data-testid</c> values, so that several lists on one page can be told apart; empty for none.</summary>
+  [Parameter]
+  public string IdPrefix { get; set; } = string.Empty;
+
+  /// <summary>The problems of the draft.</summary>
+  [Parameter]
+  public DraftErrors Errors { get; set; } = DraftErrors.Empty;
+
+  /// <summary>The ids of the commands that a step can run.</summary>
+  [Parameter]
+  public IReadOnlyList<string> CommandIds { get; set; } = [];
+
+  /// <summary>Raised after every change of the list.</summary>
+  [Parameter]
+  public EventCallback OnChanged { get; set; }
+
+  private Task NotifyAsync() => OnChanged.InvokeAsync();
+
+  private Task AddStepAsync(string kind)
+  {
+    Steps.Add(new StepDraft { Kind = kind });
+    return NotifyAsync();
+  }
+
+  private Task RemoveStepAsync(int index)
+  {
+    Steps.RemoveAt(index);
+    return NotifyAsync();
+  }
+
+  private Task MoveStepAsync(int index, int offset)
+  {
+    int target = index + offset;
+    if (target >= 0 && target < Steps.Count)
+    {
+      (Steps[index], Steps[target]) = (Steps[target], Steps[index]);
+    }
+
+    return NotifyAsync();
+  }
+}

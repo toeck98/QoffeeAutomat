@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "sleep_pc",
+  "name": "Put the PC to sleep",
+  "description": "Puts the computer to sleep. Home Assistant can wake it with the Wake-on-LAN button when the network adapter allows it.",
+  "icon": "mdi:sleep",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "system",
+  "action": { "type": "builtin", "name": "power.sleep" },
+  "haControl": { "type": "button" },
+  "timeoutSeconds": 30,
+  "concurrency": "single",
+  "cooldownSeconds": 10,
+  "captureOutput": false
+}

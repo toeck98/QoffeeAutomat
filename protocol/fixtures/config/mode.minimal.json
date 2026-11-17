@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "away",
+  "name": "Away",
+  "enabled": true,
+  "exposeToHa": false,
+  "defaultMode": "home",
+  "modes": [
+    { "id": "home", "name": "Home" }
+  ]
+}

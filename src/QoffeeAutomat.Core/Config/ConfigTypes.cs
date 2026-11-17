@@ -19,6 +19,9 @@ public enum ConfigKind
 
     /// <summary>A script file in the scripts directory.</summary>
     Script,
+
+    /// <summary>A mode group document, <c>config/modes/&lt;id&gt;.json</c> (T717).</summary>
+    Mode,
 }
 
 /// <summary>The fixed ids of the documents that exist only once.</summary>

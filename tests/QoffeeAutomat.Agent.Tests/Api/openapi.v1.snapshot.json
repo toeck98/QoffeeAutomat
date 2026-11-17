@@ -147,6 +147,42 @@
         ]
       }
     },
+    "/api/v1/auth/one-time": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Signs in with the single-use token of the tray icon (loopback only, valid 30 seconds) and redirects to the UI.",
+        "operationId": "oneTimeLogIn",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "description": "The single-use login token.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Found"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/auth/password": {
       "post": {
         "tags": [
@@ -1374,6 +1410,58 @@
         ]
       }
     },
+    "/api/v1/hardware-sensors": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Reports whether the optional hardware sensors (temperatures, fans, power draw) run and whether the kernel driver that they need is installed.",
+        "operationId": "getHardwareSensorStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HardwareSensorStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hotkeys": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Reports which global hotkeys of the settings are registered and which conflict with other programs.",
+        "operationId": "getHotkeyStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotkeyStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/link/clients": {
       "get": {
         "tags": [
@@ -1974,6 +2062,115 @@
         ]
       }
     },
+    "/api/v1/prometheus": {
+      "get": {
+        "tags": [
+          "Prometheus"
+        ],
+        "summary": "Reports whether the Prometheus endpoint is on, whether its token exists and which metrics it exports.",
+        "operationId": "getPrometheus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrometheusStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/prometheus/token": {
+      "post": {
+        "tags": [
+          "Prometheus"
+        ],
+        "summary": "Creates the read-only token of the Prometheus endpoint, replacing an existing one. The token is in this answer only.",
+        "operationId": "createPrometheusToken",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrometheusToken"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Prometheus"
+        ],
+        "summary": "Removes the token; the endpoint then refuses every request.",
+        "operationId": "deletePrometheusToken",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/runs": {
       "get": {
         "tags": [
@@ -2387,6 +2584,181 @@
         ]
       }
     },
+    "/api/v1/secrets": {
+      "get": {
+        "tags": [
+          "Secrets"
+        ],
+        "summary": "Lists the names of the secrets and the commands that use them. Values are never returned.",
+        "operationId": "listSecrets",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretList"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/secrets/{name}": {
+      "put": {
+        "tags": [
+          "Secrets"
+        ],
+        "summary": "Creates a secret or replaces its value. The value is write-only.",
+        "operationId": "putSecret",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecretWriteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretSummary"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Secrets"
+        ],
+        "summary": "Deletes a secret. Commands that still list it fail with the error internal until the name is removed from them.",
+        "operationId": "deleteSecret",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/sensors": {
       "get": {
         "tags": [
@@ -2754,6 +3126,159 @@
         ]
       }
     },
+    "/api/v1/sensors/{id}/value": {
+      "get": {
+        "tags": [
+          "Sensors"
+        ],
+        "summary": "Reads the value of a sensor of type state.",
+        "operationId": "getSensorValue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SensorValue"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Sensors"
+        ],
+        "summary": "Sets the value of a sensor of type state. The value is checked against the value type and the options of the sensor and published at once.",
+        "operationId": "setSensorValue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SensorValueRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SensorValue"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/settings": {
       "get": {
         "tags": [
@@ -2884,6 +3409,137 @@
         ]
       }
     },
+    "/api/v1/templates": {
+      "get": {
+        "tags": [
+          "Templates"
+        ],
+        "summary": "Lists the templates of the gallery.",
+        "operationId": "listTemplates",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateList"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/templates/{id}": {
+      "get": {
+        "tags": [
+          "Templates"
+        ],
+        "summary": "Reads a template with its scripts, for the preview.",
+        "operationId": "getTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/templates/{id}/instantiate": {
+      "post": {
+        "tags": [
+          "Templates"
+        ],
+        "summary": "Adds a template as a new command, sensor or mode group with a unique id and copied scripts.",
+        "operationId": "instantiateTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateInstantiation"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/openapi/v1.json": {
       "get": {
         "tags": [
@@ -2994,6 +3650,62 @@
             },
             "default": null
           },
+          "prometheus": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "enabled": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "default": null
+              },
+              "metrics": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "default": null
+              }
+            },
+            "default": null
+          },
+          "reverseLink": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "enabled": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "default": null
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "fingerprint": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              }
+            },
+            "default": null
+          },
           "revision": {
             "type": [
               "integer",
@@ -3009,6 +3721,74 @@
               "string",
               "null"
             ],
+            "default": null
+          },
+          "hotkeys": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "keys": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ],
+                  "default": null
+                }
+              },
+              "required": [
+                "name",
+                "keys"
+              ]
+            },
+            "default": null
+          },
+          "hardwareSensors": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "enabled": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "default": null
+              }
+            },
+            "default": null
+          },
+          "updates": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "check": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "default": null
+              },
+              "intervalHours": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "default": null
+              }
+            },
             "default": null
           }
         },
@@ -3435,6 +4215,61 @@
               "null"
             ],
             "default": null
+          },
+          "conditions": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "session": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "timeWindow": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  },
+                  "days": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": null
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "default": null
+              }
+            },
+            "default": null
+          },
+          "secrets": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "default": null
           }
         },
         "required": [
@@ -3647,6 +4482,61 @@
                     "string",
                     "null"
                   ],
+                  "default": null
+                },
+                "conditions": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "session": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "timeWindow": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "from": {
+                          "type": "string"
+                        },
+                        "to": {
+                          "type": "string"
+                        },
+                        "days": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "string"
+                          },
+                          "default": null
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "default": null
+                    }
+                  },
+                  "default": null
+                },
+                "secrets": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "string"
+                  },
                   "default": null
                 }
               },
@@ -3884,6 +4774,61 @@
                   "null"
                 ],
                 "default": null
+              },
+              "conditions": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "session": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "default": null
+                  },
+                  "timeWindow": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "from": {
+                        "type": "string"
+                      },
+                      "to": {
+                        "type": "string"
+                      },
+                      "days": {
+                        "type": [
+                          "array",
+                          "null"
+                        ],
+                        "items": {
+                          "type": "string"
+                        },
+                        "default": null
+                      }
+                    },
+                    "required": [
+                      "from",
+                      "to"
+                    ],
+                    "default": null
+                  }
+                },
+                "default": null
+              },
+              "secrets": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "default": null
               }
             },
             "required": [
@@ -4023,6 +4968,88 @@
         },
         "required": [
           "events"
+        ]
+      },
+      "HardwareSensorStatus": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string"
+          },
+          "driver": {
+            "type": "string"
+          },
+          "driverInstalled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "sensorCount": {
+            "type": "integer"
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "supported",
+          "enabled",
+          "state",
+          "driver",
+          "driverInstalled",
+          "sensorCount"
+        ]
+      },
+      "HotkeyStatusResponse": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "hotkeys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "keys": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "default": null
+                }
+              },
+              "required": [
+                "name",
+                "keys",
+                "state"
+              ]
+            }
+          }
+        },
+        "required": [
+          "supported",
+          "hotkeys"
         ]
       },
       "LinkClientList": {
@@ -4530,6 +5557,39 @@
           "fingerprint"
         ]
       },
+      "PrometheusStatus": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "tokenSet": {
+            "type": "boolean"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "tokenSet",
+          "metrics"
+        ]
+      },
+      "PrometheusToken": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
       "RevisionList": {
         "type": "object",
         "properties": {
@@ -4844,6 +5904,70 @@
           "content"
         ]
       },
+      "SecretList": {
+        "type": "object",
+        "properties": {
+          "secrets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "usedBy": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": null
+                }
+              },
+              "required": [
+                "name"
+              ]
+            }
+          }
+        },
+        "required": [
+          "secrets"
+        ]
+      },
+      "SecretSummary": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "usedBy": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "default": null
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SecretWriteRequest": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
       "SensorDocument": {
         "type": "object",
         "properties": {
@@ -5147,6 +6271,36 @@
           "durationMs"
         ]
       },
+      "SensorValue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "value": true,
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "value",
+          "updatedAt"
+        ]
+      },
+      "SensorValueRequest": {
+        "type": "object",
+        "properties": {
+          "value": true
+        },
+        "required": [
+          "value"
+        ]
+      },
       "SetupRequest": {
         "type": "object",
         "properties": {
@@ -5171,6 +6325,719 @@
         },
         "required": [
           "available"
+        ]
+      },
+      "TemplateDetail": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "icon": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "actionType": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "requires": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "default": null
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "name"
+            ]
+          },
+          "command": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "schemaVersion": {
+                "type": "integer"
+              },
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "exposeToHa": {
+                "type": "boolean"
+              },
+              "runAs": {
+                "type": "string"
+              },
+              "action": true,
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "icon": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "parameters": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "default": {
+                      "default": null
+                    },
+                    "min": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "max": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "step": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "pattern": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "maxLength": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "options": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": null
+                    },
+                    "optionsFrom": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "secret": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "unit": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "default": null
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "type"
+                  ]
+                },
+                "default": null
+              },
+              "haControl": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "parameter": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "default": null
+                  },
+                  "stateMetric": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "default": null
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "default": null
+              },
+              "timeoutSeconds": {
+                "type": "integer",
+                "default": 60
+              },
+              "concurrency": {
+                "type": "string",
+                "default": "single"
+              },
+              "cooldownSeconds": {
+                "type": "integer",
+                "default": 0
+              },
+              "captureOutput": {
+                "type": "boolean",
+                "default": false
+              },
+              "revision": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "default": null
+              },
+              "updatedAt": {
+                "default": null
+              },
+              "origin": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "conditions": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "session": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "default": null
+                  },
+                  "timeWindow": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "from": {
+                        "type": "string"
+                      },
+                      "to": {
+                        "type": "string"
+                      },
+                      "days": {
+                        "type": [
+                          "array",
+                          "null"
+                        ],
+                        "items": {
+                          "type": "string"
+                        },
+                        "default": null
+                      }
+                    },
+                    "required": [
+                      "from",
+                      "to"
+                    ],
+                    "default": null
+                  }
+                },
+                "default": null
+              },
+              "secrets": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "default": null
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "id",
+              "name",
+              "enabled",
+              "exposeToHa",
+              "runAs",
+              "action"
+            ]
+          },
+          "sensor": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "schemaVersion": {
+                "type": "integer"
+              },
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "exposeToHa": {
+                "type": "boolean"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "valueType": {
+                "type": "string"
+              },
+              "source": true,
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "icon": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "enabledDefault": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "default": null
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "deviceClass": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "stateClass": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "entityCategory": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "precision": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "default": null
+              },
+              "options": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "default": null
+              },
+              "intervalSeconds": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "default": null
+              },
+              "deadband": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "default": null
+              },
+              "revision": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "default": null
+              },
+              "updatedAt": {
+                "default": null
+              },
+              "origin": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "id",
+              "name",
+              "enabled",
+              "exposeToHa",
+              "kind",
+              "valueType",
+              "source"
+            ]
+          },
+          "scripts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "content"
+              ]
+            }
+          },
+          "mode": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "schemaVersion": {
+                "type": "integer"
+              },
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "exposeToHa": {
+                "type": "boolean"
+              },
+              "defaultMode": {
+                "type": "string"
+              },
+              "modes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "enter": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "command": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "default": null
+                          },
+                          "vars": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "default": null
+                          },
+                          "delaySeconds": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "default": null
+                          }
+                        }
+                      },
+                      "default": null
+                    },
+                    "exit": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "$ref": "#/properties/mode/properties/modes/items/properties/enter/items"
+                      },
+                      "default": null
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ]
+                }
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "icon": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "onBoot": {
+                "type": "string",
+                "default": "reset"
+              },
+              "onError": {
+                "type": "string",
+                "default": "stop"
+              },
+              "revision": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "default": null
+              },
+              "updatedAt": {
+                "default": null
+              },
+              "origin": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "id",
+              "name",
+              "enabled",
+              "exposeToHa",
+              "defaultMode",
+              "modes"
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "summary",
+          "command",
+          "sensor",
+          "scripts"
+        ]
+      },
+      "TemplateInstantiation": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "created"
+        ]
+      },
+      "TemplateList": {
+        "type": "object",
+        "properties": {
+          "templates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "default": null
+                },
+                "icon": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "default": null
+                },
+                "actionType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "default": null
+                },
+                "requires": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": null
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "name"
+              ]
+            }
+          }
+        },
+        "required": [
+          "templates"
         ]
       },
       "ValidationReport": {

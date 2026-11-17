@@ -28,6 +28,57 @@
         "runHistoryDays": { "type": "integer", "minimum": 1 },
         "auditLogDays": { "type": "integer", "minimum": 1 }
       }
+    },
+    "prometheus": {
+      "description": "The optional Prometheus endpoint GET /metrics on the HTTPS listener (T709). Off by default; needs the read-only token of POST /api/v1/prometheus/token; exposes only the listed numeric and boolean metrics.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "metrics": {
+          "type": "array",
+          "maxItems": 500,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_-]+)*$" }
+        }
+      }
+    },
+    "hardwareSensors": {
+      "description": "The optional hardware sensors (T707, ADR 0002): temperatures, fan speeds and power draw of the processor, graphics cards, mainboard and drives, read through LibreHardwareMonitorLib. They need the kernel driver PawnIO, which the user installs separately. Off by default; while off, neither the library nor a driver handle is loaded.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "updates": {
+      "description": "The check for a newer release (T704, D-046): once per interval the agent asks the GitHub releases API of the project for the newest release and reports it as the metrics agent.latest_version, agent.release_url and agent.release_notes. It is the only request the agent makes to the internet on its own. On by default; with check false the agent makes no such request. intervalHours defaults to 24.",
+      "type": "object",
+      "properties": {
+        "check": { "type": "boolean" },
+        "intervalHours": { "type": "integer", "minimum": 1, "maximum": 720 }
+      }
+    },
+    "hotkeys": {
+      "description": "Global hotkeys (T708). The SessionHost of the user's session registers each enabled key combination; pressing it raises the event hotkey_pressed with the data name. Names are unique; the validator also checks that keys parse (modifiers Ctrl, Alt, Shift, Win and one key) and that no combination is used twice among the enabled hotkeys.",
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "required": ["name", "keys"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$" },
+          "keys": { "type": "string", "minLength": 3, "maxLength": 64, "examples": ["Ctrl+Alt+F9", "Win+Shift+M"] },
+          "enabled": { "type": "boolean" }
+        }
+      }
+    },
+    "reverseLink": {
+      "description": "The optional reverse link to Home Assistant for roaming devices (T710, ADR 0003): the agent dials the WebSocket endpoint of the integration. Off by default. The credential is not part of the document (secret store, reverse_link.token). A ws:// URL is only valid for a loopback host, which the validator checks.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "url": { "type": "string", "pattern": "^wss?://[^\\s/?#@]+(/[^\\s]*)?$" },
+        "fingerprint": { "type": "string", "pattern": "^[0-9A-Fa-f]{2}([: -]?[0-9A-Fa-f]{2}){31}$" }
+      }
     }
   }
 }

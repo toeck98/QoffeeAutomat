@@ -155,7 +155,7 @@ public sealed partial class SessionMetricsTests
         IReadOnlyList<MetricDescriptor> all = SessionMetricCatalog.All;
 
         Assert.Equal(all.Count, all.Select(descriptor => descriptor.Id).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(12, all.Count);
+        Assert.Equal(22, all.Count);
         Assert.Equal(
             [
                 SessionMetricIds.Ready,
@@ -166,15 +166,37 @@ public sealed partial class SessionMetricsTests
                 SessionMetricIds.WindowProcess,
                 SessionMetricIds.Volume,
                 SessionMetricIds.Muted,
+                SessionMetricIds.AudioOutputDevice,
+                SessionMetricIds.AudioInputDevice,
                 SessionMetricIds.MicrophoneInUse,
                 SessionMetricIds.WebcamInUse,
                 SessionMetricIds.DisplayCount,
                 SessionMetricIds.PrimaryResolution,
+                SessionMetricIds.MediaState,
+                SessionMetricIds.MediaTitle,
+                SessionMetricIds.MediaArtist,
+                SessionMetricIds.MediaAlbum,
+                SessionMetricIds.MediaApp,
+                SessionMetricIds.MediaDuration,
+                SessionMetricIds.MediaPosition,
+                SessionMetricIds.MediaPositionUpdatedAt,
             ],
             all.Select(descriptor => descriptor.Id));
 
+        // The window metrics reveal what the user does; the media metrics are optional and only used by the media player (T716).
         Assert.Equal(
-            [SessionMetricIds.WindowTitle, SessionMetricIds.WindowProcess],
+            [
+                SessionMetricIds.WindowTitle,
+                SessionMetricIds.WindowProcess,
+                SessionMetricIds.MediaState,
+                SessionMetricIds.MediaTitle,
+                SessionMetricIds.MediaArtist,
+                SessionMetricIds.MediaAlbum,
+                SessionMetricIds.MediaApp,
+                SessionMetricIds.MediaDuration,
+                SessionMetricIds.MediaPosition,
+                SessionMetricIds.MediaPositionUpdatedAt,
+            ],
             all.Where(descriptor => descriptor.EnabledDefault == false).Select(descriptor => descriptor.Id));
         Assert.All(all.Where(descriptor => descriptor.EnabledDefault != false), descriptor => Assert.True(descriptor.EnabledDefault));
         Assert.All(all, descriptor => Assert.False(string.IsNullOrWhiteSpace(descriptor.TranslationKey)));
@@ -466,7 +488,7 @@ public sealed partial class SessionMetricsTests
             [.. SessionMetricCatalog.All.Select(descriptor => descriptor.Id)],
             CancellationToken.None);
 
-        Assert.Equal(12, values.Count);
+        Assert.Equal(SessionMetricCatalog.All.Count, values.Count);
         Assert.Equal(false, values[SessionMetricIds.Ready]);
         Assert.All(
             values.Where(pair => pair.Key != SessionMetricIds.Ready),

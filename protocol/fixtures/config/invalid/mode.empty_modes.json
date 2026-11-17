@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "empty_modes",
+  "name": "Empty modes",
+  "enabled": true,
+  "exposeToHa": true,
+  "defaultMode": "normal",
+  "modes": []
+}

@@ -47,6 +47,12 @@ public static class ErrorCodes
     /// <summary>Unexpected error in the agent.</summary>
     public const string Internal = "internal";
 
+    /// <summary>
+    /// The command's conditions (session state, time window) are not met (T705). Added to protocol v1 in a backward
+    /// compatible way: receivers must tolerate unknown codes.
+    /// </summary>
+    public const string ConditionNotMet = "condition_not_met";
+
     /// <summary>All error codes defined by protocol version 1.</summary>
     public static FrozenSet<string> All { get; } = new[]
     {
@@ -64,5 +70,6 @@ public static class ErrorCodes
         Timeout,
         Paused,
         Internal,
+        ConditionNotMet,
     }.ToFrozenSet(StringComparer.Ordinal);
 }

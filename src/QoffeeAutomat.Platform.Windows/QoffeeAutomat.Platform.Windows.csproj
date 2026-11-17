@@ -21,6 +21,9 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
     <!-- WMI for the cim_query sensor (T307). -->
     <PackageReference Include="System.Management" />
+    <!-- Hardware sensors: temperatures, fans, power draw (T707, ADR 0002). MPL-2.0. The assembly is only loaded when the setting
+         hardwareSensors.enabled is on (see Metrics/Hardware/LibreHardwareSource.cs). -->
+    <PackageReference Include="LibreHardwareMonitorLib" />
   </ItemGroup>
 
 </Project>

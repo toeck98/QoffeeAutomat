@@ -9,7 +9,7 @@ agent's metric subscription equal to the metric entities that are enabled and ro
 import asyncio
 import logging
 from collections.abc import Callable, Coroutine
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol
 
@@ -17,7 +17,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.debounce import Debouncer
 
-from .client import QoffeeLinkClient, QoffeeLinkError
+from .client import LinkClient, QoffeeLinkError
 from .const import FIRST_CONNECT_TIMEOUT_SECONDS, SUBSCRIBE_DEBOUNCE_SECONDS
 from .manifest_manager import ManifestManager
 from .protocol import Bye, Hello, MetricValue, State
@@ -63,7 +63,7 @@ class ConnectionState:
 
     def __init__(
         self,
-        client: QoffeeLinkClient,
+        client: LinkClient,
         name: str,
         *,
         last_boot_id: str | None,
@@ -215,13 +215,20 @@ class MetricConsumer(Protocol):
 class SubscriptionManager:
     """Keep the subscription equal to the enabled metric entities."""
 
-    def __init__(
-        self, hass: HomeAssistant, client: QoffeeLinkClient, name: str
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, client: LinkClient, name: str) -> None:
         """Follow the ``state`` frames of ``client``."""
         self._client = client
         self._name = name
         self._consumers: dict[str, list[MetricConsumer]] = {}
+        # Last value of every metric seen on the current connection, so that a caller
+        # that subscribes later (the wait of ``run_command``) learns the current value
+        # without a new snapshot.
+        self._values: dict[str, MetricValue] = {}
+        # ``ts`` of the ``state`` frame that is being delivered (unix milliseconds, the
+        # clock of the PC). An entity whose value comes with a time of the PC (the
+        # position of the media player) reads it from here to relate that time to this
+        # frame instead of to the clock of Home Assistant.
+        self._frame_ts: int | None = None
         self._sent: frozenset[str] | None = None
         self._debouncer: Debouncer[Coroutine[Any, Any, None]] = Debouncer(
             hass,
@@ -232,6 +239,24 @@ class SubscriptionManager:
             background=True,
         )
         self._remove_listener = client.add_state_listener(self._on_state)
+        self._remove_connection_listener = client.add_connection_listener(
+            self._on_connection
+        )
+
+    def last_value(self, metric_id: str) -> MetricValue:
+        """Return the last value of a metric on this connection (``None``: unknown)."""
+        return self._values.get(metric_id)
+
+    @property
+    def frame_ts(self) -> int | None:
+        """Return the ``ts`` (unix ms, clock of the PC) of the last ``state`` frame."""
+        return self._frame_ts
+
+    @callback
+    def _on_connection(self, connected: bool) -> None:
+        if not connected:
+            self._values.clear()
+            self._frame_ts = None
 
     @property
     def metric_ids(self) -> frozenset[str]:
@@ -256,6 +281,8 @@ class SubscriptionManager:
 
     @callback
     def _on_state(self, frame: State) -> None:
+        self._frame_ts = frame.ts
+        self._values.update(frame.values)
         # O(1) per metric in the frame: only the entities of these metrics are touched.
         for metric_id, value in frame.values.items():
             consumers = self._consumers.get(metric_id)
@@ -279,6 +306,7 @@ class SubscriptionManager:
     def async_shutdown(self) -> None:
         """Stop following and cancel a pending subscribe."""
         self._remove_listener()
+        self._remove_connection_listener()
         self._debouncer.async_shutdown()
 
 
@@ -286,7 +314,7 @@ class SubscriptionManager:
 class QoffeeAutomatRuntimeData:
     """What a loaded config entry shares with its platforms."""
 
-    client: QoffeeLinkClient
+    client: LinkClient
     manifest_manager: ManifestManager
     connection: ConnectionState
     subscriptions: SubscriptionManager
@@ -294,6 +322,8 @@ class QoffeeAutomatRuntimeData:
     # ``(platform, translation key)`` pairs that the integration translates; other
     # keys of the manifest fall back to the manifest name.
     translation_keys: frozenset[tuple[str, str]]
+    # Calls of ``run_command`` that wake or wait for the PC take turns (T712).
+    call_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 type QoffeeAutomatConfigEntry = ConfigEntry[QoffeeAutomatRuntimeData]

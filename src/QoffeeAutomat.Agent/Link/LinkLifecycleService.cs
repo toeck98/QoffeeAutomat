@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using QoffeeAutomat.Agent.Link.Outbound;
 using QoffeeAutomat.Contracts.Link;
 using QoffeeAutomat.Core.Platform;
 
@@ -92,6 +93,10 @@ public static class LinkServices
 
         services.TryAddSingleton(new LinkOptions());
         services.TryAddSingleton<LinkServer>();
+
+        // The reverse link (T710) is registered first: hosted services stop in the reverse order, so the lifecycle service below tells the
+        // peers of the outbound connections bye, and only then does the reverse link end its connector.
+        services.AddReverseLink();
         services.AddHostedService<LinkLifecycleService>();
         return services;
     }

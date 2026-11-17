@@ -23,9 +23,19 @@ public interface ITrayShell : IDisposable
     /// <summary>Raised when the user chose Pause commands or Resume commands. May be raised on any thread.</summary>
     event EventHandler<TrayPauseRequestedEventArgs>? PauseRequested;
 
+    /// <summary>
+    /// Raised when the user chose Open UI or double-clicked the icon (T711). The shell does not open anything itself: the
+    /// handler decides which address to open and calls <see cref="OpenBrowser"/>. May be raised on any thread.
+    /// </summary>
+    event EventHandler? OpenUiRequested;
+
     /// <summary>Shows a new state; callable from any thread.</summary>
     /// <param name="view">What to show.</param>
     void Update(TrayView view);
+
+    /// <summary>Opens a loopback address in the default browser of the user; callable from any thread.</summary>
+    /// <param name="address">The address; the caller has checked that it is a loopback http address.</param>
+    void OpenBrowser(Uri address);
 }
 
 /// <summary>
@@ -39,6 +49,7 @@ public sealed class TrayCoordinator : IDisposable
     private readonly ITrayShell _shell;
     private readonly ISessionHostLog _log;
     private readonly object _gate = new();
+    private readonly bool _isAdministrator;
     private SessionTrayStateMessage? _state;
     private bool _connected;
     private bool _disposed;
@@ -47,7 +58,11 @@ public sealed class TrayCoordinator : IDisposable
     /// <param name="client">The connection to the agent.</param>
     /// <param name="shell">The icon.</param>
     /// <param name="log">The diagnostics log.</param>
-    public TrayCoordinator(SessionHostClient client, ITrayShell shell, ISessionHostLog? log = null)
+    /// <param name="isAdministrator">
+    /// Whether the user is an administrator. Only then is a login token requested; the agent checks again and does not take this
+    /// on trust.
+    /// </param>
+    public TrayCoordinator(SessionHostClient client, ITrayShell shell, ISessionHostLog? log = null, bool isAdministrator = false)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(shell);
@@ -55,12 +70,17 @@ public sealed class TrayCoordinator : IDisposable
         _client = client;
         _shell = shell;
         _log = log ?? NullSessionHostLog.Instance;
+        _isAdministrator = isAdministrator;
 
         _client.Connected += OnConnected;
         _client.Disconnected += OnDisconnected;
         _client.TrayStateReceived += OnTrayState;
         _shell.PauseRequested += OnPauseRequested;
+        _shell.OpenUiRequested += OnOpenUiRequested;
     }
+
+    /// <summary>How long Open UI waits for the agent to answer the request for a login token before it opens the login page.</summary>
+    public static TimeSpan LoginTokenTimeout { get; } = TimeSpan.FromSeconds(5);
 
     /// <summary>The view that is currently shown.</summary>
     public TrayView Current
@@ -91,6 +111,53 @@ public sealed class TrayCoordinator : IDisposable
         _client.Disconnected -= OnDisconnected;
         _client.TrayStateReceived -= OnTrayState;
         _shell.PauseRequested -= OnPauseRequested;
+        _shell.OpenUiRequested -= OnOpenUiRequested;
+    }
+
+    /// <summary>
+    /// Opens the UI in the browser (T711). When the user is an administrator the agent is asked for a single-use login token
+    /// and the browser opens with it, so no password is needed; the agent decides and a standard user never gets a token. A
+    /// standard user, a refusal, a timeout and a lost connection all end the same way: the browser opens the plain address and
+    /// shows the normal login page.
+    /// </summary>
+    /// <returns>A task that completes when the browser was started or there was nothing to open.</returns>
+    public async Task OpenUiAsync()
+    {
+        TrayView view = Current;
+        Uri? ui = view.UiUri;
+        if (ui is null || !view.CanOpenUi)
+        {
+            return;
+        }
+
+        Uri target = ui;
+        if (_isAdministrator)
+        {
+            string? token = await _client.RequestLoginTokenAsync(LoginTokenTimeout).ConfigureAwait(false);
+            if (token is not null)
+            {
+                target = TrayPresenter.BuildLoginUri(ui, token);
+            }
+        }
+
+        _shell.OpenBrowser(target);
+    }
+
+    private void OnOpenUiRequested(object? sender, EventArgs e)
+    {
+        _ = OpenUiSafeAsync();
+    }
+
+    private async Task OpenUiSafeAsync()
+    {
+        try
+        {
+            await OpenUiAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
+        {
+            _log.Warning("The UI could not be opened: " + exception.Message);
+        }
     }
 
     private void OnConnected(object? sender, EventArgs e)

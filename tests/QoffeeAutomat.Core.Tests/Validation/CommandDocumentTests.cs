@@ -62,7 +62,7 @@ public sealed class CommandDocumentTests
     public void A_newer_SchemaVersion_is_unsupported()
     {
         ValidationResult result = DocumentValidator.ValidateCommand(
-            TestDocuments.Command() with { SchemaVersion = DocumentSchema.CurrentVersion + 1 });
+            TestDocuments.Command() with { SchemaVersion = DocumentSchema.CommandVersion + 1 });
 
         TestDocuments.AssertError(result, "/schemaVersion", ValidationCodes.Unsupported);
     }

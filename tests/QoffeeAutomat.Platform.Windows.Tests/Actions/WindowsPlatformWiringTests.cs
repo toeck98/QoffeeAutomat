@@ -7,6 +7,7 @@ using QoffeeAutomat.Contracts.Link;
 using QoffeeAutomat.Core.Config;
 using QoffeeAutomat.Core.Platform;
 using QoffeeAutomat.Platform.Windows.Actions;
+using QoffeeAutomat.Platform.Windows.Actions.Power;
 using QoffeeAutomat.Platform.Windows.Security;
 using QoffeeAutomat.Platform.Windows.Service;
 using QoffeeAutomat.Platform.Windows.Sessions;
@@ -31,10 +32,16 @@ internal static class WindowsPlatformTestHost
             Path.Combine(root, "logs"));
     }
 
-    public static ServiceProvider Build(string root, FakePowerNativeApi power, FakeElevatedNativeApi elevated, FakeAcl acl)
+    public static ServiceProvider Build(
+        string root,
+        FakePowerNativeApi power,
+        FakeElevatedNativeApi elevated,
+        FakeAcl acl,
+        Action<IServiceCollection>? beforePlatform = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+        beforePlatform?.Invoke(services);
         services.AddSingleton<IPowerNativeApi>(power);
         services.AddSingleton<IElevatedNativeApi>(elevated);
         services.AddSingleton<IFileSystemAcl>(acl);
@@ -86,6 +93,60 @@ public sealed class WindowsPlatformWiringTests : IDisposable
 
         Assert.True(result.Succeeded);
         ActionTestData.AssertCalls(_power.Calls, "restart:force");
+    }
+
+    [Trait("Category", "PowerDelay")]
+    [Fact]
+    public async Task The_container_shares_one_pending_action_between_the_power_actions_and_the_logoff_and_power_cancel_ends_it()
+    {
+        using ServiceProvider provider = WindowsPlatformTestHost.Build(_temp.Path, _power, _elevated, _acl);
+        IBuiltinActionProvider actions = provider.GetRequiredService<IBuiltinActionProvider>();
+        PowerActionScheduler scheduler = provider.GetRequiredService<PowerActionScheduler>();
+        IReadOnlyDictionary<string, object> delayed = ActionTestData.Vars((PowerActionSpec.DelaySeconds, 3600L));
+
+        // No session helper is connected, so no dialog is shown and the delay simply elapses: it is long, nothing waits for it here.
+        Task<ExecutionResult> pending = actions.ExecuteAsync(WindowsActionNames.Shutdown, delayed, CancellationToken.None).AsTask();
+        ExecutionResult second = await actions.ExecuteAsync(WindowsActionNames.Restart, delayed, CancellationToken.None);
+
+        Assert.NotNull(scheduler.Current);
+        Assert.Equal(ErrorCodes.Busy, second.ErrorCode);
+
+        ExecutionResult cancel = await actions.ExecuteAsync(WindowsActionNames.CancelPending, ActionTestData.Vars(), CancellationToken.None);
+        ExecutionResult result = await pending.WaitAsync(TimeSpan.FromSeconds(20));
+
+        Assert.True(cancel.Succeeded);
+        Assert.Equal(ErrorCodes.Cancelled, result.ErrorCode);
+        Assert.Null(scheduler.Current);
+        Assert.Empty(_power.Calls);
+    }
+
+    [Trait("Category", "PowerDelay")]
+    [Fact]
+    public async Task Keep_awake_is_wired_to_the_power_request_and_gives_it_back_when_the_container_ends()
+    {
+        var request = new FakePowerRequestApi();
+        ServiceProvider provider = WindowsPlatformTestHost.Build(
+            _temp.Path,
+            _power,
+            _elevated,
+            _acl,
+            services => services.AddSingleton<IPowerRequestApi>(request));
+        IBuiltinActionProvider actions = provider.GetRequiredService<IBuiltinActionProvider>();
+
+        ExecutionResult on = await actions.ExecuteAsync(
+            WindowsActionNames.KeepAwake,
+            ActionTestData.Vars((PowerActionSpec.Display, true)),
+            CancellationToken.None);
+        KeepAwakeService service = provider.GetRequiredService<KeepAwakeService>();
+
+        Assert.True(on.Succeeded);
+        Assert.True(service.IsOn);
+        Assert.True(request.Held);
+        Assert.True(request.DisplayHeld);
+
+        await provider.DisposeAsync(); // the agent ends
+
+        Assert.False(request.Held);
     }
 
     [Fact]

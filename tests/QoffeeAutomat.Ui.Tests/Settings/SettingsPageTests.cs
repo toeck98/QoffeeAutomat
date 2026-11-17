@@ -125,6 +125,45 @@ public sealed class SettingsPageTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
+    public void The_hardware_sensors_are_off_by_default_and_the_driver_warning_is_always_shown()
+    {
+        IRenderedComponent<SettingsPage> cut = RenderPage();
+
+        Assert.Equal("false", cut.Find("[data-testid=setting-hardware]").GetAttribute("data-checked"));
+        Assert.Contains("PawnIO", cut.Find("[data-testid=hardware-warning]").TextContent, StringComparison.Ordinal);
+        Assert.Equal(HardwareSensorStates.Off, cut.Find("[data-testid=hardware-status]").GetAttribute("data-state"));
+    }
+
+    [Fact]
+    public void Switching_the_hardware_sensors_on_is_saved_and_the_status_is_shown()
+    {
+        _api.HardwareSensors = new HardwareSensorStatus(true, true, HardwareSensorStates.DriverMissing, "PawnIO", false, 4, "The driver is missing.");
+        IRenderedComponent<SettingsPage> cut = RenderPage();
+
+        cut.Find("[data-testid=setting-hardware] input").Change(true);
+        cut.Find("[data-testid=settings-save]").Click();
+
+        cut.WaitForAssertion(() => Assert.Single(_api.SettingsPuts), Patience);
+        Assert.True(_api.SettingsPuts[0].EffectiveHardwareSensorsEnabled);
+        Assert.Equal(HardwareSensorStates.DriverMissing, cut.Find("[data-testid=hardware-status]").GetAttribute("data-state"));
+        Assert.Contains("4", cut.Find("[data-testid=hardware-count]").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Switching_the_hardware_sensors_off_removes_the_setting()
+    {
+        _api.Settings = new AgentSettingsDocument(DocumentSchema.CurrentVersion, "Study PC", HardwareSensors: new HardwareSensorSettings(true), Revision: 3);
+        IRenderedComponent<SettingsPage> cut = RenderPage();
+        Assert.Equal("true", cut.Find("[data-testid=setting-hardware]").GetAttribute("data-checked"));
+
+        cut.Find("[data-testid=setting-hardware] input").Change(false);
+        cut.Find("[data-testid=settings-save]").Click();
+
+        cut.WaitForAssertion(() => Assert.Single(_api.SettingsPuts), Patience);
+        Assert.False(_api.SettingsPuts[0].EffectiveHardwareSensorsEnabled);
+    }
+
+    [Fact]
     public void A_restart_that_the_agent_refuses_shows_the_error_and_keeps_the_offer()
     {
         _api.RestartFailure = new ApiException(500, Samples.Problem(500, "internal_error", "Cannot restart."));

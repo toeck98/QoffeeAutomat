@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using MudBlazor;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Ui.Components.Api;
@@ -33,6 +34,11 @@ public partial class SettingsPage
     private string _logLevel = "information";
     private int? _runHistoryDays;
     private int? _auditLogDays;
+    private List<HotkeyRow> _hotkeys = [];
+    private HotkeyStatusResponse? _hotkeyStatus;
+    private bool _hardwareSensors;
+    private bool _updateCheck = true;
+    private HardwareSensorStatus? _hardwareStatus;
 
     private string? _currentPassword;
     private string? _newPassword;
@@ -41,6 +47,16 @@ public partial class SettingsPage
     private ApiException? _passwordError;
     private string? _passwordFailure;
     private string? _passwordNotice;
+
+    /// <summary>One line of the hotkey editor; a draft until it is saved with the settings.</summary>
+    private sealed class HotkeyRow
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public string Keys { get; set; } = string.Empty;
+
+        public bool Enabled { get; set; } = true;
+    }
 
     [Inject]
     private IAgentApi Api { get; set; } = null!;
@@ -52,6 +68,8 @@ public partial class SettingsPage
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
+        await LoadHotkeyStatusAsync();
+        await LoadHardwareStatusAsync();
         _loading = false;
     }
 
@@ -59,7 +77,93 @@ public partial class SettingsPage
     {
         _loading = true;
         await LoadAsync();
+        await LoadHotkeyStatusAsync();
+        await LoadHardwareStatusAsync();
         _loading = false;
+    }
+
+    private async Task ReloadHardwareStatusAsync()
+    {
+        await LoadHardwareStatusAsync();
+    }
+
+    /// <summary>Asks what became of the hardware sensors. Failing to ask is not an error of the page: the setting can be edited without it.</summary>
+    private async Task LoadHardwareStatusAsync()
+    {
+        try
+        {
+            _hardwareStatus = await Api.GetHardwareSensorStatusAsync();
+        }
+        catch (ApiException exception) when (exception.IsUnauthorized)
+        {
+            Session.MarkSignedOut();
+        }
+        catch (ApiException)
+        {
+            _hardwareStatus = null;
+        }
+    }
+
+    private Severity HardwareSeverity()
+    {
+        return _hardwareStatus?.State switch
+        {
+            HardwareSensorStates.Running => Severity.Success,
+            HardwareSensorStates.DriverMissing or HardwareSensorStates.Failed => Severity.Warning,
+            _ => Severity.Info,
+        };
+    }
+
+    private async Task ReloadHotkeyStatusAsync()
+    {
+        await LoadHotkeyStatusAsync();
+    }
+
+    /// <summary>Asks which hotkeys Windows accepted. Failing to ask is not an error of the page: the settings can be edited without it.</summary>
+    private async Task LoadHotkeyStatusAsync()
+    {
+        try
+        {
+            _hotkeyStatus = await Api.GetHotkeyStatusAsync();
+        }
+        catch (ApiException exception) when (exception.IsUnauthorized)
+        {
+            Session.MarkSignedOut();
+        }
+        catch (ApiException)
+        {
+            _hotkeyStatus = null;
+        }
+    }
+
+    private void AddHotkey()
+    {
+        _hotkeys.Add(new HotkeyRow());
+    }
+
+    private void RemoveHotkey(HotkeyRow row)
+    {
+        _hotkeys.Remove(row);
+    }
+
+    /// <summary>What the agent said about a hotkey of the saved settings; null for a new or edited one, or when nothing was reported.</summary>
+    private HotkeyStatusEntry? StatusOf(HotkeyRow row)
+    {
+        HotkeyStatusEntry? entry = _hotkeyStatus?.Hotkeys.FirstOrDefault(candidate => string.Equals(candidate.Name, row.Name, StringComparison.Ordinal));
+
+        // A status describes the keys that were saved; once they are edited it no longer applies.
+        return entry is not null && string.Equals(entry.Keys, row.Keys, StringComparison.Ordinal) ? entry : null;
+    }
+
+    /// <summary>The reason why the keys of a row cannot be saved; null when they are fine or still empty.</summary>
+    private static string? KeysProblem(HotkeyRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.Keys))
+        {
+            return null;
+        }
+
+        return HotkeyGesture.TryParse(row.Keys, out _, out string? problem) ? null : problem;
     }
 
     private async Task LoadAsync()
@@ -93,6 +197,9 @@ public partial class SettingsPage
         _logLevel = Array.IndexOf(LogLevels, level) >= 0 ? level : "information";
         _runHistoryDays = settings.Retention?.RunHistoryDays;
         _auditLogDays = settings.Retention?.AuditLogDays;
+        _hardwareSensors = settings.EffectiveHardwareSensorsEnabled;
+        _updateCheck = settings.EffectiveUpdateCheck;
+        _hotkeys = [.. (settings.Hotkeys ?? []).Select(hotkey => new HotkeyRow { Name = hotkey.Name, Keys = hotkey.Keys, Enabled = hotkey.EffectiveEnabled })];
     }
 
     private async Task SaveAsync()
@@ -106,6 +213,12 @@ public partial class SettingsPage
         _actionError = null;
         _notice = null;
         AgentSettingsDocument previous = _settings;
+        List<HotkeySettings>? hotkeys = _hotkeys.Count == 0
+            ? null
+            : _hotkeys.Select(row => new HotkeySettings(row.Name.Trim(), row.Keys.Trim(), row.Enabled ? null : false)).ToList();
+
+        // The interval is not edited here; it stays as it is. Absent members mean "on, every 24 hours".
+        var updates = new UpdateSettings(_updateCheck ? null : false, previous.Updates?.IntervalHours);
         AgentSettingsDocument draft = previous with
         {
             Name = _name.Trim(),
@@ -115,6 +228,9 @@ public partial class SettingsPage
             TrayIcon = _trayIcon,
             Logging = new LoggingSettings(_logLevel),
             Retention = new RetentionSettings(_runHistoryDays, _auditLogDays),
+            Hotkeys = hotkeys,
+            HardwareSensors = _hardwareSensors ? new HardwareSensorSettings(true) : null,
+            Updates = updates.Check is null && updates.IntervalHours is null ? null : updates,
         };
 
         try
@@ -135,6 +251,12 @@ public partial class SettingsPage
 
             Adopt(saved);
             _notice = L["Settings.Saved"];
+
+            // The SessionHost registers the new hotkeys right after the save; "Refresh" shows its answer.
+            await LoadHotkeyStatusAsync();
+
+            // Turning the sensors on opens the library in the background: the first answer may say "starting"; "Refresh status" shows the result.
+            await LoadHardwareStatusAsync();
         }
         catch (ApiException exception) when (exception.IsUnauthorized)
         {

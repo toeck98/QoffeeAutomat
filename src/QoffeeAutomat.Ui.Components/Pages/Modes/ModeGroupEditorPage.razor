@@ -1,0 +1,241 @@
+@page "/modes/new"
+@page "/modes/{Id}"
+@using QoffeeAutomat.Contracts.Config
+@using QoffeeAutomat.Ui.Components.Pages.CommandEditor
+@inherits LocalizedComponentBase
+
+@* The mode group editor (PLAN.md T717): creates a group or changes one. Every mode has the steps that run when it is entered and
+   when it is left; the steps are edited with the step editor of the sequence action. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true" data-testid="mode-editor-title">@TitleText</MudText>
+  <span class="qa-editor-actions">
+    <MudButton Variant="Variant.Text" Href="/modes" data-testid="mode-editor-back">@L["Modes.Editor.Back"]</MudButton>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Save"
+               OnClick="SaveAsync"
+               Disabled="@(_saving || _loading || _notFound || _loadError is not null)"
+               data-testid="mode-save">@L["Modes.Editor.Save"]</MudButton>
+  </span>
+</div>
+
+<ErrorDisplay Error="_loadError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_notFound)
+{
+  <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4" data-testid="mode-not-found">@L["Modes.Editor.NotFound"]</MudAlert>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_loadError is null && !_notFound)
+{
+  <ErrorDisplay Error="_saveError" Class="mb-4" />
+  @if (_notice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="mode-saved">@_notice</MudAlert>
+  }
+
+  @if (_errors.Count > 0)
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4" data-testid="mode-validation-summary">
+      <div>@L.Format("Modes.Editor.Validation.Summary", _errors.Count)</div>
+      <ul class="qa-error-list">
+        @foreach (ApiValidationError error in _errors.All)
+        {
+          <li><code>@error.Path</code> @TextOf(error)</li>
+        }
+      </ul>
+    </MudAlert>
+  }
+
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="mode-section-general">
+    <MudText Typo="Typo.h6" Class="mb-3">@L["Modes.Editor.General"]</MudText>
+    <MudGrid Spacing="2">
+      <MudItem xs="12" md="6">
+        <div data-testid="mode-field-name">
+          <MudTextField T="string"
+                        @bind-Value="_draft.Name"
+                        @bind-Value:after="OnNameChanged"
+                        Immediate="true"
+                        Label="@L["Modes.Field.Name"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Required="true"
+                        Error="@_errors.Has("/name")" />
+        </div>
+        <FieldError Errors="_errors" Path="/name" />
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <div data-testid="mode-field-id">
+          <MudTextField T="string"
+                        @bind-Value="_draft.Id"
+                        @bind-Value:after="OnIdChanged"
+                        Immediate="true"
+                        TextUpdateSuppression="false"
+                        Label="@L["Modes.Field.Id"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Disabled="@(!_draft.IsNew)"
+                        HelperText="@(_draft.IsNew ? L["Modes.Field.Id.Help"] : L["Modes.Field.Id.Fixed"])"
+                        Error="@_errors.Has("/id")"
+                        spellcheck="false" />
+        </div>
+        <FieldError Errors="_errors" Path="/id" />
+      </MudItem>
+      <MudItem xs="12">
+        <div data-testid="mode-field-description">
+          <MudTextField T="string"
+                        @bind-Value="_draft.Description"
+                        Immediate="true"
+                        Lines="2"
+                        Label="@L["Modes.Field.Description"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Error="@_errors.Has("/description")" />
+        </div>
+        <FieldError Errors="_errors" Path="/description" />
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <div data-testid="mode-field-icon">
+          <MudTextField T="string"
+                        @bind-Value="_draft.Icon"
+                        Immediate="true"
+                        Label="@L["Editor.Field.IconName"]"
+                        HelperText="@L["Editor.Field.IconName.Help"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Error="@_errors.Has("/icon")"
+                        spellcheck="false" />
+        </div>
+        <FieldError Errors="_errors" Path="/icon" />
+      </MudItem>
+      <MudItem xs="12" md="3">
+        <MudSwitch T="bool" @bind-Value="_draft.Enabled" Label="@L["Modes.Field.Enabled"]" Color="Color.Primary" data-testid="mode-field-enabled" />
+      </MudItem>
+      <MudItem xs="12" md="3">
+        <MudSwitch T="bool" @bind-Value="_draft.ExposeToHa" Label="@L["Modes.Field.Expose"]" Color="Color.Primary" data-testid="mode-field-expose" />
+      </MudItem>
+    </MudGrid>
+  </MudPaper>
+
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="mode-section-behaviour">
+    <MudText Typo="Typo.h6" Class="mb-3">@L["Modes.Editor.Behaviour"]</MudText>
+    <SelectBox Label="@L["Modes.Field.Default"]"
+               @bind-Value="_draft.DefaultChoice"
+               Error="@_errors.Has("/defaultMode")"
+               TestId="mode-field-default">
+      <option value="">@L["Modes.Field.Default.Choose"]</option>
+      @for (int index = 0; index < _draft.Modes.Count; index++)
+      {
+        <option value="@index">@ModeLabel(_draft.Modes[index], index)</option>
+      }
+    </SelectBox>
+    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Modes.Field.Default.Help"]</MudText>
+    <FieldError Errors="_errors" Path="/defaultMode" />
+
+    <div class="mt-3">
+      <SelectBox Label="@L["Modes.Field.OnBoot"]"
+                 @bind-Value="_draft.OnBoot"
+                 Error="@_errors.Has("/onBoot")"
+                 TestId="mode-field-onboot">
+        @foreach (string behavior in With(BootBehaviors, _draft.OnBoot))
+        {
+          <option value="@behavior">@(L.Find("Modes.OnBoot." + behavior) ?? behavior)</option>
+        }
+      </SelectBox>
+      <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="mode-onboot-help">@(L.Find("Modes.OnBoot." + _draft.OnBoot + ".Help") ?? string.Empty)</MudText>
+      <FieldError Errors="_errors" Path="/onBoot" />
+    </div>
+
+    <div class="mt-3">
+      <SelectBox Label="@L["Modes.Field.OnError"]"
+                 @bind-Value="_draft.OnError"
+                 Error="@_errors.Has("/onError")"
+                 TestId="mode-field-onerror">
+        @foreach (string behavior in With(ErrorBehaviors, _draft.OnError))
+        {
+          <option value="@behavior">@(L.Find("Modes.OnError." + behavior) ?? behavior)</option>
+        }
+      </SelectBox>
+      <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="mode-onerror-help">@(L.Find("Modes.OnError." + _draft.OnError + ".Help") ?? string.Empty)</MudText>
+      <FieldError Errors="_errors" Path="/onError" />
+    </div>
+  </MudPaper>
+
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="mode-section-modes">
+    <MudText Typo="Typo.h6" Class="mb-1">@L["Modes.Editor.Modes"]</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Modes.Editor.Modes.Help"]</MudText>
+    <FieldError Errors="_errors" Path="/modes" />
+
+    @for (int index = 0; index < _draft.Modes.Count; index++)
+    {
+      int position = index;
+      ModeDraft mode = _draft.Modes[position];
+      string path = "/modes/" + position;
+      <MudPaper @key="mode.Key" Class="pa-3 mb-3" Outlined="true" data-testid="@($"mode-card-{position}")">
+        <div class="qa-step-header">
+          <MudText Typo="Typo.subtitle1">@L.Format("Modes.Editor.ModeTitle", position + 1, mode.Label)</MudText>
+          <span>
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="@(position == 0)" OnClick="@(() => MoveMode(position, -1))" aria-label="@L["Editor.Move.Up"]" data-testid="@($"mode-up-{position}")" />
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="@(position == _draft.Modes.Count - 1)" OnClick="@(() => MoveMode(position, 1))" aria-label="@L["Editor.Move.Down"]" data-testid="@($"mode-down-{position}")" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveMode(position))" aria-label="@L["Editor.Remove"]" data-testid="@($"mode-remove-{position}")" />
+          </span>
+        </div>
+        <MudGrid Spacing="2">
+          <MudItem xs="12" md="6">
+            <div data-testid="@($"mode-{position}-name")">
+              <MudTextField T="string"
+                            @bind-Value="mode.Name"
+                            @bind-Value:after="@(() => OnModeNameChanged(mode))"
+                            Immediate="true"
+                            Label="@L["Modes.Field.ModeName"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            Required="true"
+                            Error="@_errors.Has(path + "/name")" />
+            </div>
+            <FieldError Errors="_errors" Path="@(path + "/name")" />
+          </MudItem>
+          <MudItem xs="12" md="6">
+            <div data-testid="@($"mode-{position}-id")">
+              <MudTextField T="string"
+                            @bind-Value="mode.Id"
+                            @bind-Value:after="@(() => OnModeIdChanged(mode))"
+                            Immediate="true"
+                            TextUpdateSuppression="false"
+                            Label="@L["Modes.Field.ModeId"]"
+                            HelperText="@L["Modes.Field.ModeId.Help"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            Error="@_errors.Has(path + "/id")"
+                            spellcheck="false" />
+            </div>
+            <FieldError Errors="_errors" Path="@(path + "/id")" />
+          </MudItem>
+          <MudItem xs="12" lg="6">
+            <MudText Typo="Typo.subtitle2">@L["Modes.Editor.Enter"]</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Modes.Editor.Enter.Help"]</MudText>
+            <StepListEditor Steps="mode.Enter"
+                            Path="@(path + "/enter")"
+                            IdPrefix="@($"mode-{position}-enter-")"
+                            Errors="_errors"
+                            CommandIds="_commandIds" />
+          </MudItem>
+          <MudItem xs="12" lg="6">
+            <MudText Typo="Typo.subtitle2">@L["Modes.Editor.Exit"]</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Modes.Editor.Exit.Help"]</MudText>
+            <StepListEditor Steps="mode.Exit"
+                            Path="@(path + "/exit")"
+                            IdPrefix="@($"mode-{position}-exit-")"
+                            Errors="_errors"
+                            CommandIds="_commandIds" />
+          </MudItem>
+        </MudGrid>
+      </MudPaper>
+    }
+
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddMode" data-testid="mode-add">@L["Modes.Editor.AddMode"]</MudButton>
+  </MudPaper>
+}

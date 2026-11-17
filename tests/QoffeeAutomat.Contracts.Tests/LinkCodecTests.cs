@@ -174,7 +174,7 @@ public class LinkCodecTests
     {
         string readme = File.ReadAllText(Path.Combine(RepositoryPaths.ProtocolDirectory, "README.md"));
 
-        Assert.Equal(14, ErrorCodes.All.Count);
+        Assert.Equal(15, ErrorCodes.All.Count);
         foreach (string code in ErrorCodes.All)
         {
             Assert.Contains($"| `{code}` |", readme, StringComparison.Ordinal);

@@ -65,6 +65,12 @@ public static class SecretNames
     /// <summary>The TLS certificate with its private key (PFX).</summary>
     public const string TlsCertificate = "tls.certificate";
 
+    /// <summary>The SHA-256 hash (lower-case hex) of the read-only token of the Prometheus endpoint (T709); the token itself is never stored.</summary>
+    public const string PrometheusTokenHash = "prometheus.token_hash";
+
+    /// <summary>The reverse-link token that the agent presents to Home Assistant (T710, ADR 0003); unlike the hashes above it is the credential itself.</summary>
+    public const string ReverseLinkToken = "reverse_link.token";
+
     /// <summary>The prefix of secrets that belong to scripts (after v1).</summary>
     public const string ScriptPrefix = "script.";
 

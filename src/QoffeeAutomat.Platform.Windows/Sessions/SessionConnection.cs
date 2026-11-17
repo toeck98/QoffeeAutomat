@@ -24,6 +24,20 @@ public sealed class SessionMetricsEventArgs : EventArgs
     public SessionMetricsStateMessage Message { get; }
 }
 
+/// <summary>Raised when the SessionHost reports the options of the metrics whose options are not fixed (T713).</summary>
+public sealed class SessionMetricOptionsEventArgs : EventArgs
+{
+    /// <summary>Creates the arguments.</summary>
+    /// <param name="options">The options by metric id, as reported.</param>
+    public SessionMetricOptionsEventArgs(IReadOnlyDictionary<string, IReadOnlyList<string>> options)
+    {
+        Options = options;
+    }
+
+    /// <summary>The options by metric id.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Options { get; }
+}
+
 /// <summary>Raised when the SessionHost reports that something happened in the session.</summary>
 public sealed class SessionHostEventArgs : EventArgs
 {
@@ -52,6 +66,34 @@ public sealed class SessionPauseRequestedEventArgs : EventArgs
     public bool Paused { get; }
 }
 
+/// <summary>Raised when the SessionHost asks for a single-use login token (T711).</summary>
+public sealed class SessionLoginTokenRequestedEventArgs : EventArgs
+{
+    /// <summary>Creates the arguments.</summary>
+    /// <param name="requestId">The id of the request; the answer carries it.</param>
+    public SessionLoginTokenRequestedEventArgs(string requestId)
+    {
+        RequestId = requestId;
+    }
+
+    /// <summary>The id of the request.</summary>
+    public string RequestId { get; }
+}
+
+/// <summary>Raised when the SessionHost reports the outcome of a hotkey registration (T708).</summary>
+public sealed class SessionHotkeyStateEventArgs : EventArgs
+{
+    /// <summary>Creates the arguments.</summary>
+    /// <param name="message">The <c>hotkey_state</c> message.</param>
+    public SessionHotkeyStateEventArgs(SessionHotkeyStateMessage message)
+    {
+        Message = message;
+    }
+
+    /// <summary>The <c>hotkey_state</c> message.</summary>
+    public SessionHotkeyStateMessage Message { get; }
+}
+
 /// <summary>
 /// The agent's end of an established session pipe: the SessionHost of one session after its handshake. It sends
 /// <c>run</c> messages and delivers the <c>run_output</c> and <c>run_result</c> messages to the waiting caller,
@@ -74,6 +116,7 @@ public sealed class SessionConnection : IDisposable
     private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private long _runCounter;
     private int _closing;
+    private volatile IReadOnlyDictionary<string, IReadOnlyList<string>> _metricOptions = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
     /// <summary>Creates the connection; call <see cref="Start"/> to begin reading.</summary>
     /// <param name="stream">The connected pipe, after the handshake.</param>
@@ -109,11 +152,26 @@ public sealed class SessionConnection : IDisposable
     /// <summary>Raised when the SessionHost reports metric values. Handlers must return quickly.</summary>
     public event EventHandler<SessionMetricsEventArgs>? MetricsStateReceived;
 
+    /// <summary>Raised when the SessionHost reports the options of the metrics with dynamic options (T713). Handlers must return quickly.</summary>
+    public event EventHandler<SessionMetricOptionsEventArgs>? MetricOptionsReceived;
+
     /// <summary>Raised when the SessionHost reports an event of the session. Handlers must return quickly.</summary>
     public event EventHandler<SessionHostEventArgs>? EventReceived;
 
     /// <summary>Raised when the user chose Pause commands or Resume commands in the tray menu (T310). Handlers must return quickly.</summary>
     public event EventHandler<SessionPauseRequestedEventArgs>? PauseRequested;
+
+    /// <summary>Raised when the user chose Open UI in the tray menu and the SessionHost asks for a login token (T711). Handlers must return quickly.</summary>
+    public event EventHandler<SessionLoginTokenRequestedEventArgs>? LoginTokenRequested;
+
+    /// <summary>Raised when the SessionHost reports which hotkeys it could register (T708). Handlers must return quickly.</summary>
+    public event EventHandler<SessionHotkeyStateEventArgs>? HotkeyStateReceived;
+
+    /// <summary>
+    /// The options of the metrics with dynamic options that the SessionHost reported last (<c>metric_options</c>, T713); empty until
+    /// it reports. A listener that attaches later reads this first, so that a message that arrived before it is not lost.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> MetricOptions => _metricOptions;
 
     /// <summary>The <c>hello</c> of the SessionHost.</summary>
     public SessionHelloMessage Hello { get; }
@@ -254,6 +312,26 @@ public sealed class SessionConnection : IDisposable
     {
         ArgumentNullException.ThrowIfNull(state);
         return SendAsync(state, cancellationToken);
+    }
+
+    /// <summary>Answers a <c>login_token_request</c> (T711).</summary>
+    /// <param name="answer">The <c>login_token</c> message.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>A task that completes when the message was sent.</returns>
+    public Task SendLoginTokenAsync(SessionLoginTokenMessage answer, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(answer);
+        return SendAsync(answer, cancellationToken);
+    }
+
+    /// <summary>Tells the SessionHost which global hotkeys to register (replaces the previous list, T708).</summary>
+    /// <param name="hotkeys">The hotkeys; empty unregisters all.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>A task that completes when the message was sent.</returns>
+    public Task SendHotkeysAsync(IReadOnlyList<SessionHotkeyDefinition> hotkeys, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(hotkeys);
+        return SendAsync(new SessionHotkeysMessage(hotkeys), cancellationToken);
     }
 
     /// <summary>Asks the SessionHost to end and closes the connection.</summary>
@@ -461,11 +539,21 @@ public sealed class SessionConnection : IDisposable
             case SessionMetricsStateMessage metrics:
                 MetricsStateReceived?.Invoke(this, new SessionMetricsEventArgs(metrics));
                 return true;
+            case SessionMetricOptionsMessage metricOptions:
+                _metricOptions = metricOptions.Options;
+                MetricOptionsReceived?.Invoke(this, new SessionMetricOptionsEventArgs(metricOptions.Options));
+                return true;
             case SessionEventMessage sessionEvent:
                 EventReceived?.Invoke(this, new SessionHostEventArgs(sessionEvent));
                 return true;
             case SessionSetPauseMessage setPause:
                 PauseRequested?.Invoke(this, new SessionPauseRequestedEventArgs(setPause.Paused));
+                return true;
+            case SessionLoginTokenRequestMessage tokenRequest:
+                LoginTokenRequested?.Invoke(this, new SessionLoginTokenRequestedEventArgs(tokenRequest.RequestId));
+                return true;
+            case SessionHotkeyStateMessage hotkeyState:
+                HotkeyStateReceived?.Invoke(this, new SessionHotkeyStateEventArgs(hotkeyState));
                 return true;
             case SessionShutdownMessage:
                 return false;

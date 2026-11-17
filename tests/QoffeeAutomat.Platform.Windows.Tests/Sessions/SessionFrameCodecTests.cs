@@ -62,6 +62,11 @@ public sealed class SessionFrameCodecTests
                 ["session.muted"] = Json("true"),
                 ["session.active_window"] = Json("null"),
             }),
+            new SessionMetricOptionsMessage(new Dictionary<string, IReadOnlyList<string>>
+            {
+                ["audio.output_device"] = ["Headphones (USB Headset)", "Speakers (Realtek Audio)"],
+                ["audio.input_device"] = [],
+            }),
             new SessionNotifyMessage("Title", "Text with ümlaut"),
             new SessionEventMessage("locked", 1_760_000_000_000, Json("{\"user\":\"alice\"}")),
             new SessionEventMessage("unlocked", 1_760_000_000_001),
@@ -160,6 +165,32 @@ public sealed class SessionFrameCodecTests
         Assert.Contains("\"t\":\"run_output\"", json, StringComparison.Ordinal);
         Assert.Contains("\"run_id\":\"r1\"", json, StringComparison.Ordinal);
         Assert.Contains("\"stream\":\"stdout\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_metric_options_message_carries_the_complete_option_sets_by_metric_id()
+    {
+        string json = PayloadOf(SessionFrameCodec.Encode(new SessionMetricOptionsMessage(new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["audio.output_device"] = ["Headphones", "Speakers"],
+            ["audio.input_device"] = [],
+        })));
+
+        Assert.Equal(
+            "{\"t\":\"metric_options\",\"options\":{\"audio.output_device\":[\"Headphones\",\"Speakers\"],\"audio.input_device\":[]}}",
+            json);
+    }
+
+    [Fact]
+    public async Task The_metric_options_message_is_read_back_with_the_order_of_the_options()
+    {
+        using var stream = new MemoryStream();
+        await SessionFrameCodec.WriteAsync(stream, new SessionMetricOptionsMessage(new Dictionary<string, IReadOnlyList<string>> { ["audio.output_device"] = ["Zebra", "Alpha"] }));
+        stream.Position = 0;
+
+        SessionMetricOptionsMessage read = Assert.IsType<SessionMetricOptionsMessage>(await SessionFrameCodec.ReadAsync(stream));
+
+        Assert.Equal(["Zebra", "Alpha"], read.Options["audio.output_device"]);
     }
 
     [Fact]

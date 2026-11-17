@@ -12,7 +12,7 @@ namespace QoffeeAutomat.Core.Manifest;
 /// <c>rev</c>, whatever order the inputs arrive in. Only what Home Assistant needs goes in:
 /// <list type="bullet">
 /// <item>metrics that are exposed to Home Assistant (<see cref="MetricCatalogEntry.ExposeToHa"/>), with the effective interval and deadband;</item>
-/// <item>commands that are enabled and exposed, with their variables and control mapping; a command without a control, or with the control <c>none</c>, has no <c>control</c> member;</item>
+/// <item>commands that are enabled and exposed, with their variables and control mapping; a command without a control, or with the control <c>none</c>, has no <c>control</c> member; the options of an enum variable with <c>optionsFrom</c> (T713) are the current options of that metric, so they follow the state of the PC and <c>rev</c> changes with them;</item>
 /// <item>the catalogued events.</item>
 /// </list>
 /// Everything that does not change what a client can see or do is left out, so editing only the script of a
@@ -41,20 +41,25 @@ public static class ManifestBuilder
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(events);
 
+        MetricCatalogEntry[] catalog = [.. metrics];
         MetricDescriptor[] metricDescriptors =
         [
-            .. metrics
+            .. catalog
                 .Where(entry => entry.ExposeToHa)
                 .Select(entry => entry.Descriptor)
                 .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal),
         ];
+
+        // The options of every metric of the catalog, exposed or not: a variable may take its options from a metric that only
+        // the commands use (optionsFrom, T713).
+        Dictionary<string, IReadOnlyList<string>> metricOptions = OptionsOf(catalog);
 
         CommandDescriptor[] commandDescriptors =
         [
             .. commands
                 .Where(command => command.Enabled && command.ExposeToHa)
                 .OrderBy(command => command.Id, StringComparer.Ordinal)
-                .Select(Describe),
+                .Select(command => Describe(command, metricOptions)),
         ];
 
         EventDescriptor[] eventDescriptors =
@@ -78,12 +83,15 @@ public static class ManifestBuilder
 
     /// <summary>Describes one command the way the manifest announces it (PLAN.md S06, S07).</summary>
     /// <param name="command">The command document.</param>
+    /// <param name="metricOptions">The current options of the enum metrics by metric id, for the variables that have <c>optionsFrom</c> (T713); null, or a metric that is missing from it, gives such a variable no options.</param>
     /// <returns>The descriptor.</returns>
-    public static CommandDescriptor Describe(CommandDocument command)
+    public static CommandDescriptor Describe(
+        CommandDocument command,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? metricOptions = null)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        VariableDescriptor[] variables = [.. (command.Parameters ?? []).Select(DescribeVariable)];
+        VariableDescriptor[] variables = [.. (command.Parameters ?? []).Select(parameter => DescribeVariable(parameter, metricOptions))];
         return new CommandDescriptor(
             command.Id,
             command.Name,
@@ -94,8 +102,37 @@ public static class ManifestBuilder
             DescribeControl(command.HaControl));
     }
 
-    private static VariableDescriptor DescribeVariable(ParameterDefinition parameter)
+    private static Dictionary<string, IReadOnlyList<string>> OptionsOf(IEnumerable<MetricCatalogEntry> catalog)
     {
+        var options = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        foreach (MetricCatalogEntry entry in catalog)
+        {
+            if (entry.Descriptor.Options is { } list)
+            {
+                options[entry.Id] = list;
+            }
+        }
+
+        return options;
+    }
+
+    /// <summary>
+    /// <c>optionsFrom</c> replaces <c>options</c>: the variable gets the current options of the metric. A metric without options
+    /// (unknown, not an enum, or nothing to offer yet, for example no audio device) gives the variable none, because the manifest
+    /// schema does not allow an empty list; the consumer then has nothing to offer until options appear and <c>rev</c> changes.
+    /// </summary>
+    private static VariableDescriptor DescribeVariable(ParameterDefinition parameter, IReadOnlyDictionary<string, IReadOnlyList<string>>? metricOptions)
+    {
+        IReadOnlyList<string>? options = parameter.Options;
+        if (!string.IsNullOrEmpty(parameter.OptionsFrom))
+        {
+            options = metricOptions is not null
+                && metricOptions.TryGetValue(parameter.OptionsFrom, out IReadOnlyList<string>? current)
+                && current.Count > 0
+                    ? current
+                    : null;
+        }
+
         return new VariableDescriptor(
             parameter.Name,
             parameter.Type,
@@ -106,7 +143,7 @@ public static class ManifestBuilder
             parameter.Step,
             parameter.Pattern,
             parameter.MaxLength,
-            parameter.Options,
+            options,
             parameter.Secret ? true : null,
             parameter.Unit,
             parameter.Description);

@@ -55,6 +55,7 @@ def test_metrics_page_lists_system_and_session_metrics(pages: dict[str, str]) ->
         "session.ready",
         "window.title",
         "audio.volume",
+        "power.keep_awake",
     ):
         assert f"`{metric_id}`" in text, metric_id
 

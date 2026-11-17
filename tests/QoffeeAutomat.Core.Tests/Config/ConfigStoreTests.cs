@@ -26,7 +26,7 @@ public sealed class ConfigStoreTests
         Assert.Equal(1, stored.Revision);
         Assert.Equal(Start, stored.UpdatedAt);
         Assert.Equal(DocumentOrigins.Local, stored.Origin);
-        Assert.Equal(DocumentSchema.CurrentVersion, stored.SchemaVersion);
+        Assert.Equal(DocumentSchema.CommandVersion, stored.SchemaVersion);
         Assert.True(File.Exists(CommandPath(temp, "my_command")));
 
         using JsonDocument json = JsonDocument.Parse(await File.ReadAllTextAsync(CommandPath(temp, "my_command")));

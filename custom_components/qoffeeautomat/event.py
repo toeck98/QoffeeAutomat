@@ -37,7 +37,9 @@ PARALLEL_UPDATES = 0
 def event_types_of(runtime: QoffeeAutomatRuntimeData) -> list[str]:
     """Return ``booted`` and the event types that the manifest announces."""
     types = [EVENT_TYPE_BOOTED]
-    for descriptor in runtime.manifest_manager.manifest.events:
+    manager = runtime.manifest_manager
+    # An agent that dials Home Assistant may not have connected yet.
+    for descriptor in manager.manifest.events if manager.loaded else ():
         if descriptor.type not in types:
             types.append(descriptor.type)
     return types

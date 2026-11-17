@@ -1,5 +1,6 @@
 using QoffeeAutomat.Agent.Api;
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Api.Prometheus;
 using QoffeeAutomat.Agent.Api.Runtime;
 using QoffeeAutomat.Agent.Link.Pairing;
 
@@ -26,6 +27,7 @@ public static class ManagementApi
     [
         BasePath + "/auth/setup",
         BasePath + "/auth/login",
+        BasePath + "/auth/one-time",
     ];
 
     /// <summary>Creates the protected <c>/api/v1</c> group.</summary>
@@ -50,6 +52,7 @@ public static class ManagementApi
         PairingEndpoints.MapManagement(api);
         ConfigurationEndpoints.Map(api);
         RuntimeEndpoints.Map(api);
+        PrometheusEndpoints.Map(api);
         OpenApiEndpoint.Map(routes);
     }
 }

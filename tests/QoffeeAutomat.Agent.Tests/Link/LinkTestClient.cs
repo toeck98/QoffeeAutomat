@@ -188,6 +188,22 @@ internal sealed class LinkTestClient : IAsyncDisposable
         return client;
     }
 
+    /// <summary>
+    /// Wraps a socket that the agent opened itself (the reverse link, T710): the test plays the peer that accepted it. Waits for <c>hello</c>,
+    /// which the agent sends first no matter who dialled; the client does not answer it.
+    /// </summary>
+    /// <param name="socket">The accepted socket.</param>
+    /// <returns>The client that reads the frames of the agent.</returns>
+    public static async Task<LinkTestClient> AttachAsync(WebSocket socket)
+    {
+        ArgumentNullException.ThrowIfNull(socket);
+
+        var client = new LinkTestClient(socket);
+        client._reader = Task.Run(client.ReadLoopAsync);
+        await client.WaitForAsync(frame => TypeOf(frame) == MessageTypes.Hello, "hello");
+        return client;
+    }
+
     /// <summary>Connects and answers <c>hello</c> with <c>client_hello</c> for protocol version 1.</summary>
     /// <param name="agent">The test agent.</param>
     /// <param name="token">The link token.</param>
@@ -325,10 +341,24 @@ internal sealed class LinkTestClient : IAsyncDisposable
             {
                 await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "done", timeout.Token);
             }
-            catch (Exception exception) when (exception is WebSocketException or InvalidOperationException or OperationCanceledException or ObjectDisposedException)
+            catch (Exception exception) when (exception is WebSocketException or InvalidOperationException or OperationCanceledException or ObjectDisposedException or IOException)
             {
                 // The agent closed first; the reader has seen it.
             }
+        }
+
+        await TestWait.WithTimeoutAsync(_reader, "the connection to end after the close frame");
+    }
+
+    /// <summary>Closes the connection with a close code, as a peer does that rejects the agent (4401), and waits for the close frame of the agent.</summary>
+    /// <param name="code">The close code.</param>
+    /// <param name="reason">The close reason.</param>
+    public async Task CloseWithAsync(int code, string reason)
+    {
+        if (_socket.State == WebSocketState.Open)
+        {
+            using var timeout = new CancellationTokenSource(TestWait.DefaultTimeout);
+            await _socket.CloseOutputAsync((WebSocketCloseStatus)code, reason, timeout.Token);
         }
 
         await TestWait.WithTimeoutAsync(_reader, "the connection to end after the close frame");

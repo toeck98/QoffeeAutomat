@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "step_command_and_delay",
+  "name": "Step with command and delay",
+  "enabled": true,
+  "exposeToHa": true,
+  "defaultMode": "normal",
+  "modes": [
+    {
+      "id": "normal",
+      "name": "Normal",
+      "enter": [ { "command": "lock_pc", "delaySeconds": 2 } ]
+    }
+  ]
+}

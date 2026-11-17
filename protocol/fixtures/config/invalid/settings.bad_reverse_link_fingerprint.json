@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "name": "Roaming-Laptop",
+  "reverseLink": {
+    "enabled": true,
+    "url": "wss://ha.example.org/api/qoffeeautomat/reverse/v1",
+    "fingerprint": "not-a-fingerprint"
+  }
+}

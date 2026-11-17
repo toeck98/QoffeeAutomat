@@ -68,11 +68,12 @@ public sealed record SensorTestOutcome(bool Succeeded, object? Value, string? Er
 /// <item>A sensor that fails (non-zero exit code, timeout, unusable output, missing engine) is unavailable (<c>null</c>) and its error is recorded in <see cref="GetStatus"/>; the other sensors of the same sample are unaffected, and scripts of one sample run concurrently.</item>
 /// </list>
 /// Sensor types that need the operating system (<c>perf_counter</c>, <c>cim_query</c>, <c>service_state</c>) are sampled
-/// by the <see cref="ISensorSourceHandler"/>s that the platform passes in (T307); without a handler, and for the
-/// externally set <c>state</c> type, those sensors are unavailable with an explanation, and <see cref="TypeSupport"/>
-/// refuses them when they are saved or tested.
+/// by the <see cref="ISensorSourceHandler"/>s that the platform passes in (T307); without a handler those sensors are
+/// unavailable with an explanation, and <see cref="TypeSupport"/> refuses them when they are saved or tested. Sensors of
+/// the type <c>state</c> are not sampled: they report the value that <see cref="States"/> holds (T714), and have no interval
+/// (they are event-driven).
 /// </summary>
-public sealed class CustomSensorProvider : IMetricProvider
+public sealed class CustomSensorProvider : IMetricProvider, IDisposable
 {
     private static readonly Dictionary<string, object> NoVariables = [];
 
@@ -85,6 +86,7 @@ public sealed class CustomSensorProvider : IMetricProvider
     private readonly CustomSensorOptions _options;
     private readonly MetricEngineOptions _engineOptions;
     private readonly SensorTypeSupport _support;
+    private readonly StateSensorStore? _ownedStates;
     private readonly Dictionary<string, CustomSensorStatus> _status = new(StringComparer.Ordinal);
 
     /// <summary>Creates the provider.</summary>
@@ -96,6 +98,7 @@ public sealed class CustomSensorProvider : IMetricProvider
     /// <param name="options">Tuning; null uses the defaults.</param>
     /// <param name="engineOptions">The options of the metric engine, so that intervals are computed the same way; null uses the defaults.</param>
     /// <param name="handlers">The sensor types that the platform adds (<c>perf_counter</c>, <c>cim_query</c>, <c>service_state</c> on Windows); null for none.</param>
+    /// <param name="states">The values of the sensors of type <c>state</c> (T714); null creates values that are kept in memory only.</param>
     public CustomSensorProvider(
         IConfigStore config,
         PowerShellRunner powerShell,
@@ -104,7 +107,8 @@ public sealed class CustomSensorProvider : IMetricProvider
         IProcessNameSource? processes = null,
         CustomSensorOptions? options = null,
         MetricEngineOptions? engineOptions = null,
-        IEnumerable<ISensorSourceHandler>? handlers = null)
+        IEnumerable<ISensorSourceHandler>? handlers = null,
+        StateSensorStore? states = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(powerShell);
@@ -120,6 +124,19 @@ public sealed class CustomSensorProvider : IMetricProvider
         _options.Validate();
         _engineOptions = engineOptions ?? new MetricEngineOptions();
         _support = new SensorTypeSupport(handlers);
+        States = states ?? (_ownedStates = new StateSensorStore(config, time));
+    }
+
+    /// <summary>
+    /// The values of the sensors of type <c>state</c>, which are set from outside and not sampled (T714). The host subscribes
+    /// to <see cref="StateSensorStore.Changed"/> and asks the metric engine for a fresh sample, so a new value is published at once.
+    /// </summary>
+    public StateSensorStore States { get; }
+
+    /// <summary>Releases the value store when the provider created it.</summary>
+    public void Dispose()
+    {
+        _ownedStates?.Dispose();
     }
 
     /// <summary>
@@ -208,6 +225,7 @@ public sealed class CustomSensorProvider : IMetricProvider
             {
                 PowerShellSensorSource script => await RunScriptAsync(sensor, script, cancellationToken),
                 ProcessRunningSensorSource process => CheckProcess(process, processNames, processListFailure),
+                StateSensorSource => ReadDraftState(sensor),
                 _ => await RunHandlerAsync(sensor, cancellationToken),
             };
         }
@@ -286,6 +304,7 @@ public sealed class CustomSensorProvider : IMetricProvider
             {
                 PowerShellSensorSource script => await RunScriptAsync(sensor, script, cancellationToken),
                 ProcessRunningSensorSource process => CheckProcess(process, processNames, processListFailure),
+                StateSensorSource => ReadState(sensor),
                 _ => await RunHandlerAsync(sensor, cancellationToken),
             };
         }
@@ -310,6 +329,20 @@ public sealed class CustomSensorProvider : IMetricProvider
         return names is null
             ? SampleResult.Fail(listFailure ?? "The process list is not available.")
             : SampleResult.Success(ProcessNames.IsRunning(names, source.Process));
+    }
+
+    /// <summary>The value of a state sensor: what was set, the persisted value or the initial value; nothing runs.</summary>
+    private SampleResult ReadState(SensorDocument sensor)
+    {
+        object? value = States.Resolve(sensor).Value;
+        return value is null ? SampleResult.Empty : SampleResult.Success(value);
+    }
+
+    /// <summary>The dry run of a state sensor that is not saved: it has the initial value, or none (a value that was set belongs to the saved sensor).</summary>
+    private SampleResult ReadDraftState(SensorDocument sensor)
+    {
+        object? value = States.Resolve(sensor, includeSetValue: false).Value;
+        return value is null ? SampleResult.Empty : SampleResult.Success(value);
     }
 
     /// <summary>Samples a sensor of a platform type through its handler; a type without handler is unavailable with an explanation.</summary>
@@ -430,7 +463,7 @@ public sealed class CustomSensorProvider : IMetricProvider
         {
             _status.TryGetValue(sensor.Id, out CustomSensorStatus? previous);
             _status[sensor.Id] = result.Error is null
-                ? new CustomSensorStatus(sensor.Id, metricId, true, now, now, null, null, 0, duration)
+                ? new CustomSensorStatus(sensor.Id, metricId, result.Value is not null, now, result.Value is not null ? now : previous?.LastSuccessAt, null, null, 0, duration)
                 : new CustomSensorStatus(
                     sensor.Id,
                     metricId,
@@ -457,6 +490,9 @@ public sealed class CustomSensorProvider : IMetricProvider
         public object? Value { get; }
 
         public string? Error { get; }
+
+        /// <summary>No error and no value: a state sensor that nothing has set yet and that has no initial value.</summary>
+        public static SampleResult Empty { get; } = new(null, null);
 
         public static SampleResult Success(object value) => new(value, null);
 

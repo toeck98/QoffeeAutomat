@@ -35,6 +35,13 @@ public partial class SensorEditorPage
     private bool _saving;
     private bool _testing;
 
+    // The value of a state sensor that is set by hand (T714).
+    private SensorValue? _stateCurrent;
+    private ApiException? _stateError;
+    private string? _stateNotice;
+    private string _stateInput = string.Empty;
+    private bool _stateSetting;
+
     /// <summary>The id of the sensor to change; <c>null</c> on the page of a new sensor.</summary>
     [Parameter]
     public string? Id { get; set; }
@@ -51,6 +58,21 @@ public partial class SensorEditorPage
     private string TitleText => _draft.IsNew ? L["Sensors.Title.New"] : L.Format("Sensors.Title.Edit", _draft.Name);
 
     private string TestState => _testing ? "running" : _testError is not null ? "error" : _testResult is null ? "none" : _testResult.Succeeded ? "succeeded" : "failed";
+
+    /// <summary>True for a saved sensor of type <c>state</c>: only then is there a value to show and to set.</summary>
+    private bool ShowsStateValue => !_draft.IsNew && string.Equals(_draft.SourceType, SensorSourceTypes.State, StringComparison.Ordinal);
+
+    /// <summary>The values to choose from when the sensor is a yes/no or an enum sensor; null when the value is typed.</summary>
+    private IReadOnlyList<string>? StateChoices => _draft.ValueType switch
+    {
+        "bool" => ["true", "false"],
+        "enum" => [.. _draft.OptionsText.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)],
+        _ => null,
+    };
+
+    private string StateCurrentText => _stateCurrent is null
+        ? L["Common.Unavailable"]
+        : SensorFormat.Value(_draft.Build().Document, _stateCurrent.Value, L);
 
     /// <summary>The source types that this platform can sample, and the type of the sensor when it is none of them.</summary>
     private IReadOnlyList<string> SourceTypeChoices => With(SensorAttributeRules.OfferedSourceTypes(_platform), _draft.SourceType);
@@ -155,6 +177,7 @@ public partial class SensorEditorPage
             _draft = SensorDraft.From(sensor);
             _loadedId = id;
             _idTouched = true;
+            await LoadStateValueAsync(sensor);
         }
         catch (ApiException exception) when (exception.IsUnauthorized)
         {
@@ -170,8 +193,70 @@ public partial class SensorEditorPage
         }
     }
 
+    /// <summary>Reads what a state sensor shows now. Failing to read it only leaves the value unknown; the editor works without it.</summary>
+    private async Task LoadStateValueAsync(SensorDocument sensor)
+    {
+        if (sensor.Source is not StateSensorSource)
+        {
+            return;
+        }
+
+        try
+        {
+            _stateCurrent = await Api.GetSensorValueAsync(sensor.Id);
+        }
+        catch (ApiException exception) when (exception.IsUnauthorized)
+        {
+            Session.MarkSignedOut();
+        }
+        catch (ApiException)
+        {
+            _stateCurrent = null;
+        }
+    }
+
+    private async Task SetStateValueAsync()
+    {
+        if (_stateSetting || _draft.IsNew)
+        {
+            return;
+        }
+
+        _stateError = null;
+        _stateNotice = null;
+        _stateSetting = true;
+        try
+        {
+            SensorValue result = await Api.SetSensorValueAsync(_draft.Id, _stateInput);
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            _stateCurrent = result;
+            _stateNotice = L.Format("Sensors.State.Done", SensorFormat.Value(_draft.Build().Document, result.Value, L));
+        }
+        catch (ApiException exception) when (exception.IsUnauthorized)
+        {
+            Session.MarkSignedOut();
+        }
+        catch (ApiException exception)
+        {
+            // A value that does not fit (422 at /value), an unknown sensor (404) or a sensor of another type (409).
+            _stateError = exception;
+        }
+        finally
+        {
+            _stateSetting = false;
+        }
+    }
+
     private void ResetResults()
     {
+        _stateCurrent = null;
+        _stateError = null;
+        _stateNotice = null;
+        _stateInput = string.Empty;
         _errors = DraftErrors.Empty;
         _saveError = null;
         _testError = null;
@@ -302,6 +387,9 @@ public partial class SensorEditorPage
 
             _draft.Adopt(saved);
             _notice = L.Format("Sensors.Saved", saved.Name);
+            _stateNotice = null;
+            _stateError = null;
+            await LoadStateValueAsync(saved);
             if (wasNew)
             {
                 // The editor stays; only the address becomes the one of the sensor, so that a reload finds it.

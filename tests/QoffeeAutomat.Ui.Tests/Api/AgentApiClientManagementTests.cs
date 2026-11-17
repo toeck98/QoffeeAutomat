@@ -318,6 +318,52 @@ public sealed class AgentApiClientManagementTests : IDisposable
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
     }
 
+    [Fact]
+    public async Task Secrets_are_listed_without_values_and_without_the_anti_forgery_header()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, "{\"secrets\":[{\"name\":\"api_key\",\"usedBy\":[\"backup\"]},{\"name\":\"db_password\"}]}"));
+        AgentApiClient client = Client(handler);
+
+        SecretList list = await client.GetSecretsAsync();
+
+        Assert.Equal(["api_key", "db_password"], list.Secrets.Select(secret => secret.Name).ToArray());
+        Assert.Equal(["backup"], list.Secrets[0].UsedBy!);
+        RecordedRequest request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.Equal("/api/v1/secrets", request.Uri.AbsolutePath);
+        Assert.False(request.Headers.ContainsKey(ApiHeaders.CsrfName));
+    }
+
+    [Fact]
+    public async Task A_secret_is_written_with_a_put_that_carries_the_value_and_the_anti_forgery_header()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.Created, "{\"name\":\"api_key\"}"));
+        AgentApiClient client = Client(handler);
+
+        SecretSummary summary = await client.PutSecretAsync("api_key", "s3cret value");
+
+        Assert.Equal("api_key", summary.Name);
+        RecordedRequest request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Put, request.Method);
+        Assert.Equal("/api/v1/secrets/api_key", request.Uri.AbsolutePath);
+        Assert.Equal("1", request.Headers[ApiHeaders.CsrfName]);
+        Assert.Equal("{\"value\":\"s3cret value\"}", request.Body);
+    }
+
+    [Fact]
+    public async Task A_secret_is_deleted_by_name()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.NoContent));
+        AgentApiClient client = Client(handler);
+
+        await client.DeleteSecretAsync("api_key");
+
+        RecordedRequest request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Delete, request.Method);
+        Assert.Equal("/api/v1/secrets/api_key", request.Uri.AbsolutePath);
+        Assert.Equal("1", request.Headers[ApiHeaders.CsrfName]);
+    }
+
     private AgentApiClient Client(StubHandler handler)
     {
         var http = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };

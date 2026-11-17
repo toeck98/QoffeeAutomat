@@ -8,7 +8,10 @@ namespace QoffeeAutomat.Contracts.Session;
 /// A message on the session pipe (PLAN.md S11). On the wire it is a JSON object whose member <c>t</c> names the
 /// message type; the members use snake_case like the QoffeeLink frames. The messages are:
 /// <c>hello</c>, <c>run</c>, <c>run_output</c>, <c>run_result</c>, <c>cancel</c>, <c>metrics_subscribe</c>,
-/// <c>metrics_state</c>, <c>notify</c>, <c>event</c>, <c>shutdown</c>, <c>tray_state</c> and <c>set_pause</c>.
+/// <c>metrics_state</c>, <c>metric_options</c> (T713), <c>notify</c>, <c>event</c>, <c>shutdown</c>, <c>tray_state</c>, <c>set_pause</c>,
+/// <c>login_token_request</c>, <c>login_token</c> (T711), <c>hotkeys</c> and <c>hotkey_state</c> (T708). A notification from
+/// Home Assistant is a <c>run</c> of the built-in action <c>notify.toast</c>; the press of one of its buttons comes back as the
+/// <c>event</c> <c>notification_action</c> (T702).
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "t")]
 [JsonDerivedType(typeof(SessionHelloMessage), "hello")]
@@ -18,11 +21,16 @@ namespace QoffeeAutomat.Contracts.Session;
 [JsonDerivedType(typeof(SessionCancelMessage), "cancel")]
 [JsonDerivedType(typeof(SessionMetricsSubscribeMessage), "metrics_subscribe")]
 [JsonDerivedType(typeof(SessionMetricsStateMessage), "metrics_state")]
+[JsonDerivedType(typeof(SessionMetricOptionsMessage), "metric_options")]
 [JsonDerivedType(typeof(SessionNotifyMessage), "notify")]
 [JsonDerivedType(typeof(SessionEventMessage), "event")]
 [JsonDerivedType(typeof(SessionShutdownMessage), "shutdown")]
 [JsonDerivedType(typeof(SessionTrayStateMessage), "tray_state")]
 [JsonDerivedType(typeof(SessionSetPauseMessage), "set_pause")]
+[JsonDerivedType(typeof(SessionLoginTokenRequestMessage), "login_token_request")]
+[JsonDerivedType(typeof(SessionLoginTokenMessage), "login_token")]
+[JsonDerivedType(typeof(SessionHotkeysMessage), "hotkeys")]
+[JsonDerivedType(typeof(SessionHotkeyStateMessage), "hotkey_state")]
 public abstract record SessionMessage;
 
 /// <summary>
@@ -208,6 +216,14 @@ public sealed record SessionMetricsSubscribeMessage(IReadOnlyList<string> Metric
 /// <param name="Values">The values by metric id.</param>
 public sealed record SessionMetricsStateMessage(long Ts, IReadOnlyDictionary<string, JsonElement> Values) : SessionMessage;
 
+/// <summary>
+/// SessionHost to agent: the options of the metrics whose options are not fixed (T713, for example the audio devices). The
+/// message is sent after the handshake and whenever an option set changes; it names every such metric and replaces what the agent
+/// knew, so a metric that is missing has no options (the SessionHost cannot see any). It is additive: protocol version 1 stays.
+/// </summary>
+/// <param name="Options">The options by metric id, in the order that the manifest announces them.</param>
+public sealed record SessionMetricOptionsMessage(IReadOnlyDictionary<string, IReadOnlyList<string>> Options) : SessionMessage;
+
 /// <summary>Agent to SessionHost: show a notification to the user.</summary>
 /// <param name="Title">The title.</param>
 /// <param name="Message">The text.</param>
@@ -247,3 +263,88 @@ public sealed record SessionTrayStateMessage(
 /// </summary>
 /// <param name="Paused">The wanted value of the global pause flag.</param>
 public sealed record SessionSetPauseMessage(bool Paused) : SessionMessage;
+
+/// <summary>
+/// SessionHost to agent: the user chose Open UI in the tray menu and wants a single-use login token (PLAN.md S09 item 12,
+/// T711). The agent answers with exactly one <c>login_token</c>. It never trusts the <c>is_administrator</c> flag of the
+/// <c>hello</c> for this: it looks at the token of the user that the operating system holds for the session, and it answers
+/// only the SessionHost of the active console session.
+/// </summary>
+/// <param name="RequestId">An id chosen by the SessionHost; the answer carries it.</param>
+public sealed record SessionLoginTokenRequestMessage(string RequestId) : SessionMessage;
+
+/// <summary>
+/// Agent to SessionHost: the answer to <c>login_token_request</c>. Either <see cref="Token"/> or <see cref="Reason"/> is set.
+/// A standard user always gets a reason and never a token; the SessionHost then opens the normal login page.
+/// </summary>
+/// <param name="RequestId">The id of the request.</param>
+/// <param name="Token">The single-use token (valid 30 seconds, loopback only); absent when none was issued.</param>
+/// <param name="Reason">One of <see cref="SessionLoginDenials"/> when no token was issued.</param>
+public sealed record SessionLoginTokenMessage(string RequestId, string? Token = null, string? Reason = null) : SessionMessage;
+
+/// <summary>One global hotkey that the SessionHost registers (PLAN.md S16, T708).</summary>
+/// <param name="Name">The name of the hotkey; it is the <c>name</c> in the event <c>hotkey_pressed</c>.</param>
+/// <param name="Keys">The key combination, for example <c>Ctrl+Alt+F9</c>; the SessionHost parses it.</param>
+public sealed record SessionHotkeyDefinition(string Name, string Keys);
+
+/// <summary>
+/// Agent to SessionHost: the complete list of hotkeys to register. It replaces the previous list; hotkeys that are no longer
+/// in it are unregistered. The agent sends it after the handshake and whenever the settings change.
+/// </summary>
+/// <param name="Hotkeys">The hotkeys.</param>
+public sealed record SessionHotkeysMessage(IReadOnlyList<SessionHotkeyDefinition> Hotkeys) : SessionMessage;
+
+/// <summary>What became of one hotkey.</summary>
+/// <param name="Name">The name of the hotkey.</param>
+/// <param name="Keys">The key combination as configured.</param>
+/// <param name="State">One of <see cref="SessionHotkeyStates"/>.</param>
+/// <param name="Message">An explanation when the state is not <c>registered</c>.</param>
+public sealed record SessionHotkeyStatus(string Name, string Keys, string State, string? Message = null);
+
+/// <summary>
+/// SessionHost to agent: the outcome of the last <c>hotkeys</c> message, one entry per hotkey in it. The agent shows the
+/// conflicts in the UI. A press of a registered hotkey is reported as the <c>event</c> <c>hotkey_pressed</c> with the data
+/// <c>name</c>.
+/// </summary>
+/// <param name="Hotkeys">The status of every hotkey of the last list.</param>
+public sealed record SessionHotkeyStateMessage(IReadOnlyList<SessionHotkeyStatus> Hotkeys) : SessionMessage;
+
+/// <summary>The values of <see cref="SessionLoginTokenMessage.Reason"/>.</summary>
+public static class SessionLoginDenials
+{
+    /// <summary>The user of the session is not a member of the local Administrators group.</summary>
+    public const string NotAdministrator = "not_administrator";
+
+    /// <summary>The request did not come from the SessionHost of the active console session.</summary>
+    public const string NotConsole = "not_console";
+
+    /// <summary>The agent could not find out who the user is, or cannot issue tokens on this build.</summary>
+    public const string Unavailable = "unavailable";
+}
+
+/// <summary>The values of <see cref="SessionHotkeyStatus.State"/>.</summary>
+public static class SessionHotkeyStates
+{
+    /// <summary>The hotkey is registered; pressing it raises <c>hotkey_pressed</c>.</summary>
+    public const string Registered = "registered";
+
+    /// <summary>Windows refused the registration because another program or another hotkey already owns the combination.</summary>
+    public const string Conflict = "conflict";
+
+    /// <summary>The key combination cannot be understood or Windows rejected it for another reason.</summary>
+    public const string Invalid = "invalid";
+}
+
+/// <summary>The <c>type</c> of the <c>event</c> message that reports the press of a notification button (T702).</summary>
+public static class SessionNotificationEvents
+{
+    /// <summary>The event type <c>notification_action</c>; the data has the member <c>action</c> (the id of the button) and optionally <c>tag</c>.</summary>
+    public const string Action = "notification_action";
+}
+
+/// <summary>The <c>type</c> of the <c>event</c> message that reports a hotkey press.</summary>
+public static class SessionHotkeyEvents
+{
+    /// <summary>The event type <c>hotkey_pressed</c>; the data has the member <c>name</c>.</summary>
+    public const string Pressed = "hotkey_pressed";
+}

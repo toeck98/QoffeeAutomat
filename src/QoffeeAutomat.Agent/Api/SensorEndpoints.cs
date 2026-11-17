@@ -16,6 +16,9 @@ public static class SensorEndpoints
     /// <summary>The largest sensor document that is read.</summary>
     public const int MaxBodyBytes = 256 * 1024;
 
+    /// <summary>The largest body of <c>PUT /sensors/{id}/value</c>: a text value of 255 characters with the JSON around it.</summary>
+    public const int ValueMaxBodyBytes = 8 * 1024;
+
     private const string Tag = "Sensors";
 
     /// <summary>Maps the endpoints below <c>/api/v1/sensors</c>.</summary>
@@ -47,6 +50,20 @@ public static class SensorEndpoints
             .Returns<SensorDocument>()
             .HonoursIfMatch()
             .Fails(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, ApiResults.UnprocessableContent);
+        api.MapGet("/sensors/{id}/value", GetSensorValue)
+            .Describe(Tag, "getSensorValue", "Reads the value of a sensor of type state.")
+            .Returns<SensorValue>()
+            .Fails(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
+        api.MapPut("/sensors/{id}/value", SetSensorValueAsync)
+            .Describe(Tag, "setSensorValue", "Sets the value of a sensor of type state. The value is checked against the value type and the options of the sensor and published at once.")
+            .Takes<SensorValueRequest>()
+            .Returns<SensorValue>()
+            .Fails(
+                StatusCodes.Status400BadRequest,
+                StatusCodes.Status404NotFound,
+                StatusCodes.Status409Conflict,
+                ApiResults.UnprocessableContent,
+                StatusCodes.Status500InternalServerError);
         api.MapDelete("/sensors/{id}", DeleteSensorAsync)
             .Describe(Tag, "deleteSensor", "Deletes a custom sensor; its earlier revisions are kept.")
             .ReturnsNothing()
@@ -69,6 +86,50 @@ public static class SensorEndpoints
 
         ApiETag.Set(context.Response, ApiETag.ForRevision(sensor.Revision));
         return ApiResults.Json(sensor, ApiDocumentJsonContext.Default.SensorDocument);
+    }
+
+    private static IResult GetSensorValue(string id, CustomSensorProvider sensors)
+    {
+        StateGetResult result = sensors.States.Get(id);
+        return result.IsSuccess
+            ? ValueResponse(id, result.Reading!.Value, result.Reading.UpdatedAt)
+            : ValueFailure(result.ErrorCode!, result.Message!);
+    }
+
+    private static async Task<IResult> SetSensorValueAsync(
+        string id,
+        HttpContext context,
+        CustomSensorProvider sensors,
+        CancellationToken cancellationToken)
+    {
+        (SensorValueRequest? request, IResult? failure) = await ApiResults.ReadBodyAsync(
+            context.Request, ApiJsonContext.Default.SensorValueRequest, ValueMaxBodyBytes, cancellationToken).ConfigureAwait(false);
+        if (request is null)
+        {
+            return failure!;
+        }
+
+        StateSetResult result = await sensors.States.SetAsync(id, request.Value, cancellationToken).ConfigureAwait(false);
+        return result.IsSuccess
+            ? ValueResponse(id, result.Value, DateTimeOffset.UtcNow)
+            : ValueFailure(result.ErrorCode!, result.Message!);
+    }
+
+    private static IResult ValueResponse(string id, object? value, DateTimeOffset? updatedAt)
+    {
+        return ApiResults.Json(new SensorValue(id, ApiJson.ElementOrNull(value), updatedAt), ApiJsonContext.Default.SensorValue);
+    }
+
+    /// <summary>Maps the reason that a state value was refused to a problem: unknown sensor 404, sensor of another type 409, invalid value 422 with a pointer to <c>/value</c>, a value that could not be saved 500.</summary>
+    private static IResult ValueFailure(string errorCode, string message)
+    {
+        return errorCode switch
+        {
+            StateSensorErrors.UnknownSensor => ApiResults.NotFound("unknown_sensor", message),
+            StateSensorErrors.NotStateSensor => ApiResults.Problem(StatusCodes.Status409Conflict, StateSensorErrors.NotStateSensor, message),
+            StateSensorErrors.PersistFailed => ApiResults.Problem(StatusCodes.Status500InternalServerError, StateSensorErrors.PersistFailed, message),
+            _ => ApiResults.ValidationFailed([new ValidationError("/value", ValidationCodes.Invalid, message)]),
+        };
     }
 
     private static async Task<IResult> CreateSensorAsync(

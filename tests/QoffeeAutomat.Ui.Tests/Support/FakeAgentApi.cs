@@ -167,6 +167,109 @@ internal sealed class FakeAgentApi : IAgentApi
 
     public List<SensorDocument> TestedSensors { get; } = [];
 
+    /// <summary>The values that the agent holds for state sensors, as text by sensor id; a sensor that is not here has no value.</summary>
+    public Dictionary<string, string> SensorValues { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Fails reading a state value.</summary>
+    public ApiException? SensorValueReadFailure { get; set; }
+
+    /// <summary>Fails setting a state value, for example with status 422 and a problem at <c>/value</c>.</summary>
+    public ApiException? SensorValueSetFailure { get; set; }
+
+    /// <summary>The values that were set, in order: the sensor id and the text as typed.</summary>
+    public List<(string Id, string Value)> SetSensorValues { get; } = [];
+
+    /// <summary>The mode groups that the agent has; the fake keeps them up to date when a test creates, replaces or deletes.</summary>
+    public List<ModeGroupDocument> ModeGroups { get; set; } = [];
+
+    /// <summary>The state of the groups by group id; a group that is not here is in its default mode.</summary>
+    public Dictionary<string, ModeState> ModeStates { get; } = new(StringComparer.Ordinal);
+
+    public ApiException? ModeGroupsFailure { get; set; }
+
+    public ApiException? ModeCreateFailure { get; set; }
+
+    public ApiException? ModeReplaceFailure { get; set; }
+
+    public ApiException? ModeDeleteFailure { get; set; }
+
+    /// <summary>Fails starting a switch, for example with status 409 and the code <c>busy</c>.</summary>
+    public ApiException? ModeSwitchFailure { get; set; }
+
+    /// <summary>Fails reading the state of one group.</summary>
+    public ApiException? ModeStateFailure { get; set; }
+
+    public List<ModeGroupDocument> CreatedModeGroups { get; } = [];
+
+    public List<ModeGroupDocument> ReplacedModeGroups { get; } = [];
+
+    public List<string> DeletedModeGroups { get; } = [];
+
+    /// <summary>The switches that were started, in order: the group id and the mode.</summary>
+    public List<(string Id, string Mode)> ModeSwitches { get; } = [];
+
+    /// <summary>How often the state of a single group was read.</summary>
+    public int ModeStateCalls { get; private set; }
+
+    /// <summary>Ends the switch of a group that is running: the target becomes the current mode, or the state becomes unknown.</summary>
+    /// <param name="groupId">The group id.</param>
+    /// <param name="succeeded">False leaves the state unknown, as a failing step with <c>onError: stop</c> does.</param>
+    public void FinishModeSwitch(string groupId, bool succeeded = true)
+    {
+        ModeState state = ModeStateOf(groupId);
+        ModeStates[groupId] = new ModeState(groupId, succeeded ? state.Target : null, false, null, Samples.Now);
+    }
+
+    /// <summary>Changes the state of a group the way a switch from Home Assistant does.</summary>
+    /// <param name="state">The new state.</param>
+    public void SetModeState(ModeState state)
+    {
+        ModeStates[state.GroupId] = state;
+    }
+
+    private ModeState ModeStateOf(string groupId)
+    {
+        if (ModeStates.TryGetValue(groupId, out ModeState? state))
+        {
+            return state;
+        }
+
+        ModeGroupDocument? group = ModeGroups.Find(candidate => candidate.Id == groupId);
+        return new ModeState(groupId, group?.DefaultMode);
+    }
+
+    /// <summary>The templates of the gallery; the listing is derived from them.</summary>
+    public List<TemplateDetail> Templates { get; set; } = [];
+
+    public ApiException? TemplatesFailure { get; set; }
+
+    public ApiException? TemplateDetailFailure { get; set; }
+
+    public ApiException? TemplateInstantiateFailure { get; set; }
+
+    public List<string> InstantiatedTemplates { get; } = [];
+
+    /// <summary>The named secrets that the agent has (names and users, never values).</summary>
+    public List<SecretSummary> Secrets { get; set; } = [];
+
+    public ApiException? SecretsFailure { get; set; }
+
+    public ApiException? SecretWriteFailure { get; set; }
+
+    public ApiException? SecretDeleteFailure { get; set; }
+
+    /// <summary>The secrets that the UI wrote, in order: name and value.</summary>
+    public List<(string Name, string Value)> WrittenSecrets { get; } = [];
+
+    public List<string> DeletedSecrets { get; } = [];
+
+    /// <summary>What <see cref="InstantiateTemplateAsync"/> answers; by default a new command or sensor with the id of the template.</summary>
+    public Func<TemplateDetail, TemplateInstantiation> TemplateInstantiateHandler { get; set; } =
+        template => new TemplateInstantiation(
+            template.Summary.Kind,
+            template.Summary.Id,
+            [.. template.Scripts.Select(script => new TemplateCreatedItem(TemplateKinds.Script, script.Name)), new TemplateCreatedItem(template.Summary.Kind, template.Summary.Id)]);
+
     public ApiException? OverrideFailure { get; set; }
 
     /// <summary>When set, saving an override waits until the test completes it.</summary>
@@ -260,6 +363,16 @@ internal sealed class FakeAgentApi : IAgentApi
         StatusCalls++;
         return StatusFailure is null ? Task.FromResult(Status) : Task.FromException<AgentStatus>(StatusFailure);
     }
+
+    /// <summary>What <see cref="GetHotkeyStatusAsync"/> returns.</summary>
+    public HotkeyStatusResponse HotkeyStatus { get; set; } = new(true, []);
+
+    public Task<HotkeyStatusResponse> GetHotkeyStatusAsync(CancellationToken cancellationToken = default) => Task.FromResult(HotkeyStatus);
+
+    /// <summary>What <see cref="GetHardwareSensorStatusAsync"/> returns.</summary>
+    public HardwareSensorStatus HardwareSensors { get; set; } = new(true, false, HardwareSensorStates.Off, "PawnIO", null, 0);
+
+    public Task<HardwareSensorStatus> GetHardwareSensorStatusAsync(CancellationToken cancellationToken = default) => Task.FromResult(HardwareSensors);
 
     public Task<LinkClientList> GetLinkClientsAsync(CancellationToken cancellationToken = default)
     {
@@ -367,6 +480,218 @@ internal sealed class FakeAgentApi : IAgentApi
         return SensorTestFailure is null
             ? Task.FromResult(SensorTestHandler(draft))
             : Task.FromException<SensorTestResult>(SensorTestFailure);
+    }
+
+    public Task<SensorValue> GetSensorValueAsync(string id, CancellationToken cancellationToken = default)
+    {
+        if (SensorValueReadFailure is not null)
+        {
+            return Task.FromException<SensorValue>(SensorValueReadFailure);
+        }
+
+        SensorDocument? sensor = Sensors.Find(candidate => candidate.Id == id);
+        if (sensor is null)
+        {
+            return Task.FromException<SensorValue>(new ApiException(404, Samples.Problem(404, "unknown_sensor", "There is no sensor with this id.")));
+        }
+
+        return Task.FromResult(new SensorValue(id, SensorValues.TryGetValue(id, out string? text) ? Samples.Text(text) : null, null));
+    }
+
+    public Task<SensorValue> SetSensorValueAsync(string id, string value, CancellationToken cancellationToken = default)
+    {
+        SetSensorValues.Add((id, value));
+        if (SensorValueSetFailure is not null)
+        {
+            return Task.FromException<SensorValue>(SensorValueSetFailure);
+        }
+
+        SensorValues[id] = value;
+        return Task.FromResult(new SensorValue(id, Samples.Text(value), Samples.Now));
+    }
+
+    public Task<ModeGroupList> GetModeGroupsAsync(CancellationToken cancellationToken = default)
+    {
+        if (ModeGroupsFailure is not null)
+        {
+            return Task.FromException<ModeGroupList>(ModeGroupsFailure);
+        }
+
+        IReadOnlyList<ModeGroupItem> items =
+        [
+            .. ModeGroups
+                .OrderBy(group => group.Id, StringComparer.Ordinal)
+                .Select(group => new ModeGroupItem(group, ModeStateOf(group.Id))),
+        ];
+        return Task.FromResult(new ModeGroupList(items));
+    }
+
+    public Task<ModeGroupDocument> CreateModeGroupAsync(ModeGroupDocument group, CancellationToken cancellationToken = default)
+    {
+        CreatedModeGroups.Add(group);
+        if (ModeCreateFailure is not null)
+        {
+            return Task.FromException<ModeGroupDocument>(ModeCreateFailure);
+        }
+
+        if (ModeGroups.Exists(existing => existing.Id == group.Id))
+        {
+            return Task.FromException<ModeGroupDocument>(new ApiException(409, Samples.Problem(409, "already_exists", "A mode group with this id exists.")));
+        }
+
+        ModeGroupDocument stored = group with { Revision = 1 };
+        ModeGroups.Add(stored);
+        return Task.FromResult(stored);
+    }
+
+    public Task<ModeGroupDocument> ReplaceModeGroupAsync(ModeGroupDocument group, CancellationToken cancellationToken = default)
+    {
+        ReplacedModeGroups.Add(group);
+        if (ModeReplaceFailure is not null)
+        {
+            return Task.FromException<ModeGroupDocument>(ModeReplaceFailure);
+        }
+
+        int index = ModeGroups.FindIndex(candidate => candidate.Id == group.Id);
+        if (index < 0)
+        {
+            return Task.FromException<ModeGroupDocument>(new ApiException(404, Samples.Problem(404, "unknown_mode_group", "There is no mode group with this id.")));
+        }
+
+        if (group.Revision is { } expected && expected != ModeGroups[index].Revision)
+        {
+            return Task.FromException<ModeGroupDocument>(new ApiException(412, Samples.Problem(412, "revision_mismatch", "The mode group was changed meanwhile.")));
+        }
+
+        ModeGroupDocument stored = group with { Revision = (ModeGroups[index].Revision ?? 0) + 1 };
+        ModeGroups[index] = stored;
+        return Task.FromResult(stored);
+    }
+
+    public Task DeleteModeGroupAsync(string id, CancellationToken cancellationToken = default)
+    {
+        DeletedModeGroups.Add(id);
+        if (ModeDeleteFailure is not null)
+        {
+            return Task.FromException(ModeDeleteFailure);
+        }
+
+        ModeGroups.RemoveAll(group => group.Id == id);
+        ModeStates.Remove(id);
+        return Task.CompletedTask;
+    }
+
+    public Task<ModeState> GetModeStateAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ModeStateCalls++;
+        if (ModeStateFailure is not null)
+        {
+            return Task.FromException<ModeState>(ModeStateFailure);
+        }
+
+        return ModeGroups.Exists(group => group.Id == id)
+            ? Task.FromResult(ModeStateOf(id))
+            : Task.FromException<ModeState>(new ApiException(404, Samples.Problem(404, "unknown_mode_group", "There is no mode group with this id.")));
+    }
+
+    public Task<ModeSwitchStarted> SwitchModeAsync(string id, string mode, CancellationToken cancellationToken = default)
+    {
+        ModeSwitches.Add((id, mode));
+        if (ModeSwitchFailure is not null)
+        {
+            return Task.FromException<ModeSwitchStarted>(ModeSwitchFailure);
+        }
+
+        ModeGroupDocument? group = ModeGroups.Find(candidate => candidate.Id == id);
+        if (group is null)
+        {
+            return Task.FromException<ModeSwitchStarted>(new ApiException(404, Samples.Problem(404, "unknown_mode_group", "There is no mode group with this id.")));
+        }
+
+        if (!group.Modes.Any(candidate => candidate.Id == mode))
+        {
+            return Task.FromException<ModeSwitchStarted>(new ApiException(422, Samples.Problem(422, "unknown_mode", "The group has no such mode.")));
+        }
+
+        ModeState state = ModeStateOf(id);
+        if (state.Switching)
+        {
+            return Task.FromException<ModeSwitchStarted>(new ApiException(409, Samples.Problem(409, "busy", "A switch of this group is running.")));
+        }
+
+        ModeStates[id] = state with { Switching = true, Target = mode };
+        return Task.FromResult(new ModeSwitchStarted("run-" + ModeSwitches.Count.ToString(CultureInfo.InvariantCulture), id, mode));
+    }
+
+    public Task<TemplateList> GetTemplatesAsync(CancellationToken cancellationToken = default)
+    {
+        return TemplatesFailure is null
+            ? Task.FromResult(new TemplateList([.. Templates.Select(template => template.Summary)]))
+            : Task.FromException<TemplateList>(TemplatesFailure);
+    }
+
+    public Task<TemplateDetail> GetTemplateAsync(string id, CancellationToken cancellationToken = default)
+    {
+        if (TemplateDetailFailure is not null)
+        {
+            return Task.FromException<TemplateDetail>(TemplateDetailFailure);
+        }
+
+        TemplateDetail? found = Templates.Find(template => template.Summary.Id == id);
+        return found is null
+            ? Task.FromException<TemplateDetail>(new ApiException(404, Samples.Problem(404, "unknown_template", "There is no template with this id.")))
+            : Task.FromResult(found);
+    }
+
+    public Task<TemplateInstantiation> InstantiateTemplateAsync(string id, CancellationToken cancellationToken = default)
+    {
+        InstantiatedTemplates.Add(id);
+        if (TemplateInstantiateFailure is not null)
+        {
+            return Task.FromException<TemplateInstantiation>(TemplateInstantiateFailure);
+        }
+
+        TemplateDetail? found = Templates.Find(template => template.Summary.Id == id);
+        return found is null
+            ? Task.FromException<TemplateInstantiation>(new ApiException(404, Samples.Problem(404, "unknown_template", "There is no template with this id.")))
+            : Task.FromResult(TemplateInstantiateHandler(found));
+    }
+
+    public Task<SecretList> GetSecretsAsync(CancellationToken cancellationToken = default)
+    {
+        return SecretsFailure is null
+            ? Task.FromResult(new SecretList([.. Secrets.OrderBy(secret => secret.Name, StringComparer.Ordinal)]))
+            : Task.FromException<SecretList>(SecretsFailure);
+    }
+
+    public Task<SecretSummary> PutSecretAsync(string name, string value, CancellationToken cancellationToken = default)
+    {
+        WrittenSecrets.Add((name, value));
+        if (SecretWriteFailure is not null)
+        {
+            return Task.FromException<SecretSummary>(SecretWriteFailure);
+        }
+
+        SecretSummary? existing = Secrets.Find(secret => secret.Name == name);
+        SecretSummary stored = existing ?? new SecretSummary(name);
+        if (existing is null)
+        {
+            Secrets.Add(stored);
+        }
+
+        return Task.FromResult(stored);
+    }
+
+    public Task DeleteSecretAsync(string name, CancellationToken cancellationToken = default)
+    {
+        DeletedSecrets.Add(name);
+        if (SecretDeleteFailure is not null)
+        {
+            return Task.FromException(SecretDeleteFailure);
+        }
+
+        Secrets.RemoveAll(secret => secret.Name == name);
+        return Task.CompletedTask;
     }
 
     public Task<PairingInfo> StartPairingAsync(CancellationToken cancellationToken = default)

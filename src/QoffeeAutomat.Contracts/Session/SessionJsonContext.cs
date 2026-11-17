@@ -21,11 +21,16 @@ namespace QoffeeAutomat.Contracts.Session;
 [JsonSerializable(typeof(SessionCancelMessage))]
 [JsonSerializable(typeof(SessionMetricsSubscribeMessage))]
 [JsonSerializable(typeof(SessionMetricsStateMessage))]
+[JsonSerializable(typeof(SessionMetricOptionsMessage))]
 [JsonSerializable(typeof(SessionNotifyMessage))]
 [JsonSerializable(typeof(SessionEventMessage))]
 [JsonSerializable(typeof(SessionShutdownMessage))]
 [JsonSerializable(typeof(SessionTrayStateMessage))]
 [JsonSerializable(typeof(SessionSetPauseMessage))]
+[JsonSerializable(typeof(SessionLoginTokenRequestMessage))]
+[JsonSerializable(typeof(SessionLoginTokenMessage))]
+[JsonSerializable(typeof(SessionHotkeysMessage))]
+[JsonSerializable(typeof(SessionHotkeyStateMessage))]
 public sealed partial class SessionJsonContext : JsonSerializerContext
 {
 }
