@@ -30,7 +30,7 @@
           "fingerprint": "Zertifikat-Fingerabdruck (optional)"
         },
         "data_description": {
-          "url": "Zum Beispiel https://example.ui.nabu.casa oder https://ha.example.org.",
+          "url": "Die öffentliche HTTPS-Basisadresse dieser Home-Assistant-Instanz.",
           "fingerprint": "SHA-256-Fingerabdruck des Zertifikats, nur für ein selbstsigniertes Zertifikat oder eine private Zertifizierungsstelle. Bei einem normalen Zertifikat leer lassen."
         }
       },
@@ -42,7 +42,7 @@
           "fingerprint": "Zertifikat-Fingerabdruck (optional)"
         },
         "data_description": {
-          "url": "Zum Beispiel https://example.ui.nabu.casa oder https://ha.example.org.",
+          "url": "Die öffentliche HTTPS-Basisadresse dieser Home-Assistant-Instanz.",
           "fingerprint": "SHA-256-Fingerabdruck des Zertifikats, nur für ein selbstsigniertes Zertifikat oder eine private Zertifizierungsstelle. Bei einem normalen Zertifikat leer lassen."
         }
       },

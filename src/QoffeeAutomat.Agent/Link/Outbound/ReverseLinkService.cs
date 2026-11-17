@@ -43,6 +43,8 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
     private ConfigSubscription? _settings;
     private Task _settingsPump = Task.CompletedTask;
     private ReverseLinkSettings? _lastSettings;
+    private int _stopped;
+    private int _disposed;
 
     /// <summary>Creates the service.</summary>
     /// <param name="manager">Resolves the endpoint and tells when the link was joined or left.</param>
@@ -109,6 +111,11 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
     /// <inheritdoc />
     public async Task StopAsync(CancellationToken cancellationToken)
     {
+        if (Interlocked.Exchange(ref _stopped, 1) != 0 || Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
+
         _manager.Changed -= OnManagerChanged;
         _power.PowerChanged -= OnPowerChanged;
         _networkWatch?.Dispose();
@@ -122,8 +129,6 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
         {
             await connector.DisposeAsync().ConfigureAwait(false);
         }
-
-        _stop.Dispose();
     }
 
     private async ValueTask<OutboundEndpoint?> ResolveAsync(CancellationToken cancellationToken)
@@ -189,7 +194,13 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
     }
 
     /// <inheritdoc />
-    public void Dispose() => _stop.Dispose();
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
+        {
+            _stop.Dispose();
+        }
+    }
 }
 
 /// <summary>Registers the reverse link.</summary>
