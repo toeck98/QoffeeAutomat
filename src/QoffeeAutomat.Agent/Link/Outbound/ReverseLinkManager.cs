@@ -30,6 +30,8 @@ public sealed class ReverseLinkManager
     private readonly ISecretStore _secrets;
     private readonly ILogger _logger;
 
+    internal event EventHandler<ReverseLinkSettings?>? SettingsSaving;
+
     /// <summary>Creates the manager.</summary>
     /// <param name="config">The settings.</param>
     /// <param name="secrets">Where the token is kept.</param>
@@ -77,6 +79,7 @@ public sealed class ReverseLinkManager
         }
 
         await _secrets.SetStringAsync(SecretNames.ReverseLinkToken, parsed.Token, cancellationToken).ConfigureAwait(false);
+        SettingsSaving?.Invoke(this, settings.ReverseLink);
         SaveResult<AgentSettingsDocument> saved = await local.SaveAsync(settings, existing?.Revision, cancellationToken).ConfigureAwait(false);
         if (!saved.IsApplied)
         {
@@ -105,8 +108,10 @@ public sealed class ReverseLinkManager
         bool wasEnabled = existing?.ReverseLink?.Enabled == true;
         if (existing is { ReverseLink: { } current } && wasEnabled)
         {
+            ReverseLinkSettings disabled = current with { Enabled = false };
+            SettingsSaving?.Invoke(this, disabled);
             SaveResult<AgentSettingsDocument> saved = await local.SaveAsync(
-                existing with { ReverseLink = current with { Enabled = false } },
+                existing with { ReverseLink = disabled },
                 existing.Revision,
                 cancellationToken).ConfigureAwait(false);
             if (!saved.IsApplied)

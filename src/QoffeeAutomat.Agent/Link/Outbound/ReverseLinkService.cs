@@ -37,6 +37,7 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
     private readonly TimeProvider _time;
     private readonly ILogger<ReverseLinkService> _logger;
     private readonly CancellationTokenSource _stop = new();
+    private readonly object _settingsGate = new();
 
     private OutboundConnector? _connector;
     private IDisposable? _networkWatch;
@@ -97,6 +98,7 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
         _connector = connector;
         _lastSettings = ReadSettings();
 
+        _manager.SettingsSaving += OnManagerSettingsSaving;
         _manager.Changed += OnManagerChanged;
         _power.PowerChanged += OnPowerChanged;
         _networkWatch = _network?.Watch(OnNetworkChanged);
@@ -116,6 +118,7 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
             return;
         }
 
+        _manager.SettingsSaving -= OnManagerSettingsSaving;
         _manager.Changed -= OnManagerChanged;
         _power.PowerChanged -= OnPowerChanged;
         _networkWatch?.Dispose();
@@ -148,9 +151,21 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
         return _config.Effective.GetDocument<AgentSettingsDocument>(ConfigIds.Settings)?.ReverseLink;
     }
 
+    private void OnManagerSettingsSaving(object? sender, ReverseLinkSettings? next)
+    {
+        lock (_settingsGate)
+        {
+            _lastSettings = next;
+        }
+    }
+
     private void OnManagerChanged(object? sender, EventArgs e)
     {
-        _lastSettings = ReadSettings();
+        lock (_settingsGate)
+        {
+            _lastSettings = ReadSettings();
+        }
+
         _connector?.Reconfigure();
     }
 
@@ -179,10 +194,19 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
                 }
 
                 // Only a change of the reverse link itself matters; the name or a port does not need a new connection.
-                ReverseLinkSettings? current = ReadSettings();
-                if (!Equals(current, _lastSettings))
+                bool changed;
+                lock (_settingsGate)
                 {
-                    _lastSettings = current;
+                    ReverseLinkSettings? current = ReadSettings();
+                    changed = !Equals(current, _lastSettings);
+                    if (changed)
+                    {
+                        _lastSettings = current;
+                    }
+                }
+
+                if (changed)
+                {
                     _connector?.Reconfigure();
                 }
             }
