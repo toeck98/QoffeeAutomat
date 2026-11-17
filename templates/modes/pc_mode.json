@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "pc_mode",
+  "name": "PC mode",
+  "description": "Switches the PC between its usual setups: display profile, volume and programs. Ported from the modes of the prototype (Normal, Study, TV gaming, TV entertainment and TV-Rennsport-Mode as racing). Edit the modes to match your profiles and programs.",
+  "icon": "mdi:monitor-dashboard",
+  "enabled": true,
+  "exposeToHa": true,
+  "defaultMode": "normal",
+  "onBoot": "reset",
+  "onError": "continue",
+  "modes": [
+    {
+      "id": "normal",
+      "name": "Normal",
+      "enter": [
+        { "command": "set_display_profile", "vars": { "Profile": "Normal-Mode" } }
+      ],
+      "exit": []
+    },
+    {
+      "id": "study",
+      "name": "Study",
+      "enter": [
+        { "command": "set_display_profile", "vars": { "Profile": "Study-Mode" } }
+      ],
+      "exit": []
+    },
+    {
+      "id": "tv_gaming",
+      "name": "TV gaming",
+      "enter": [
+        { "command": "set_display_profile", "vars": { "Profile": "TV-Mode" } },
+        { "command": "set_volume", "vars": { "Level": 30 } },
+        { "command": "launch_steam_big_picture" }
+      ],
+      "exit": [
+        { "command": "kill_process", "vars": { "Name": "steam" } }
+      ]
+    },
+    {
+      "id": "tv_entertainment",
+      "name": "TV entertainment",
+      "enter": [
+        { "command": "set_display_profile", "vars": { "Profile": "TV-Mode" } }
+      ],
+      "exit": []
+    },
+    {
+      "id": "racing",
+      "name": "Racing",
+      "enter": [
+        { "command": "set_display_profile", "vars": { "Profile": "TV-Mode" } },
+        { "command": "launch_moza_pit_house" },
+        { "command": "launch_simhub" },
+        { "delaySeconds": 10 },
+        { "command": "launch_steam_big_picture" }
+      ],
+      "exit": [
+        { "command": "kill_process", "vars": { "Name": "SimHubWPF" } },
+        { "command": "kill_process", "vars": { "Name": "MOZA Pit House" } },
+        { "command": "kill_process", "vars": { "Name": "steam" } }
+      ]
+    }
+  ]
+}

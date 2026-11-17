@@ -258,6 +258,10 @@ public sealed class SetupAndLoginTests : BunitContext, IAsyncLifetime
 
         public Task<AgentStatus> GetStatusAsync(CancellationToken cancellationToken = default) => _inner.GetStatusAsync(cancellationToken);
 
+        public Task<HotkeyStatusResponse> GetHotkeyStatusAsync(CancellationToken cancellationToken = default) => _inner.GetHotkeyStatusAsync(cancellationToken);
+
+        public Task<HardwareSensorStatus> GetHardwareSensorStatusAsync(CancellationToken cancellationToken = default) => _inner.GetHardwareSensorStatusAsync(cancellationToken);
+
         public Task<LinkClientList> GetLinkClientsAsync(CancellationToken cancellationToken = default) => _inner.GetLinkClientsAsync(cancellationToken);
 
         public Task<MetricList> GetMetricsAsync(CancellationToken cancellationToken = default) => _inner.GetMetricsAsync(cancellationToken);
@@ -317,6 +321,45 @@ public sealed class SetupAndLoginTests : BunitContext, IAsyncLifetime
 
         public Task<SensorTestResult> TestSensorAsync(SensorDocument draft, CancellationToken cancellationToken = default)
             => _inner.TestSensorAsync(draft, cancellationToken);
+
+        public Task<SensorValue> GetSensorValueAsync(string id, CancellationToken cancellationToken = default)
+            => _inner.GetSensorValueAsync(id, cancellationToken);
+
+        public Task<SensorValue> SetSensorValueAsync(string id, string value, CancellationToken cancellationToken = default)
+            => _inner.SetSensorValueAsync(id, value, cancellationToken);
+
+        public Task<ModeGroupList> GetModeGroupsAsync(CancellationToken cancellationToken = default) => _inner.GetModeGroupsAsync(cancellationToken);
+
+        public Task<ModeGroupDocument> CreateModeGroupAsync(ModeGroupDocument group, CancellationToken cancellationToken = default)
+            => _inner.CreateModeGroupAsync(group, cancellationToken);
+
+        public Task<ModeGroupDocument> ReplaceModeGroupAsync(ModeGroupDocument group, CancellationToken cancellationToken = default)
+            => _inner.ReplaceModeGroupAsync(group, cancellationToken);
+
+        public Task DeleteModeGroupAsync(string id, CancellationToken cancellationToken = default) => _inner.DeleteModeGroupAsync(id, cancellationToken);
+
+        public Task<ModeState> GetModeStateAsync(string id, CancellationToken cancellationToken = default) => _inner.GetModeStateAsync(id, cancellationToken);
+
+        public Task<ModeSwitchStarted> SwitchModeAsync(string id, string mode, CancellationToken cancellationToken = default)
+            => _inner.SwitchModeAsync(id, mode, cancellationToken);
+
+        public Task<TemplateList> GetTemplatesAsync(CancellationToken cancellationToken = default)
+            => _inner.GetTemplatesAsync(cancellationToken);
+
+        public Task<TemplateDetail> GetTemplateAsync(string id, CancellationToken cancellationToken = default)
+            => _inner.GetTemplateAsync(id, cancellationToken);
+
+        public Task<TemplateInstantiation> InstantiateTemplateAsync(string id, CancellationToken cancellationToken = default)
+            => _inner.InstantiateTemplateAsync(id, cancellationToken);
+
+        public Task<SecretList> GetSecretsAsync(CancellationToken cancellationToken = default)
+            => _inner.GetSecretsAsync(cancellationToken);
+
+        public Task<SecretSummary> PutSecretAsync(string name, string value, CancellationToken cancellationToken = default)
+            => _inner.PutSecretAsync(name, value, cancellationToken);
+
+        public Task DeleteSecretAsync(string name, CancellationToken cancellationToken = default)
+            => _inner.DeleteSecretAsync(name, cancellationToken);
 
         public Task<PairingInfo> StartPairingAsync(CancellationToken cancellationToken = default) => _inner.StartPairingAsync(cancellationToken);
 

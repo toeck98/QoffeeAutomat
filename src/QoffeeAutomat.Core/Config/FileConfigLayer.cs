@@ -397,6 +397,18 @@ internal sealed class FileConfigLayer : ILocalConfigLayer, IDisposable
         }
 
         id ??= descriptor.SingletonId!;
+
+        // The generated command of a mode group (T717) has the id mode_<groupId>; a stored command must not shadow it.
+        if (descriptor.Kind == ConfigKind.Command
+            && ModeNames.TryGetGroupId(id, out string shadowedGroup)
+            && _entries.ContainsKey(new EntryKey(ConfigKind.Mode, shadowedGroup)))
+        {
+            return Rejected<T>(
+                ChangeStatus.Invalid,
+                null,
+                [new ValidationError("/id", ValidationCodes.Conflict, $"This id is used by the command that the mode group '{shadowedGroup}' provides.")]);
+        }
+
         var key = new EntryKey(descriptor.Kind, id);
         T? existing = _entries.TryGetValue(key, out Entry? entry) ? entry.Document as T : null;
         int storedRevision = existing?.Revision ?? 0;

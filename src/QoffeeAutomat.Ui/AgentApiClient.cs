@@ -89,6 +89,18 @@ public sealed class AgentApiClient : IAgentApi
     }
 
     /// <inheritdoc />
+    public Task<HotkeyStatusResponse> GetHotkeyStatusAsync(CancellationToken cancellationToken = default)
+    {
+        return GetAsync("hotkeys", ApiJsonContext.Default.HotkeyStatusResponse, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<HardwareSensorStatus> GetHardwareSensorStatusAsync(CancellationToken cancellationToken = default)
+    {
+        return GetAsync("hardware-sensors", ApiJsonContext.Default.HardwareSensorStatus, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public Task<LinkClientList> GetLinkClientsAsync(CancellationToken cancellationToken = default)
     {
         return GetAsync("link/clients", ApiJsonContext.Default.LinkClientList, cancellationToken);
@@ -349,6 +361,172 @@ public sealed class AgentApiClient : IAgentApi
         ArgumentNullException.ThrowIfNull(draft);
 
         return PostAsync("sensors/test", draft, ApiDocumentJsonContext.Default.SensorDocument, ApiJsonContext.Default.SensorTestResult, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<SensorValue> GetSensorValueAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+
+        return GetAsync("sensors/" + Uri.EscapeDataString(id) + "/value", ApiJsonContext.Default.SensorValue, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<SensorValue> SetSensorValueAsync(string id, string value, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        ArgumentNullException.ThrowIfNull(value);
+
+        return SendJsonAsync(
+            HttpMethod.Put,
+            "sensors/" + Uri.EscapeDataString(id) + "/value",
+            new SensorValueRequest(TextElement(value)),
+            ApiJsonContext.Default.SensorValueRequest,
+            ApiJsonContext.Default.SensorValue,
+            cancellationToken);
+    }
+
+    /// <summary>A JSON string with the text, so that the agent reads it according to the value type of the sensor, like the command line does.</summary>
+    private static JsonElement TextElement(string text)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStringValue(text);
+        }
+
+        using JsonDocument document = JsonDocument.Parse(stream.ToArray());
+        return document.RootElement.Clone();
+    }
+
+    /// <inheritdoc />
+    public Task<ModeGroupList> GetModeGroupsAsync(CancellationToken cancellationToken = default)
+    {
+        return GetAsync("modes", ApiDocumentJsonContext.Default.ModeGroupList, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<ModeGroupDocument> CreateModeGroupAsync(ModeGroupDocument group, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+
+        return PostAsync("modes", group, ApiDocumentJsonContext.Default.ModeGroupDocument, ApiDocumentJsonContext.Default.ModeGroupDocument, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<ModeGroupDocument> ReplaceModeGroupAsync(ModeGroupDocument group, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        ArgumentException.ThrowIfNullOrEmpty(group.Id);
+
+        return SendJsonAsync(
+            HttpMethod.Put,
+            "modes/" + Uri.EscapeDataString(group.Id),
+            group,
+            ApiDocumentJsonContext.Default.ModeGroupDocument,
+            ApiDocumentJsonContext.Default.ModeGroupDocument,
+            cancellationToken,
+            group.Revision);
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteModeGroupAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+
+        using HttpResponseMessage response = await SendAsync(
+            HttpMethod.Delete,
+            "modes/" + Uri.EscapeDataString(id),
+            null,
+            HttpCompletionOption.ResponseContentRead,
+            streaming: false,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<ModeState> GetModeStateAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+
+        return GetAsync("modes/" + Uri.EscapeDataString(id) + "/switch", ApiJsonContext.Default.ModeState, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<ModeSwitchStarted> SwitchModeAsync(string id, string mode, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        ArgumentException.ThrowIfNullOrEmpty(mode);
+
+        return PostAsync(
+            "modes/" + Uri.EscapeDataString(id) + "/switch",
+            new ModeSwitchRequest(mode),
+            ApiJsonContext.Default.ModeSwitchRequest,
+            ApiJsonContext.Default.ModeSwitchStarted,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<TemplateList> GetTemplatesAsync(CancellationToken cancellationToken = default)
+    {
+        return GetAsync("templates", ApiDocumentJsonContext.Default.TemplateList, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<TemplateDetail> GetTemplateAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+
+        return GetAsync("templates/" + Uri.EscapeDataString(id), ApiDocumentJsonContext.Default.TemplateDetail, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<TemplateInstantiation> InstantiateTemplateAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+
+        using HttpResponseMessage response = await SendAsync(
+            HttpMethod.Post,
+            "templates/" + Uri.EscapeDataString(id) + "/instantiate",
+            null,
+            HttpCompletionOption.ResponseContentRead,
+            streaming: false,
+            cancellationToken);
+        return await ReadAsync(response, ApiDocumentJsonContext.Default.TemplateInstantiation, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<SecretList> GetSecretsAsync(CancellationToken cancellationToken = default)
+    {
+        return GetAsync("secrets", ApiJsonContext.Default.SecretList, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<SecretSummary> PutSecretAsync(string name, string value, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(value);
+
+        return SendJsonAsync(
+            HttpMethod.Put,
+            "secrets/" + Uri.EscapeDataString(name),
+            new SecretWriteRequest(value),
+            ApiJsonContext.Default.SecretWriteRequest,
+            ApiJsonContext.Default.SecretSummary,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteSecretAsync(string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        using HttpResponseMessage response = await SendAsync(
+            HttpMethod.Delete,
+            "secrets/" + Uri.EscapeDataString(name),
+            null,
+            HttpCompletionOption.ResponseContentRead,
+            streaming: false,
+            cancellationToken);
     }
 
     /// <inheritdoc />

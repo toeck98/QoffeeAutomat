@@ -116,7 +116,7 @@ public sealed class ZeroconfServiceTests : IDisposable
         // The host is up and has had time to act on its start; the advertiser was never started.
         await Task.Delay(500);
         Assert.Equal(0, factory.OpenCount);
-        Assert.Equal(0, network.WatcherCount);
+        int baselineWatchers = network.WatcherCount;
         Assert.False(agent.Services.GetRequiredService<MdnsServiceAdvertiser>().IsAdvertising);
 
         await SaveSettingsAsync(agent, "Study-PC", zeroconf: true);
@@ -132,7 +132,7 @@ public sealed class ZeroconfServiceTests : IDisposable
         Assert.Contains("name=Study-PC", text.Text);
         Assert.Contains("pv=1-1", text.Text);
         Assert.Contains("v=" + AgentVersion.Current, text.Text);
-        Assert.Equal(1, network.WatcherCount);
+        Assert.Equal(baselineWatchers + 1, network.WatcherCount);
     }
 
     [Fact]
@@ -145,13 +145,14 @@ public sealed class ZeroconfServiceTests : IDisposable
         FakeNetworkChangeSource network = agent.Services.GetRequiredService<FakeNetworkChangeSource>();
         await TestWait.UntilAsync(() => advertiser.IsAdvertising, "the announcement");
         FakeMdnsTransport transport = factory.Last!;
+        int watchersWhileOn = network.WatcherCount;
 
         await SaveSettingsAsync(agent, "Study-PC", zeroconf: false);
 
         await TestWait.UntilAsync(() => !advertiser.IsAdvertising && transport.IsDisposed, "the withdrawal");
         Assert.True(transport.IsDisposed);
         Assert.All(DecodedMessage.Parse(transport.Sent[^1].Data).Answers, record => Assert.Equal(0u, record.Ttl));
-        Assert.Equal(0, network.WatcherCount);
+        Assert.Equal(watchersWhileOn - 1, network.WatcherCount);
         Assert.Equal(1, factory.OpenCount);
     }
 
@@ -213,7 +214,7 @@ public sealed class ZeroconfServiceTests : IDisposable
         await using var agent = CreateAgent();
         SimulatedServiceAdvertiser recorder = RecorderOf(agent);
         FakeNetworkChangeSource network = agent.Services.GetRequiredService<FakeNetworkChangeSource>();
-        await TestWait.UntilAsync(() => recorder.Current is not null && network.WatcherCount == 1, "the announcement and the network watch");
+        await TestWait.UntilAsync(() => recorder.Current is not null && network.WatcherCount >= 1, "the announcement and the network watch");
 
         network.Raise();
         network.Raise();

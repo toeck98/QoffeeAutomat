@@ -15,8 +15,6 @@ namespace QoffeeAutomat.Agent.Hosting;
 /// </summary>
 public static class EmitCommand
 {
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
-
     /// <summary>Runs the verb.</summary>
     /// <param name="options">The parsed command line; <see cref="AgentOptions.EventName"/> is set.</param>
     /// <param name="output">Receives the confirmation.</param>
@@ -63,24 +61,10 @@ public static class EmitCommand
             return ExitCodes.Usage;
         }
 
-        LocalChannelEndpoint? endpoint = LocalChannelEndpoint.FromEnvironment(getVariable);
+        (LocalChannelEndpoint? endpoint, int exitCode) = await LocalChannelClient.ResolveAsync("emit", options, error, getVariable, channelFile, cancellationToken);
         if (endpoint is null)
         {
-            string file = channelFile ?? Path.Combine(AppPaths.ForCurrentProcess(options.DataDir).SecretsDirectory, LocalChannelNames.FileName);
-            endpoint = await LocalChannelEndpoint.FromFileAsync(file, cancellationToken);
-        }
-
-        if (endpoint is null)
-        {
-            await error.WriteLineAsync(
-                "No running agent was found. Run emit from a script that the agent started, or as an administrator on the PC where the agent runs.");
-            return ExitCodes.Unavailable;
-        }
-
-        if (!endpoint.BaseAddress.IsLoopback)
-        {
-            await error.WriteLineAsync("The local channel address is not a loopback address; refusing to send the secret there.");
-            return ExitCodes.Failure;
+            return exitCode;
         }
 
         return await SendAsync(options.EventName!, data, endpoint, output, error, handler, cancellationToken);
@@ -111,7 +95,7 @@ public static class EmitCommand
             : EventData.Create(("name", name));
 
         using HttpClient client = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
-        client.Timeout = RequestTimeout;
+        client.Timeout = LocalChannelClient.RequestTimeout;
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(endpoint.BaseAddress, LocalChannelNames.EmitPath))
         {
             Content = new StringContent(body.GetRawText(), Encoding.UTF8, "application/json"),

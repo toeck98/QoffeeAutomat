@@ -87,7 +87,14 @@ nav:
       - Verify your download: user/verify-download.md
   - Using QoffeeAutomat:
       - Commands: user/commands.md
+      - Template gallery: user/templates.md
       - Sensors: user/sensors.md
+      - Hardware sensors (temperatures, fans): user/hardware-sensors.md
+      - Wake-on-LAN: user/wake-on-lan.md
+      - Notifications on the PC: user/notifications.md
+      - The PC as a media player: user/media-player.md
+      - Updates: user/updates.md
+      - Roaming devices (reverse link): user/reverse-link.md
       - Events: user/events.md
       - "Example: start the PC in a mode": user/example-mode-start.md
   - Operations:

@@ -20,6 +20,8 @@ namespace QoffeeAutomat.Contracts.Config;
 [JsonSerializable(typeof(SensorDocument))]
 [JsonSerializable(typeof(MetricOverridesDocument))]
 [JsonSerializable(typeof(AgentSettingsDocument))]
+[JsonSerializable(typeof(ModeGroupDocument))]
+[JsonSerializable(typeof(ModeDefinition))]
 [JsonSerializable(typeof(CommandAction))]
 [JsonSerializable(typeof(PowerShellAction))]
 [JsonSerializable(typeof(ProcessAction))]

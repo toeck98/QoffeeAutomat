@@ -1,0 +1,17 @@
+{
+  "description": "The token is unknown (never issued, rotated or its entry was removed): the endpoint answers HTTP 401 and does not upgrade. The agent stops dialling until it is enrolled again.",
+  "request": {
+    "method": "GET",
+    "path": "/api/qoffeeautomat/reverse/v1",
+    "headers": {
+      "Authorization": "Bearer qalr_BBECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "Sec-WebSocket-Protocol": "qoffeelink.v1"
+    }
+  },
+  "response": {
+    "status": 401,
+    "headers": { "WWW-Authenticate": "Bearer" }
+  },
+  "frames": [],
+  "agent_state": "rejected"
+}

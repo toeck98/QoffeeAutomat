@@ -68,6 +68,12 @@ public static class SettingsAndStatusEndpoints
         api.MapGet("/status", GetStatusAsync)
             .Describe("Status", "getStatus", "Reports the version, uptime, platform, link clients, session state and the pause flag.")
             .Returns<AgentStatus>();
+        api.MapGet("/hotkeys", GetHotkeys)
+            .Describe("Settings", "getHotkeyStatus", "Reports which global hotkeys of the settings are registered and which conflict with other programs.")
+            .Returns<HotkeyStatusResponse>();
+        api.MapGet("/hardware-sensors", GetHardwareSensors)
+            .Describe("Settings", "getHardwareSensorStatus", "Reports whether the optional hardware sensors (temperatures, fans, power draw) run and whether the kernel driver that they need is installed.")
+            .Returns<HardwareSensorStatus>();
         api.MapGet("/settings", GetSettings)
             .Describe("Settings", "getSettings", "Reads the agent settings; the ETag is their revision.")
             .Returns<AgentSettingsDocument>();
@@ -111,6 +117,20 @@ public static class SettingsAndStatusEndpoints
             manifest.Current.Rev,
             config.Problems.Count);
         return ApiResults.Json(status, ApiJsonContext.Default.AgentStatus);
+    }
+
+    private static IResult GetHotkeys(IHotkeyStatusSource hotkeys)
+    {
+        HotkeyStatusEntry[] entries =
+        [
+            .. hotkeys.GetStatus().Select(status => new HotkeyStatusEntry(status.Name, status.Keys, status.State, status.Message)),
+        ];
+        return ApiResults.Json(new HotkeyStatusResponse(hotkeys.IsSupported, entries), ApiJsonContext.Default.HotkeyStatusResponse);
+    }
+
+    private static IResult GetHardwareSensors(IHardwareSensorStatusSource sensors)
+    {
+        return ApiResults.Json(sensors.GetStatus(), ApiJsonContext.Default.HardwareSensorStatus);
     }
 
     private static IResult GetSettings(IConfigStore config, HttpContext context)

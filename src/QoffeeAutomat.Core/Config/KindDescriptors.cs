@@ -41,15 +41,19 @@ internal abstract class KindDescriptor
 {
     private const string JsonExtension = ".json";
 
-    protected KindDescriptor(ConfigKind kind, Type documentType, string folder, string? singletonId)
+    protected KindDescriptor(ConfigKind kind, Type documentType, string folder, string? singletonId, int currentVersion)
     {
         Kind = kind;
         DocumentType = documentType;
         Folder = folder;
         SingletonId = singletonId;
+        CurrentVersion = currentVersion;
     }
 
     public ConfigKind Kind { get; }
+
+    /// <summary>The schema version that documents of this kind are written with; older documents are migrated forward to it.</summary>
+    public int CurrentVersion { get; }
 
     public Type DocumentType { get; }
 
@@ -84,11 +88,12 @@ internal sealed class KindDescriptor<T> : KindDescriptor
         ConfigKind kind,
         string folder,
         string? singletonId,
+        int currentVersion,
         JsonTypeInfo<T> typeInfo,
         Func<T, string?> idOf,
         Func<T, int, DateTimeOffset, T> stamp,
         Func<T, Func<string, CommandDocument?>?, ValidationResult> validate)
-        : base(kind, typeof(T), folder, singletonId)
+        : base(kind, typeof(T), folder, singletonId, currentVersion)
     {
         _typeInfo = typeInfo;
         _idOf = idOf;
@@ -146,7 +151,7 @@ internal sealed class KindDescriptor<T> : KindDescriptor
         if (root["schemaVersion"] is JsonValue versionValue && versionValue.TryGetValue(out int version))
         {
             fromVersion = version;
-            while (version >= 0 && version < DocumentSchema.CurrentVersion)
+            while (version >= 0 && version < CurrentVersion)
             {
                 IDocumentMigration? step = FindMigration(migrations, version);
                 if (step is null)
@@ -207,6 +212,15 @@ internal sealed class KindDescriptor<T> : KindDescriptor
             }
         }
 
+        // The steps that ship with the agent apply to every store, whatever the options say.
+        foreach (IDocumentMigration migration in BuiltInMigrations.All)
+        {
+            if (migration.FromVersion == fromVersion && migration.Kind == Kind)
+            {
+                return migration;
+            }
+        }
+
         return null;
     }
 }
@@ -218,11 +232,12 @@ internal static class KindDescriptors
         ConfigKind.Command,
         "commands",
         null,
+        DocumentSchema.CommandVersion,
         ConfigJsonContext.Default.CommandDocument,
         document => document.Id,
         (document, revision, at) => document with
         {
-            SchemaVersion = DocumentSchema.CurrentVersion,
+            SchemaVersion = DocumentSchema.CommandVersion,
             Revision = revision,
             UpdatedAt = at,
             Origin = DocumentOrigins.Local,
@@ -233,6 +248,7 @@ internal static class KindDescriptors
         ConfigKind.Sensor,
         "sensors",
         null,
+        DocumentSchema.CurrentVersion,
         ConfigJsonContext.Default.SensorDocument,
         document => document.Id,
         (document, revision, at) => document with
@@ -248,6 +264,7 @@ internal static class KindDescriptors
         ConfigKind.MetricOverrides,
         "metrics",
         ConfigIds.MetricOverrides,
+        DocumentSchema.CurrentVersion,
         ConfigJsonContext.Default.MetricOverridesDocument,
         _ => ConfigIds.MetricOverrides,
         (document, revision, at) => document with
@@ -263,6 +280,7 @@ internal static class KindDescriptors
         ConfigKind.Settings,
         "settings",
         ConfigIds.Settings,
+        DocumentSchema.CurrentVersion,
         ConfigJsonContext.Default.AgentSettingsDocument,
         _ => ConfigIds.Settings,
         (document, revision, at) => document with
@@ -274,7 +292,23 @@ internal static class KindDescriptors
         },
         (document, _) => DocumentValidator.ValidateSettings(document));
 
-    private static readonly KindDescriptor[] All = [Command, Sensor, MetricOverrides, Settings];
+    public static readonly KindDescriptor<ModeGroupDocument> Mode = new(
+        ConfigKind.Mode,
+        "modes",
+        null,
+        DocumentSchema.CurrentVersion,
+        ConfigJsonContext.Default.ModeGroupDocument,
+        document => document.Id,
+        (document, revision, at) => document with
+        {
+            SchemaVersion = DocumentSchema.CurrentVersion,
+            Revision = revision,
+            UpdatedAt = at,
+            Origin = DocumentOrigins.Local,
+        },
+        DocumentValidator.ValidateModeGroup);
+
+    private static readonly KindDescriptor[] All = [Command, Sensor, MetricOverrides, Settings, Mode];
 
     /// <summary>The many-document and singleton kinds that are stored as JSON documents.</summary>
     public static IReadOnlyList<KindDescriptor> Documents => All;

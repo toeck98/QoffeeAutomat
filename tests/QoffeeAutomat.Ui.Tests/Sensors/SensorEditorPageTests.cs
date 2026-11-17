@@ -145,7 +145,7 @@ public sealed class SensorEditorPageTests : BunitContext, IAsyncLifetime
         IRenderedComponent<SensorEditorPage> cut = RenderEditor();
 
         Assert.Equal(
-            ["powershell", "process_running", "perf_counter", "cim_query", "service_state"],
+            ["powershell", "process_running", "state", "perf_counter", "cim_query", "service_state"],
             SourceTypes(cut));
     }
 
@@ -158,7 +158,7 @@ public sealed class SensorEditorPageTests : BunitContext, IAsyncLifetime
 
         IRenderedComponent<SensorEditorPage> cut = RenderEditor();
 
-        Assert.Equal(["powershell", "process_running"], SourceTypes(cut));
+        Assert.Equal(["powershell", "process_running", "state"], SourceTypes(cut));
     }
 
     [Fact]
@@ -359,6 +359,122 @@ public sealed class SensorEditorPageTests : BunitContext, IAsyncLifetime
 
         Assert.NotNull(cut.Find("[data-testid=sensor-not-found]"));
         Assert.True(cut.Find("[data-testid=sensor-save]").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void A_new_state_sensor_has_an_initial_value_and_a_persist_switch_but_no_interval_and_no_value_to_set_yet()
+    {
+        IRenderedComponent<SensorEditorPage> cut = RenderEditor();
+
+        cut.Find("[data-testid=sensor-field-source-type]").Change("state");
+
+        Assert.NotNull(cut.Find("[data-testid=sensor-field-initial-value]"));
+        Assert.NotNull(cut.Find("[data-testid=sensor-field-persist]"));
+        Assert.Empty(cut.FindAll("[data-testid=sensor-field-interval]"));
+        Assert.Empty(cut.FindAll("[data-testid=sensor-field-code]"));
+        Assert.Empty(cut.FindAll("[data-testid=sensor-state-panel]"));
+    }
+
+    [Fact]
+    public void A_state_sensor_is_saved_with_its_initial_value_and_without_an_interval()
+    {
+        IRenderedComponent<SensorEditorPage> cut = RenderEditor();
+        cut.Find("[data-testid=sensor-field-name] input").Input("Mode");
+        cut.Find("[data-testid=sensor-field-source-type]").Change("state");
+        cut.Find("[data-testid=sensor-field-value-type]").Change("string");
+        cut.Find("[data-testid=sensor-field-initial-value] input").Input("Normal");
+
+        cut.Find("[data-testid=sensor-save]").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=sensor-saved]")), Patience);
+        SensorDocument created = Assert.Single(_api.CreatedSensors);
+        StateSensorSource source = Assert.IsType<StateSensorSource>(created.Source);
+        Assert.Equal("Normal", source.InitialValue!.Value.GetString());
+        Assert.False(source.Persist);
+        Assert.Null(created.IntervalSeconds);
+
+        // Once the sensor exists its value can be set by hand.
+        Assert.NotNull(cut.Find("[data-testid=sensor-state-panel]"));
+    }
+
+    [Fact]
+    public void The_value_of_a_stored_state_sensor_is_shown_and_can_be_set_by_hand()
+    {
+        _api.Sensors = [Samples.Sensor("mode", "Mode", valueType: "string", source: new StateSensorSource(Samples.Text("Normal")))];
+        _api.SensorValues["mode"] = "Normal";
+        IRenderedComponent<SensorEditorPage> cut = RenderEditor("mode");
+
+        Assert.Equal("Normal", cut.Find("[data-testid=sensor-state-current]").TextContent.Trim());
+        Assert.True(cut.Find("[data-testid=sensor-state-set]").HasAttribute("disabled"));
+
+        cut.Find("[data-testid=sensor-state-input] input").Input("Eco");
+        cut.Find("[data-testid=sensor-state-set]").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=sensor-state-notice]")), Patience);
+        Assert.Equal(("mode", "Eco"), Assert.Single(_api.SetSensorValues));
+        Assert.Equal("Eco", cut.Find("[data-testid=sensor-state-current]").TextContent.Trim());
+        Assert.Empty(_api.ReplacedSensors);
+    }
+
+    [Fact]
+    public void A_value_that_the_agent_refuses_is_shown_with_its_reason_and_the_old_value_stays()
+    {
+        _api.Sensors = [Samples.Sensor("level", "Level", source: new StateSensorSource(Samples.Number(1)))];
+        _api.SensorValues["level"] = "1";
+        _api.SensorValueSetFailure = new ApiException(
+            422,
+            Samples.Problem(422, "validation_failed", "The request has a validation error.", new ApiValidationError("/value", "invalid", "Sensor 'level': 'warm' is not a number.")));
+        IRenderedComponent<SensorEditorPage> cut = RenderEditor("level");
+
+        cut.Find("[data-testid=sensor-state-input] input").Input("warm");
+        cut.Find("[data-testid=sensor-state-set]").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=error-message]")), Patience);
+        Assert.Contains("is not a number", cut.Markup, StringComparison.Ordinal);
+        Assert.Empty(cut.FindAll("[data-testid=sensor-state-notice]"));
+        Assert.Equal("1", cut.Find("[data-testid=sensor-state-current]").TextContent.Trim());
+    }
+
+    [Fact]
+    public void An_enum_state_sensor_offers_its_options_to_choose_from()
+    {
+        SensorDocument sensor = Samples.Sensor("mode", "Mode", valueType: "enum", source: new StateSensorSource()) with { Options = ["Normal", "Eco"] };
+        _api.Sensors = [sensor];
+        IRenderedComponent<SensorEditorPage> cut = RenderEditor("mode");
+
+        Assert.Equal(["", "Normal", "Eco"], Options(cut, "sensor-state-input"));
+        Assert.Equal("n/a", cut.Find("[data-testid=sensor-state-current]").TextContent.Trim());
+
+        cut.Find("select[data-testid=sensor-state-input]").Change("Eco");
+        cut.Find("[data-testid=sensor-state-set]").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=sensor-state-notice]")), Patience);
+        Assert.Equal(("mode", "Eco"), Assert.Single(_api.SetSensorValues));
+    }
+
+    [Fact]
+    public void Saving_a_stored_state_sensor_keeps_its_persist_flag()
+    {
+        _api.Sensors = [Samples.Sensor("mode", "Mode", valueType: "string", source: new StateSensorSource(Samples.Text("Normal"), Persist: true))];
+        IRenderedComponent<SensorEditorPage> cut = RenderEditor("mode");
+
+        cut.Find("[data-testid=sensor-field-name] input").Input("Mode switch");
+        cut.Find("[data-testid=sensor-save]").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=sensor-saved]")), Patience);
+        StateSensorSource source = Assert.IsType<StateSensorSource>(Assert.Single(_api.ReplacedSensors).Source);
+        Assert.True(source.Persist);
+        Assert.Equal("Normal", source.InitialValue!.Value.GetString());
+    }
+
+    [Fact]
+    public void A_script_sensor_has_no_value_to_set()
+    {
+        _api.Sensors = [Samples.Sensor("disk_temp")];
+
+        IRenderedComponent<SensorEditorPage> cut = RenderEditor("disk_temp");
+
+        Assert.Empty(cut.FindAll("[data-testid=sensor-state-panel]"));
     }
 
     /// <summary>The value of a native select: Blazor writes it as an attribute of the select or marks the option.</summary>

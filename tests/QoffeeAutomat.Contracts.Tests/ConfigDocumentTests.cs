@@ -20,6 +20,7 @@ public class ConfigDocumentTests
 
         Assert.Contains("command", present);
         Assert.Contains("sensor", present);
+        Assert.Contains("mode", present);
         Assert.Contains("metrics", present);
         Assert.Contains("settings", present);
     }
@@ -135,6 +136,52 @@ public class ConfigDocumentTests
     }
 
     [Fact]
+    public void The_mode_group_example_of_the_plan_is_read_completely()
+    {
+        ModeGroupDocument group = Read("config/mode.example.json", ConfigJsonContext.Default.ModeGroupDocument);
+
+        Assert.Equal(1, group.SchemaVersion);
+        Assert.Equal("pc_mode", group.Id);
+        Assert.Equal("PC mode", group.Name);
+        Assert.Equal("mdi:monitor-dashboard", group.Icon);
+        Assert.True(group.Enabled);
+        Assert.True(group.ExposeToHa);
+        Assert.Equal("normal", group.DefaultMode);
+        Assert.Equal(ModeBootBehaviors.Reset, group.OnBoot);
+        Assert.Equal(SequenceErrorModes.Stop, group.OnError);
+        Assert.Equal(2, group.Revision);
+        Assert.Equal(DocumentOrigins.Local, group.Origin);
+        Assert.Equal(new DateTimeOffset(2026, 11, 16, 18, 5, 0, TimeSpan.Zero), group.UpdatedAt);
+
+        Assert.Equal(2, group.Modes.Count);
+        Assert.Equal("normal", group.Modes[0].Id);
+        Assert.Equal("Normal", group.Modes[0].Name);
+        SequenceStep profile = Assert.Single(group.Modes[0].Enter!);
+        Assert.Equal("set_display_profile", profile.Command);
+        Assert.Equal("Normal-Mode", profile.Vars!["Profile"].GetString());
+        Assert.Empty(group.Modes[0].Exit!);
+
+        ModeDefinition gaming = group.Modes[1];
+        Assert.Equal("tv_gaming", gaming.Id);
+        Assert.Equal(2, gaming.Enter!.Count);
+        Assert.Equal("launch_steam_big_picture", gaming.Enter[1].Command);
+        Assert.Equal(2, gaming.Exit!.Count);
+        Assert.Equal("close_steam", gaming.Exit[0].Command);
+        Assert.Equal(2.0, gaming.Exit[1].DelaySeconds);
+    }
+
+    [Fact]
+    public void A_minimal_mode_group_gets_the_default_behaviours()
+    {
+        ModeGroupDocument group = Read("config/mode.minimal.json", ConfigJsonContext.Default.ModeGroupDocument);
+
+        Assert.Equal(ModeBootBehaviors.Reset, group.OnBoot);
+        Assert.Equal(SequenceErrorModes.Stop, group.OnError);
+        Assert.Null(group.Modes[0].Enter);
+        Assert.Null(group.Modes[0].Exit);
+    }
+
+    [Fact]
     public void Metric_overrides_and_settings_are_read()
     {
         MetricOverridesDocument metrics = Read("config/metrics.json", ConfigJsonContext.Default.MetricOverridesDocument);
@@ -160,6 +207,37 @@ public class ConfigDocumentTests
         Assert.False(hidden.EffectiveTrayIcon);
         using JsonDocument written = JsonDocument.Parse(JsonSerializer.Serialize(hidden, ConfigJsonContext.Default.AgentSettingsDocument));
         Assert.False(written.RootElement.GetProperty("trayIcon").GetBoolean());
+    }
+
+    [Fact]
+    public void The_update_check_is_on_once_a_day_unless_the_settings_say_otherwise()
+    {
+        var absent = new AgentSettingsDocument(DocumentSchema.CurrentVersion, "Gaming-PC");
+        AgentSettingsDocument read = Read("config/settings.updates.json", ConfigJsonContext.Default.AgentSettingsDocument);
+
+        Assert.True(absent.EffectiveUpdateCheck);
+        Assert.Equal(24, absent.EffectiveUpdateIntervalHours);
+        Assert.True((absent with { Updates = new UpdateSettings() }).EffectiveUpdateCheck);
+        Assert.False((absent with { Updates = new UpdateSettings(Check: false) }).EffectiveUpdateCheck);
+        Assert.Equal(6, (absent with { Updates = new UpdateSettings(IntervalHours: 6) }).EffectiveUpdateIntervalHours);
+        Assert.True(read.EffectiveUpdateCheck);
+        using JsonDocument written = JsonDocument.Parse(JsonSerializer.Serialize(read, ConfigJsonContext.Default.AgentSettingsDocument));
+        JsonElement updates = written.RootElement.GetProperty("updates");
+        Assert.True(updates.GetProperty("check").GetBoolean());
+        Assert.Equal(24, updates.GetProperty("intervalHours").GetInt32());
+    }
+
+    [Fact]
+    public void The_hardware_sensors_are_off_unless_the_settings_turn_them_on()
+    {
+        var absent = new AgentSettingsDocument(DocumentSchema.CurrentVersion, "Gaming-PC");
+        AgentSettingsDocument on = Read("config/settings.hardware_sensors.json", ConfigJsonContext.Default.AgentSettingsDocument);
+
+        Assert.False(absent.EffectiveHardwareSensorsEnabled);
+        Assert.False((absent with { HardwareSensors = new HardwareSensorSettings() }).EffectiveHardwareSensorsEnabled);
+        Assert.True(on.EffectiveHardwareSensorsEnabled);
+        using JsonDocument written = JsonDocument.Parse(JsonSerializer.Serialize(on, ConfigJsonContext.Default.AgentSettingsDocument));
+        Assert.True(written.RootElement.GetProperty("hardwareSensors").GetProperty("enabled").GetBoolean());
     }
 
     [Fact]
@@ -263,6 +341,9 @@ public class ConfigDocumentTests
             "sensor" => JsonSerializer.Serialize(
                 JsonSerializer.Deserialize(json, ConfigJsonContext.Default.SensorDocument)!,
                 ConfigJsonContext.Default.SensorDocument),
+            "mode" => JsonSerializer.Serialize(
+                JsonSerializer.Deserialize(json, ConfigJsonContext.Default.ModeGroupDocument)!,
+                ConfigJsonContext.Default.ModeGroupDocument),
             "metrics" => JsonSerializer.Serialize(
                 JsonSerializer.Deserialize(json, ConfigJsonContext.Default.MetricOverridesDocument)!,
                 ConfigJsonContext.Default.MetricOverridesDocument),

@@ -64,6 +64,7 @@ public sealed class ManifestService : IManifestSource, IDisposable
     private readonly Func<AgentInfo> _agent;
     private readonly Func<IReadOnlyList<string>?>? _features;
     private readonly IConfigStore? _config;
+    private readonly bool _includeSystemCommands;
     private readonly CancellationTokenSource _stop = new();
     private Snapshot _snapshot;
     private ConfigSubscription? _subscription;
@@ -80,12 +81,19 @@ public sealed class ManifestService : IManifestSource, IDisposable
     /// When set, <see cref="Start"/> also watches the agent settings of this store and refreshes the manifest when
     /// they change (the agent name is part of the manifest).
     /// </param>
+    /// <param name="includeSystemCommands">
+    /// Announce the <see cref="SystemCommands"/> (the maintenance mode switch, T705, and the commands of the features
+    /// <c>notify</c> and <c>media</c>, T702 and T716, when <paramref name="features"/> lists them) next to the stored
+    /// commands. The agent host sets it; the maintenance switch needs the metric <c>agent.paused</c>
+    /// (<see cref="AgentMetricProvider"/>) as its state.
+    /// </param>
     public ManifestService(
         CommandRegistry commands,
         MetricEngine metrics,
         Func<AgentInfo> agent,
         Func<IReadOnlyList<string>?>? features = null,
-        IConfigStore? config = null)
+        IConfigStore? config = null,
+        bool includeSystemCommands = false)
     {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(metrics);
@@ -96,6 +104,7 @@ public sealed class ManifestService : IManifestSource, IDisposable
         _agent = agent;
         _features = features;
         _config = config;
+        _includeSystemCommands = includeSystemCommands;
         _snapshot = BuildSnapshot();
     }
 
@@ -240,13 +249,16 @@ public sealed class ManifestService : IManifestSource, IDisposable
         return BuildSnapshot(_agent(), _features?.Invoke(), _commands.Commands, _metrics.Catalog);
     }
 
-    private static Snapshot BuildSnapshot(
+    private Snapshot BuildSnapshot(
         AgentInfo agent,
         IReadOnlyList<string>? features,
         IReadOnlyList<CommandDocument> commands,
         IReadOnlyList<MetricCatalogEntry> catalog)
     {
-        LinkManifest manifest = ManifestBuilder.Build(agent, catalog, commands, EventCatalog.Types, features);
+        // The system commands (the maintenance mode switch, T705; the commands behind the features notify and media, T702 and
+        // T716) are announced like stored commands; those of a feature only when the agent announces the feature.
+        IEnumerable<CommandDocument> announced = _includeSystemCommands ? [.. commands, .. SystemCommands.Announced(features)] : commands;
+        LinkManifest manifest = ManifestBuilder.Build(agent, catalog, announced, EventCatalog.Types, features);
         return new Snapshot(agent, features, commands, catalog, manifest);
     }
 

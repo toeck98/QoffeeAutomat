@@ -15,6 +15,10 @@ agent pushes them over QoffeeLink as they occur.
 | `session_unlocked` | Session unlocked | The session was unlocked. | – |
 | `resumed` | Resumed | The PC woke up from sleep or hibernation. | – |
 | `command_finished` | Command finished | A command run ended. | `command`, `run_id`, `source`, `exit_code`, `error`, `duration_ms` |
+| `mode_changed` | Mode changed | A switch of a mode group finished and the current mode is now another one. Not raised when the current mode is entered again, nor for a failed switch with `onError: stop`. | `group`, `from`, `to` |
+| `notification_action` | Notification button pressed | A button of a notification from Home Assistant was pressed, see [Notifications](notifications.md#react-to-a-button). | `action`, `tag` |
+| `hotkey_pressed` | Hotkey pressed | A global hotkey that you defined in the settings was pressed, see [below](#hotkeys). | `name` |
+| `power_action_cancelled` | Power action cancelled | A shutdown, restart, sleep, hibernate or log off that was waiting for its countdown was cancelled, see [Power actions with a countdown](reference/actions.md#power-actions-with-a-countdown). | `action`, `source`, `delay_seconds` |
 | `custom` | Custom event | A script or the command line raised an event, see [below](#custom-events). | `name` and optionally `data` |
 
 In addition, the **integration** raises one event itself:
@@ -81,6 +85,36 @@ actions:
 
 Use `{{ trigger.event.data.device_id }}` as the target in a following `qoffeeautomat.run_command` to answer on the same PC (see
 [the example](example-mode-start.md)).
+
+## Hotkeys
+
+A **global hotkey** is a key combination that works in every program on the PC and raises the event `hotkey_pressed`, so a
+Home Assistant automation can react to your keyboard (switch the lights, mute the speakers, start a scene).
+
+Define them under **Settings → Global hotkeys** in the web interface: give each one a **name** (lower case letters, digits and
+`_`) and the **keys**, for example `Ctrl+Alt+F9`. Write at least one of `Ctrl`, `Alt`, `Shift` or `Win` and exactly one key (a
+letter, a digit, `F1` to `F24`, `Num0` to `Num9`, or a name such as `Space`, `Home`, `PageDown` or `MediaPlayPause`). A hotkey
+without a modifier is refused, because it would take that key away from every program. The same combination cannot be used by
+two enabled entries; switch an entry off to keep it without using it.
+
+The hotkeys are registered by the helper program in the session of the logged-in user, so they only exist while somebody is
+logged on. If Windows or another program already owns a
+combination, the entry shows **Not active** with the reason right in the settings page; choose another combination. **Refresh
+status** asks again.
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: qoffeeautomat_event
+    event_data:
+      type: hotkey_pressed
+conditions:
+  - condition: template
+    value_template: "{{ trigger.event.data.data.name == 'mute_mic' }}"
+```
+
+The event entity of the device offers the type `hotkey_pressed` as well. Only the names that are enabled in the settings raise
+the event. Holding the keys down raises it once.
 
 ## Custom events
 

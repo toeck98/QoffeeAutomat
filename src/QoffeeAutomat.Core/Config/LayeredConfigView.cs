@@ -48,6 +48,7 @@ internal sealed class LayeredConfigView : IConfigView
                 {
                     CommandDocument command => command.Id,
                     SensorDocument sensor => sensor.Id,
+                    ModeGroupDocument mode => mode.Id,
                     MetricOverridesDocument => ConfigIds.MetricOverrides,
                     AgentSettingsDocument => ConfigIds.Settings,
                     _ => null,

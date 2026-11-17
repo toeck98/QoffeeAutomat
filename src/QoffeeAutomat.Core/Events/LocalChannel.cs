@@ -19,12 +19,15 @@ public static class LocalChannelNames
     /// <summary>The path of the endpoint that accepts custom events.</summary>
     public const string EmitPath = "/local/v1/emit";
 
+    /// <summary>The path of the endpoint that sets and reads the values of state sensors: <c>PUT</c> and <c>GET</c> on <c>/local/v1/state/{id}</c> (T714).</summary>
+    public const string StatePath = "/local/v1/state";
+
     /// <summary>The file in the secrets directory that holds address and secret for administrators who use the command line by hand.</summary>
     public const string FileName = "local-channel.json";
 }
 
 /// <summary>
-/// The server side of the authenticated local channel that <c>qoffeeautomat emit</c> uses (PLAN.md
+/// The server side of the authenticated local channel that <c>qoffeeautomat emit</c> and <c>qoffeeautomat state</c> use (PLAN.md
 /// T217, S09). The agent creates a random secret for every run of the process. Everything the agent
 /// starts (scripts and processes) inherits the secret through the environment, so a script can notify
 /// Home Assistant; any other caller must read the file in the secrets directory, which only

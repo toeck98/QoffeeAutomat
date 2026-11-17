@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "power_keep_awake",
+  "name": "Keep awake",
+  "description": "Keeps the computer from going to sleep while the switch is on.",
+  "icon": "mdi:coffee",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "system",
+  "action": { "type": "builtin", "name": "power.keep_awake" },
+  "parameters": [
+    { "name": "On", "type": "bool", "required": true },
+    { "name": "Display", "type": "bool", "default": false },
+    { "name": "Minutes", "type": "int", "min": 0, "max": 10080, "step": 1, "default": 0, "unit": "min" }
+  ],
+  "haControl": { "type": "switch", "parameter": "On", "stateMetric": "power.keep_awake" },
+  "timeoutSeconds": 30,
+  "captureOutput": true
+}

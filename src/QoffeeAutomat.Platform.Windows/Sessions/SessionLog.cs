@@ -52,4 +52,16 @@ internal static partial class SessionLog
 
     [LoggerMessage(EventId = 325, Level = LogLevel.Warning, Message = "The state of the tray icon could not be determined: {Reason}")]
     public static partial void TrayStateUnavailable(ILogger logger, string reason);
+
+    [LoggerMessage(EventId = 326, Level = LogLevel.Information, Message = "Issued a one-time login token to the administrator {UserName} of session {SessionId}.")]
+    public static partial void LoginTokenIssued(ILogger logger, int sessionId, string? userName);
+
+    [LoggerMessage(EventId = 327, Level = LogLevel.Warning, Message = "Security: refused a one-time login token to session {SessionId} (user {UserName}): {Reason}.")]
+    public static partial void LoginTokenDenied(ILogger logger, int sessionId, string? userName, string reason);
+
+    [LoggerMessage(EventId = 328, Level = LogLevel.Warning, Message = "The hotkey '{Name}' ({Keys}) is not active: {State}. {Detail}")]
+    public static partial void HotkeyNotActive(ILogger logger, string name, string keys, string state, string detail);
+
+    [LoggerMessage(EventId = 329, Level = LogLevel.Warning, Message = "The hotkeys could not be sent to the session helper of session {SessionId}: {Reason}")]
+    public static partial void HotkeysNotSent(ILogger logger, int sessionId, string reason);
 }

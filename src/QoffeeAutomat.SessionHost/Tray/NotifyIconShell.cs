@@ -57,6 +57,9 @@ public sealed class NotifyIconShell : ITrayShell
     public event EventHandler<TrayPauseRequestedEventArgs>? PauseRequested;
 
     /// <inheritdoc />
+    public event EventHandler? OpenUiRequested;
+
+    /// <inheritdoc />
     public void Update(TrayView view)
     {
         ArgumentNullException.ThrowIfNull(view);
@@ -197,22 +200,37 @@ public sealed class NotifyIconShell : ITrayShell
         _icon.Visible = view.Visible;
     }
 
-    private void OpenUi()
+    /// <inheritdoc />
+    public void OpenBrowser(Uri address)
     {
-        Uri? uri = _view.UiUri;
-        if (uri is null || !_view.CanOpenUi)
+        ArgumentNullException.ThrowIfNull(address);
+
+        // Only a loopback http address is ever opened, whoever asks (the address of a login link carries a token).
+        if (address.Scheme != Uri.UriSchemeHttp || !address.IsLoopback || address.UserInfo.Length > 0)
         {
+            _log.Warning("Refused to open an address that is not a loopback http address.");
             return;
         }
 
         try
         {
-            using Process? started = Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+            using Process? started = Process.Start(new ProcessStartInfo(address.AbsoluteUri) { UseShellExecute = true });
         }
         catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
         {
+            // The message does not contain the address: it may hold a login token.
             _log.Warning("The UI could not be opened in the browser: " + exception.Message);
         }
+    }
+
+    private void OpenUi()
+    {
+        if (_view.UiUri is null || !_view.CanOpenUi)
+        {
+            return;
+        }
+
+        OpenUiRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void RequestPause(bool paused)

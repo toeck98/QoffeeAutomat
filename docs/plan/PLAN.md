@@ -94,7 +94,7 @@ on that date and should be re-checked when the related task starts.
 | D-005 | Transport "QoffeeLink": the HA integration opens one persistent WebSocket to the agent (`iot_class: local_push`). The agent pushes batched state deltas; no polling in either direction. | Lowest overhead and latency without extra infrastructure (no MQTT broker). The agent already runs a web server for the UI. HA-initiated connections match how HA handles devices and allow zeroconf discovery and Wake-on-LAN while the PC is off. |
 | D-006 | QoffeeLink frames are UTF-8 JSON text with `permessage-deflate`. The protocol is symmetric after the handshake so the dial direction can be reversed later (agent to hub, agent to HA for roaming laptops). | JSON is debuggable and trivially handled in Python and C#. Payloads are small because only changed values are sent. |
 | D-007 | Demand-driven sampling: a metric is only sampled while at least one consumer (HA, UI, hub) subscribes to it. The integration subscribes only to metrics whose entities are enabled. | Saves CPU on the PC; disabled entities cost nothing. |
-| D-008 | Rejected alternatives for D-005: REST polling of HA (prototype; inefficient, one entity), MQTT discovery (needs a broker, weak for variables and command responses; may be added later as optional transport), agent dialling into the HA WebSocket API (needs a long-lived HA token on every PC; kept as later option T710). | Recorded so agents do not reopen the question. |
+| D-008 | Rejected alternatives for D-005: REST polling of HA (prototype; inefficient, one entity), MQTT discovery (needs a broker, weak for variables and command responses; may be added later as optional transport), agent dialling into the HA WebSocket API (needs a long-lived HA token on every PC; rejected for T710, which uses a dedicated endpoint of the integration and its own revocable token instead, D-043). | Recorded so agents do not reopen the question. |
 | D-009 | Two processes on Windows: `Agent` runs as a Windows service (LocalSystem); `SessionHost` runs inside each interactive user session and is started by the agent. They talk over a named pipe. | Services live in session 0 and cannot show windows, start GUI programs on the user's desktop, change the user's display configuration or read idle time and foreground window. The prototype's display switching and program launching need the user session. |
 | D-010 | Every command declares `runAs: system` or `runAs: user`. | Follows from D-009; lets power actions run as service and desktop actions run in the session. |
 | D-011 | Scripts run out of process (`pwsh` if installed, else Windows PowerShell 5.1; `cmd`; later `bash`). The PowerShell SDK is not embedded. | Isolation (a script cannot crash the service), hard timeouts with process-tree kill, small binaries, works in the user session, same model on Linux. Start-up latency of a few hundred milliseconds is acceptable. A warm runspace pool is a possible later optimisation. |
@@ -113,7 +113,15 @@ on that date and should be re-checked when the related task starts.
 | D-037 | Modes are a first-class document (mode group) but appear on the wire as a generated command with an enum variable plus a state metric. | Home Assistant gets one select entity with a real state without any protocol or integration change. |
 | D-038 | The media player is composed by the integration from ordinary metrics and commands, announced by the manifest feature `media`. | No new message types; the PC side stays a set of metrics. |
 | D-039 | The WebSocket close codes 4400, 4401 and 4406 and the canonical JSON form that `rev` is computed from are part of QoffeeLink v1 (S07). The schemas in `protocol/schema/` are normative for which fields are mandatory; optional fields are omitted rather than sent as `null`, and receivers treat `null` like absent. | Specified by T101 so the C# and Python implementations agree byte for byte on `rev`; no wire change for implementations that followed S07 literally. |
-| D-023 | Hardware sensors that need a kernel driver (temperatures, fans via LibreHardwareMonitorLib, MPL-2.0) are optional, off by default and delivered after v1. | Driver trust and antivirus history of such drivers; needs a spike (T707). GPU load is available without a driver through performance counters. |
+| D-040 | The schema version is a property of each document kind. Command documents move to `schemaVersion` 2 (they gain the optional members `conditions` and `secrets`); sensors, metric overrides and settings stay at 1. Version 1 commands are migrated forward when they are read and the old file is kept under `.history/`. | Added by T705 and T706. Adding optional members to one kind must not force a migration of the others; the migration chain of S13 stays per kind. |
+| D-041 | The maintenance mode is the existing global pause flag, exposed on the wire as the binary metric `agent.paused` and the agent-provided system command `agent_maintenance` (a `switch` control with one `bool` variable `Enabled` whose state metric is `agent.paused`). The system command is not a stored document, its id is reserved, and it is the only command that runs while the agent is paused. | Added by T705. Home Assistant gets a switch with a real state without any protocol or integration change (compare D-037), and the pause can be switched off again through the same path. |
+| D-042 | A blocked run because of a command's conditions fails with the new error code `condition_not_met` in protocol v1. Receivers already have to tolerate unknown codes (S07), so this is a backward compatible addition. | Added by T705. `paused` and `no_session` do not describe a session or time-window condition. |
+| D-043 | Roaming devices use a **reverse link**: the agent dials the WebSocket endpoint `/api/qoffeeautomat/reverse/v1` of the Home Assistant integration, authenticated by a per-agent reverse token (`qalr_` plus 32 random bytes in base64url; Home Assistant keeps only its SHA-256 hash, the agent keeps the token in its secret store), over `wss://` only (`ws://` for loopback hosts). After the upgrade the connection is ordinary QoffeeLink v1, the agent sends `hello` first. The agent redials with backoff and jitter from 1 s to 5 minutes and stops after a rejected token until it is enrolled again. The dial-out code (`Link/Outbound/`) is shared with the hub link (T905). | Added by T710 (ADR 0003). No long-lived Home Assistant token on a laptop, no inbound port, no new protocol messages; the integration receives the same frames as on the inbound link. |
+| D-044 | Notifications from Home Assistant are the built-in action `notify.toast` of the SessionHost (title, message, optional picture, up to three buttons). The **agent** fetches the picture (`http`/`https` only, no credentials or link-local literal, at most three redirects, 10 s, 1 MiB, PNG/JPEG/GIF/BMP) and hands the bytes on, so the session needs no network access and the limits sit in one place; a picture that fails is left out and the notification still appears. A press of a button is the agent event `notification_action` with `action` and `tag`; no new message types. The command `agent_notify` that the integration runs is announced with the manifest feature `notify` and reserved as a system command id. | Added by T702. Reuses commands and events (like D-038); the picture fetch is the only request the agent makes for a caller, narrow because Home Assistant can trigger it. |
+| D-023 | Hardware sensors that need a kernel driver (temperatures, fans via LibreHardwareMonitorLib, MPL-2.0) are optional, off by default and delivered after v1. | Driver trust and antivirus history of such drivers; needs a spike (T707, outcome in D-045 and ADR 0002). GPU load is available without a driver through performance counters. |
+| D-045 | Hardware sensors (temperatures, fan speeds, power draw of CPU, GPU, mainboard and drives) are an optional provider of `Platform.Windows`, **accepted with conditions** (ADR 0002). The library is LibreHardwareMonitorLib 0.9.5 or newer (MPL-2.0), which uses the **PawnIO** kernel driver; the agent never loads the legacy WinRing0 driver (it refuses older library versions and a library that creates the WinRing0 service), never bundles, installs, updates or removes a driver, and treats PawnIO as conditionally trusted (third party, signed, open source). The setting `hardwareSensors.enabled` is off by default; while it is off neither the library nor a driver handle is loaded and the agent does not even look for the driver. The metrics `hardware.<sensor identifier>` are disabled by default in Home Assistant. Turning the setting off disposes the library and releases the driver handle; the managed assembly stays in memory until the agent restarts. | Added by T707. Gives users the sensors they ask for without a silent kernel driver and without a vulnerable one; the setting, the guards and the status are the parts that stay if the library changes. Facts about third parties are marked as unverified in ADR 0002 until the owner has confirmed them (T707 is `human_verify`). |
+| D-046 | Update notification and self-update (T704). The agent checks the GitHub releases API of the project once a day (setting `updates.check`; when it is off no request is made) and reports `agent.version`, `agent.latest_version`, `agent.release_url` and `agent.release_notes` as metrics. The built-in action `agent.update` (system command `agent_update`, manifest feature `update`) downloads the installer of the release, verifies its SHA-256 against `SHA256SUMS.txt` and, when the running build is signed, its Authenticode signature, says `bye` with the reason `update` and runs it silently. The integration shows an `update` entity and installs through the command. Details: S09 item 13. | Keeps a PC current without a package manager. The request is the one exception to "no connections to the internet"; it is therefore switchable, documented and free of identifiers. A wrong checksum is refused before anything runs, and a signed build never installs an unsigned successor. |
+| D-047 | Keep awake and power actions with a countdown (T715, S11). The countdown **waits in the agent**, in one scheduler that holds the single pending delayed power action (`power.shutdown`, `power.restart`, `power.sleep`, `power.hibernate`, `session.logoff`); the SessionHost only shows the dialog, as the internal built-in action `power.countdown` over the existing `run`/`cancel` messages of the session pipe, so no pipe message is added and protocol version 1 is unchanged. A second delayed action is rejected with the existing error `busy`; cancelling ends the run with the existing error `cancelled` and publishes the new catalogued event type `power_action_cancelled` (additive, receivers tolerate unknown events). `power.keep_awake` holds a Windows power request owned by the agent process and is never persisted. | The agent keeps the one authority over pending state and time (testable with a fake clock, no desktop needed), the dialog is a view that can fail without stopping the action, and nothing about the wire format has to change. A countdown in the SessionHost would have died with a logoff and could not be cancelled from Home Assistant. |
 
 ## S04 Architecture
 
@@ -225,7 +233,7 @@ JSON property names are camelCase. Ids match `^[a-z][a-z0-9_]{0,62}$`.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "set_display_profile",
   "name": "Set display profile",
   "description": "Applies a saved DisplayConfig profile.",
@@ -242,9 +250,13 @@ JSON property names are camelCase. Ids match `^[a-z][a-z0-9_]{0,62}$`.
   "timeoutSeconds": 60,
   "concurrency": "queue",
   "cooldownSeconds": 0,
-  "captureOutput": true
+  "captureOutput": true,
+  "conditions": { "session": "unlocked", "timeWindow": { "from": "08:00", "to": "22:00", "days": ["mon", "tue", "wed", "thu", "fri"] } },
+  "secrets": ["display_api_key"]
 }
 ```
+
+`conditions` and `secrets` are the optional members of schema version 2 (D-040); most commands omit them.
 
 | Field | Values | Notes |
 |-------|--------|-------|
@@ -255,6 +267,28 @@ JSON property names are camelCase. Ids match `^[a-z][a-z0-9_]{0,62}$`.
 | `concurrency` | `single`, `queue`, `parallel`, `restart` | Same semantics as Home Assistant script modes. |
 | `timeoutSeconds` | 1..86400, default 60 | On timeout the whole process tree is killed. |
 | `captureOutput` | bool | stdout and stderr are captured, each capped at 64 KiB. |
+| `conditions` | object, optional (schema version 2, T705) | A run that does not meet them is rejected with the error `condition_not_met` (D-042); the rejection is recorded in the history. They apply to every entry point, to the steps of a sequence and to test runs. See below. |
+| `secrets` | array of secret names, optional (schema version 2, T706) | Only for `powershell` and `process` actions (S09). Names match `^[a-z][a-z0-9_]{0,62}$`, each at most once. See below. |
+
+Conditions (T705):
+
+| Member | Values | Behaviour |
+|--------|--------|-----------|
+| `conditions.session` | `any` (default), `logged_in`, `unlocked`, `locked` | The state of the interactive session that the command needs: `logged_in` needs a logged-in user, `unlocked` a logged-in user whose session is not locked, `locked` a logged-in user whose session is locked. |
+| `conditions.timeWindow` | `{ "from": "HH:mm", "to": "HH:mm", "days": [...] }` | The command only runs inside the window of the local day of the PC. `from` is inclusive, `to` exclusive; a `to` that is not later than `from` makes the window cross midnight (equal values make it 24 hours long). `days` (`mon` to `sun`, default every day) names the days on which the window *starts*, so a window from 22:00 to 06:00 on `mon` is still open on Tuesday at 02:00. |
+
+The checks run in this order: command exists, enabled, agent not paused, conditions, cooldown, variables, concurrency. Conditions are
+evaluated when the request is admitted, not again when a queued run starts. The error message says which condition failed and never
+contains variable values.
+
+Schema version 2 (D-040): the store writes command documents with `schemaVersion` 2. A document of version 1 is migrated forward when
+it is read (the step changes nothing, because both members are optional), the file is rewritten and the old file is kept as a backup
+under `config/.history/commands/<id>/`. The API accepts both versions and stamps version 2.
+
+Maintenance mode (T705, D-041): the pause flag (tray icon, `/status.paused`) is the metric `agent.paused` (`binary_sensor`, `bool`, event
+driven) and can be switched through the system command `agent_maintenance`, which is announced in the manifest like a stored command
+(`control: switch`, variable `Enabled`, `state_metric: agent.paused`). While the agent is paused every other command is rejected with
+`paused`; `agent_maintenance` is exempt so that it can switch the mode off again. Its id is reserved: a stored command cannot use it.
 
 Action types:
 
@@ -275,7 +309,7 @@ Parameters (variables, R-04):
 | `min`, `max`, `step` | `int`, `float` | Validated by the agent, mirrored in HA number entities. |
 | `pattern`, `maxLength` | `string` | `maxLength` defaults to 1024. `pattern` is a .NET regex with a 100 ms match timeout. |
 | `options` | `enum` | Non-empty list of strings. |
-| `optionsFrom` | `enum` | Optional metric id (after v1, T713). The options are taken from that enum metric's current options when the manifest is built, so they follow the PC's state (for example audio devices). Replaces `options`. |
+| `optionsFrom` | `enum` | Optional metric id (after v1, T713). The options are taken from that enum metric's current options when the manifest is built, so they follow the PC's state (for example audio devices). Replaces `options`: both together are the validation error `conflict`, and the field is only valid for `enum` variables. The manifest carries the resulting `options` (never `optionsFrom`), left out while the metric has none (the manifest schema allows no empty list), so `rev` changes with the options. A value is any non-empty string, because the list is not known when the command is saved; the action checks it. Documents without it validate as before. |
 | `secret` | all | Optional bool. The value is redacted in history, logs and audit entries. |
 | `unit`, `description` | all | Shown in the UI and in HA. |
 
@@ -324,6 +358,21 @@ that is not sampled but set from outside with `qoffeeautomat state set <id>
 <value>` or `PUT /sensors/{id}/value`, optionally persisted across restarts;
 it lets a script report a state that a control uses as `stateMetric`.
 
+The `state` source has the members `initialValue` (JSON of the value type, optional) and
+`persist` (bool, default `false`). The sensor is event-driven (`intervalSeconds` is always
+`0`, a configured interval is ignored) and is never sampled by a script or a timer: the
+metric engine only asks the value store, so a new value is published through
+`RequestSample` at once. A value is validated against `valueType` and `options` (text is
+read like script output: numbers with a dot, `true`/`false`/`1`/`0`/`yes`/`no`/`on`/`off`,
+an option case-insensitively, a date and time, text up to 255 characters); a value that
+does not fit is refused and changes nothing. Without `persist` the sensor shows
+`initialValue` (or no value, which makes it unavailable) after every start. With `persist`
+the last value is kept in `data/state-values.json` (owner-only, written atomically, only
+sensors that still exist and still have `persist`); a kept value that no longer fits the
+sensor after an edit gives way to the initial value. Error codes: `unknown_sensor` (404),
+`not_state_sensor` (409), `invalid_value` (422 at `/value`; 400 on the local channel),
+`persist_failed` (500; the value is set and published but will not survive a restart).
+
 ### Mode group document (`config/modes/<id>.json`, after v1, T717)
 
 A mode group is a set of mutually exclusive modes of the PC, for example
@@ -367,13 +416,18 @@ time, OS version, GPU usage (performance counters), session locked, session
 ready (the SessionHost of the active session accepts user commands), logged-in
 user, idle time, active window title and process (off by default), master
 volume and mute, microphone in use, webcam in use, display count and primary
-resolution, pending reboot.
+resolution, pending reboot, the maintenance mode `agent.paused` (T705, D-041), and whether the agent keeps the PC awake, `power.keep_awake`
+(T715, D-047).
 
 ## S07 QoffeeLink protocol v1
 
 * Endpoint: `wss://<host>:8481/link/v1`, WebSocket subprotocol `qoffeelink.v1`.
 * Auth: `Authorization: Bearer <link token>` on the upgrade request. Invalid
   token: HTTP 401, no upgrade.
+* Reverse link (D-043, ADR 0003, T710): a roaming agent dials
+  `wss://<home assistant>/api/qoffeeautomat/reverse/v1` with `Authorization: Bearer <reverse token>` and the
+  same sub-protocol. Everything below applies unchanged after the upgrade; the agent still sends `hello`
+  first. An unknown token gets HTTP 401 without an upgrade, a revoked one the close code 4401.
 * Frames: one JSON object per text frame, UTF-8, `permessage-deflate` on.
   Maximum frame size 1 MiB. Field names are snake_case.
   Credentials never travel inside compressed frames (the token is only sent
@@ -405,10 +459,23 @@ Optional features are announced in `features` on both sides; v1 without
 features is the baseline that the Home Assistant integration needs. The hub
 features are defined in S20.
 
+The `features` list of the **manifest** names what the PC offers beyond metrics and
+commands (T702, T716, D-038, D-044): `wol` (the MAC addresses are known), `notify`
+(the agent has the built-in action `notify.toast`), `media` (it has `media.control`) and `update`
+(it has `agent.update`, T704, D-046; with it the manifest holds the command `agent_update` and the metrics
+`agent.version`, `agent.latest_version`, `agent.release_url` and `agent.release_notes`).
+With `notify` the manifest also holds the command `agent_notify` and the event type
+`notification_action` (data `action` and `tag`); with `media` the commands
+`agent_media_control`, `agent_media_volume` and `agent_media_mute` and the metrics
+`media.*`. The Home Assistant integration creates the notify entity, the media player and the update entity
+only while the manifest lists the feature. The ids `agent_*` are reserved for these
+commands (they have no `haControl`).
+
 Error codes: `unauthorized`, `unsupported_version`, `bad_request`,
 `unknown_command`, `command_disabled`, `invalid_vars`, `busy`, `cooldown`,
 `no_session`, `elevation_unavailable`, `cancelled`, `timeout`, `paused`,
-`internal`.
+`internal`, and, added backward compatibly after the first v1 release (D-042),
+`condition_not_met` (the conditions of the command, S06, are not met).
 
 Close codes (D-039): the standard WebSocket codes 1000 (normal), 1001 (going
 away, sent after `bye`), 1009 (frame too large) and 1011 (internal error), plus
@@ -480,6 +547,9 @@ creating a document whose id exists returns 409.
 | Resource | Operations |
 |----------|------------|
 | `/auth/setup`, `/auth/login`, `/auth/logout`, `/auth/me`, `/auth/password` | First-run setup, session handling, password change. |
+| `GET /auth/one-time?token=...` | Sign-in with the single-use token of the tray entry Open UI (T711, S09 item 12): answers 302 to `/` with a session cookie, or 401 `invalid_login_token`. The response is `no-store` with `Referrer-Policy: no-referrer`. |
+| `GET /hotkeys` | The outcome of the registration of the global hotkeys (T708, S11): `{ supported, hotkeys[{ name, keys, state, message? }] }`, `state` being `registered`, `conflict` or `invalid`; empty while no session helper has answered. The hotkeys themselves are the member `hotkeys` of `/settings`. |
+| `GET /hardware-sensors` | What became of the optional hardware sensors (T707, D-045): `{ supported, enabled, state, driver, driverInstalled?, sensorCount, message? }`, `state` being `off`, `starting`, `running`, `driver_missing`, `failed` or `unsupported`. `driverInstalled` is absent while the setting is off, because the agent does not look then. The switch itself is the member `hardwareSensors.enabled` of `/settings`. |
 | `/status` | Agent version, uptime, platform, link clients, session host state, paused flag. |
 | `/commands`, `/commands/{id}` | List, create, read, update, delete; `PATCH` for `enabled` and `exposeToHa`. |
 | `/commands/{id}/run` | Start a run with variables; returns `runId`. |
@@ -489,12 +559,13 @@ creating a document whose id exists returns 409.
 | `/metrics`, `/metrics/{id}` | Catalog with current value; update overrides. |
 | `/metrics/stream`, `/metrics/history` | Live values (SSE) and ring-buffer history for charts. |
 | `/sensors`, `/sensors/{id}`, `/sensors/test` | Custom sensor CRUD and dry run. |
-| `/sensors/{id}/value` | Set the value of a sensor of type `state` (T714). |
+| `/sensors/{id}/value` | `PUT` sets and `GET` reads the value of a sensor of type `state` (T714). Body `{ "value": ... }` (a JSON value of the value type; a string is read like command-line text); the answer is `{ id, value, updatedAt }`. Errors: 404 `unknown_sensor`, 409 `not_state_sensor`, 422 `validation_failed` with path `/value`, 500 `persist_failed`. The same values are reachable on the local channel (`PUT`/`GET /local/v1/state/{id}`, bearer secret, loopback only), which the CLI verbs `state set <id> <value>` and `state get <id>` use. |
 | `/modes`, `/modes/{id}`, `/modes/{id}/switch` | Mode group CRUD, current mode, switch (T717). |
 | `/link/pairing`, `/link/clients`, `/link/clients/{id}` | Start pairing (returns code, expiry, fingerprint), list and revoke clients. |
 | `/events` | Recent events. |
-| `/templates` | Template gallery (T701). |
-| `/settings` | Agent name, ports, remote UI, zeroconf, tray icon, logging, retention. |
+| `/secrets`, `/secrets/{name}` | Named secrets for scripts (T706, S09 item 11): `GET /secrets` lists the names with the ids of the commands that use them, `PUT /secrets/{name}` (body `{ "value": "..." }`, 4 to 4096 characters) creates (201) or replaces (200) one, `DELETE` removes it (204). Values are write-only: no endpoint returns one, and an invalid name or value is answered with 422. |
+| `/templates`, `/templates/{id}`, `/templates/{id}/instantiate` | Template gallery (T701): the templates that ship with the agent (command and sensor documents with their scripts, read from `templates/` next to the executable), a preview of one, and `POST` to add one as a new command or sensor. The id is the template id made unique with a numeric suffix (`set_volume`, `set_volume_2`), the name gets the same number, and the scripts are copied under unique names. A sequence template also adds the commands it runs that do not exist yet. The answer (201) lists everything that was created. |
+| `/settings` | Agent name, ports, remote UI, zeroconf, tray icon, logging, retention, hardware sensors. |
 | `/config/export`, `/config/import` | Zip export of all documents and scripts (no secrets) and import with validation: the whole archive is validated before anything is written; items with the same id are replaced, settings are imported only on request (`?settings=true`). |
 | `/logs`, `/diagnostics` | Log tail and a redacted diagnostics bundle. |
 | `POST /config/import/preview` | Same body and `?settings=` query as the import; answers 200 with `{valid, items[{kind,id,change}], errors[]}` (`change` is `new`, `changed` or `unchanged`) and writes nothing. Used by the backup page (T407). |
@@ -504,7 +575,7 @@ creating a document whose id exists returns 409.
 Unauthenticated endpoints: `/healthz`, `/auth/setup` (only while the setup
 token file exists, that is until the first password is set or after
 `qoffeeautomat reset-password` wrote a new token, and only with that token),
-`/auth/login`, static UI files. Everything else below `/api/v1` answers 401
+`/auth/login`, `/auth/one-time` (only with a valid single-use token, from loopback only, S09 item 12), static UI files. Everything else below `/api/v1` answers 401
 without a session; this is enforced by one authorization policy on the route
 group and checked by a test over the endpoint data source. Requests that change
 state also need the header `X-QoffeeAutomat-Csrf: 1` (S09 item 1). Requests
@@ -542,7 +613,8 @@ malicious values arriving from Home Assistant, stolen link tokens.
    start a `runAs: system` script whose file or directory is writable by
    non-administrators and logs a security warning.
 6. Secrets at rest use DPAPI machine scope on Windows; on Linux a key file with
-   mode 0600.
+   mode 0600. Named secrets of scripts (item 11) live in the same store under
+   `script.<name>`.
 7. SessionHost pipe: the agent is the pipe server; the pipe ACL allows only
    interactive users to connect; the agent checks that the client process image
    path is the installed SessionHost; the SessionHost checks that the pipe
@@ -554,6 +626,59 @@ malicious values arriving from Home Assistant, stolen link tokens.
    private and domain firewall profiles.
 10. Supply chain: pinned GitHub Actions, Dependabot, CodeQL, dependency review,
     SBOM and provenance attestation on releases (S12).
+11. Named secrets for scripts (T706). A secret has a name (`^[a-z][a-z0-9_]{0,62}$`) and a value
+    of 4 to 4096 characters. The value is write-only: the UI and the API can create, replace and
+    delete a secret but never read it. A command lists the names it needs in `secrets` (only
+    `powershell` and `process` actions); when its run starts the agent reads the values and passes
+    each one to the process only as the environment variable `QA_SECRET_<NAME>` (upper case), never
+    in arguments, the parameter file or a script. A listed secret that does not exist fails the run
+    with the error `internal` before anything starts. The values never appear in the run history,
+    the logs, the audit log, events, the configuration export or the diagnostics bundle (the
+    documents hold names only). The captured output is masked before it is stored, streamed or
+    returned: every occurrence of a value is replaced by `***`; because a value could be split
+    across two pieces of live output, a command with secrets shows its (masked) output when it ends
+    instead of while it runs, like a command with a secret variable (S06). Other encodings of a value
+    (base64, a part of it) are not recognised, so a script must not print a secret in the first place.
+12. One-click UI login from the tray (T711). When the interactive user is a member of the local
+    Administrators group, the tray entry Open UI asks the agent over the session pipe for a login token
+    (`login_token_request`, answered by `login_token`, S11) and opens the browser at
+    `/api/v1/auth/one-time?token=...`, so no password is typed. The token is 32 random bytes, kept
+    only as a SHA-256 hash in memory, valid for 30 seconds, redeemable once (every presentation of a
+    known token uses it up, whatever the outcome) and only from a loopback address; an unknown remote
+    address never counts as loopback. Redeeming it starts a normal session (same cookie and lifetime
+    as a password login) and answers with a redirect to `/`. The agent decides, not the SessionHost:
+    it ignores the administrator flag of the `hello` and reads the token of the user that is logged on
+    in the session of the connection (an administrator under User Account Control has an elevated
+    linked token, a standard user has none), and it answers only the SessionHost of the active console
+    session. A standard user, an unknown user and a background session get a reason and never a token,
+    and the tray opens the normal login page. With User Account Control switched off there is no
+    linked token either, so such an administrator also gets the login page; refusing is the safe side.
+    Issued and refused tokens are logged without the token. Attempt limiting and lockout of S09 item 1
+    do not apply: a token cannot be guessed and a password is not involved.
+13. Update check and self-update (T704, D-046). The agent makes **one** kind of request to the internet on its
+    own: once per `updates.intervalHours` (default 24, 1 to 720) it asks the GitHub releases API of the project
+    (`GET https://api.github.com/repos/<owner>/<name>/releases/latest`, HTTPS, no credentials, no cookie, no
+    identifier of the PC, only `User-Agent: QoffeeAutomat/<version>`) for the newest release. The first check
+    comes two minutes after the start. With `updates.check: false` (the settings page has a switch) the agent
+    makes no request at all and reports no latest version; the setting is read again every few minutes, so no
+    restart is needed. Drafts, pre-releases and tags that are no SemVer are never offered. Only the Windows
+    platform checks and updates (a platform that cannot run the installer neither asks nor offers the action).
+    The result is reported as the metrics `agent.version` (always), `agent.latest_version`, `agent.release_url`
+    and `agent.release_notes` (shortened to 4000 characters), all `sensor`, `string`, diagnostic and disabled in
+    Home Assistant by default, and pushed to subscribers when they change. The manifest feature `update` and the
+    system command `agent_update` announce the built-in action `agent.update`. The action, run as `system`:
+    (a) asks GitHub again and stops with success when the agent is not older than the release; (b) downloads
+    `SHA256SUMS.txt` and the installer `QoffeeAutomat-Setup-<version>-<arch>.exe` of this architecture, only from
+    HTTPS addresses of `github.com` or `githubusercontent.com` (also after redirects), with size limits and time
+    limits, into a new directory below `<data>/updates` that only SYSTEM and administrators can write to;
+    (c) refuses the installer, deletes it and starts nothing when `SHA256SUMS.txt` is missing, has no entry for it
+    or the SHA-256 differs; (d) when the **running** executable carries an Authenticode signature, also refuses an
+    installer without a trusted signature (`WinVerifyTrust`); an unsigned build compares the checksum only;
+    (e) sends `bye` with the reason `update` and starts the installer with the fixed arguments `/VERYSILENT
+    /SUPPRESSMSGBOXES /NORESTART /LOG=<file>` as separate argv entries (D-012), without waiting for it. The
+    checksum is as strong as the GitHub release (immutable, S13); the signature is what protects against a
+    manipulated release. The action has no parameters, so nothing from Home Assistant reaches the process. A
+    refusal is the run result with exit code -1 and the reason as the error text.
 
 ## S10 Home Assistant integration
 
@@ -572,7 +697,22 @@ malicious values arriving from Home Assistant, stolen link tokens.
   jitter (1 s up to 60 s). Two shortcuts keep the delay after a PC start
   small: a zeroconf announcement of an already configured agent triggers an
   immediate connection attempt, and after the Wake-on-LAN button was pressed
-  the client retries every second for up to five minutes.
+  the client retries every second until it is connected or five minutes have
+  passed.
+* The Wake-on-LAN button (M7, T703) exists once the manifest announced MAC
+  addresses. They are kept in the config entry (`macs`, replaced when a manifest
+  announces others, kept when it announces none) so the button is available while
+  the agent is disconnected. A press sends one magic packet per stored MAC to the
+  broadcast address of the options flow (`broadcast`, default `255.255.255.255`,
+  UDP port 9).
+* Reverse entries (D-043, T710): a config entry with `reverse: true` has no host, port, link token or
+  fingerprint. The config flow creates the reverse token, shows the enrollment string
+  (`qalr1.<base64url JSON {url, token, fp}>`) and waits for the agent to connect with it; the unique id is
+  the agent id. The integration exposes the endpoint `/api/qoffeeautomat/reverse/v1` (registered once the
+  first reverse entry is set up), accepts one connection per entry (the newest wins) and keeps only the
+  SHA-256 hash of the token (`reverse_token_hash`). Entities appear after the first connection and are
+  unavailable while the agent is away. `trigger_connect` and fast retry cannot dial for such an entry; the
+  agent redials by itself.
 * Entities are created from the manifest and updated on `manifest_changed`:
   new ones are added, vanished ones are removed from the entity registry.
   Unique id: `<agent_id>_<metric or command id>`. `has_entity_name` is true.
@@ -623,7 +763,11 @@ malicious values arriving from Home Assistant, stolen link tokens.
   commands after a start. IPC is length-prefixed JSON over the named pipe
   `QoffeeAutomat.Session`. Messages: `hello`, `run`, `run_output`, `run_result`,
   `cancel`, `metrics_subscribe`, `metrics_state`, `notify`, `event`, `shutdown`,
-  `tray_state` (agent to SessionHost, T310) and `set_pause` (SessionHost to agent, T310).
+  `tray_state` (agent to SessionHost, T310), `set_pause` (SessionHost to agent, T310),
+  `login_token_request` (SessionHost to agent) and `login_token` (agent to SessionHost) for the one-click
+  UI login (T711, S09 item 12), and `hotkeys` (agent to SessionHost) and `hotkey_state` (SessionHost to
+  agent) for the global hotkeys (T708), and `metric_options` (SessionHost to agent) for the options of the metrics whose options
+  follow the PC (T713, below). The five new messages are additive: protocol version 1 stays.
 * Session pipe details (T302, T303). A frame is the length of the payload as an
   unsigned 32-bit little-endian integer followed by a UTF-8 JSON object (at most
   4 MiB); the member `t` names the message and all members use snake_case. The
@@ -664,6 +808,26 @@ malicious values arriving from Home Assistant, stolen link tokens.
   `power.keep_awake`, `power.cancel`, `media.control`, and the optional
   variables `DelaySeconds` and `Message` on the power and session actions
   (countdown dialog with a cancel button on the desktop).
+* Keep awake and power actions with a countdown (T715, D-047). `power.keep_awake` (`runAs: system`, variables `On` (bool, default
+  true), `Display` (bool, default false, also keeps the screen on) and `Minutes` (int 0 to 10080, 0 means until switched off)) holds one
+  power request that the agent process owns (`PowerCreateRequest`, system required, plus display required with `Display`): Windows
+  gives it back when the agent ends, so it is never restored after a restart, and nothing is stored. The metric `power.keep_awake`
+  (`binary_sensor`, `bool`, event driven, enabled by default, context `system`) is the real state; the default command
+  `power_keep_awake` is a `switch` on the variable `On` with `state_metric: power.keep_awake`, so the switch also turns off when the time is
+  over. `DelaySeconds` (int 0 to 3600, default 0) and `Message` (string, up to 256 characters) are added after `Force` to
+  `power.shutdown`, `power.restart`, `power.sleep`, `power.hibernate` and `session.logoff`. With a delay above zero the run waits in the
+  agent (the scheduler holds the **one** pending delayed action; a second one is rejected with `busy`, an action without delay is not
+  affected). If a user is logged in the agent has the SessionHost show a topmost dialog with the message, the remaining time and a
+  cancel button; without a user the delay simply elapses. The dialog is the **internal** action `power.countdown` (variables `Title`,
+  `Message`, `Seconds`), sent as an ordinary `run` of kind `builtin` on the session pipe: it is in no catalog, a command cannot name it,
+  the run lives as long as the dialog, the agent's `cancel` closes it, and a result with the error `cancelled` that the agent did
+  not ask for is the press of the cancel button. No new pipe message is needed; protocol version 1 and the pipe stay as they are.
+  Cancelling in the dialog or with the new action `power.cancel` (`runAs: system`, no variables, not an error when nothing is pending)
+  ends the waiting run with `cancelled` and publishes the catalogued event `power_action_cancelled` (data `action`, `source` (`dialog`,
+  `action` or `run`) and `delay_seconds`); an action whose run is cancelled or times out during the countdown ends the same way with
+  `source` `run`. `session.logoff` with a delay waits in the agent as well and is handed to the SessionHost when the time is over;
+  without a user it ends at once with `no_session`. A `sleep` or `hibernate` that the computer cannot do is refused before the countdown
+  starts. The timeout of a command must exceed its delay; the default commands that can wait use 3660 seconds.
 * Tray icon (WinForms `NotifyIcon`) in the SessionHost: connection status,
   open UI, pause and resume commands (T310). The icon is the brand icon
   (`assets/brand/app.ico`) with a status badge: green connected, amber not paired, red
@@ -677,9 +841,62 @@ malicious values arriving from Home Assistant, stolen link tokens.
   runs from every source (`ha`, `ui`, `hub`, `cli`, `sequence`, `test`) with the
   error `paused`; runs that already started continue; `/status` reports `paused`.
   The pause is not persisted: it ends when the agent restarts. Open UI opens only a
-  loopback `http` address from `tray_state` in the default browser. The setting
+  loopback `http` address from `tray_state` in the default browser; for an administrator it asks the agent for a
+  one-time login token first and appends it (T711, S09 item 12), and when there is no token (a standard user, a
+  refusal, no answer within 5 seconds) it opens the plain address. The setting
   `trayIcon` in `settings.json` (default `true`) hides the icon; the icon stays hidden
   until the first `tray_state` arrives and disappears when the SessionHost exits.
+* Global hotkeys (T708, S16). The member `hotkeys` of `settings.json` lists up to 32 entries `{ name, keys,
+  enabled? }`: `name` fits `^[a-z][a-z0-9_]{0,62}$` and is unique; `keys` is one or more of the modifiers
+  `Ctrl`, `Alt`, `Shift`, `Win` and exactly one key (a letter, a digit, `F1` to `F24`, `Num0` to `Num9` or a name
+  such as `Space`, `Home`, `PageDown`, `MediaPlayPause`), joined by `+`, case-insensitive, for example
+  `Ctrl+Alt+F9`; at least one modifier is required, so a hotkey never takes a plain key from every program. The
+  validator rejects keys it cannot parse and the same combination twice among the enabled entries. The agent
+  sends the enabled entries to every SessionHost as `hotkeys` (the complete list, replacing the previous one) after
+  the handshake and whenever the settings change. The SessionHost registers each one with `RegisterHotKey` on a
+  hidden window of a thread of its own (with `MOD_NOREPEAT`) and answers with `hotkey_state`, one entry per hotkey:
+  `registered`, `conflict` (Windows refused it because another program or another entry owns the combination) or
+  `invalid`. A press is sent as the `event` message `hotkey_pressed` with the data `{ "name": ... }`; the agent
+  publishes it as the catalogued event `hotkey_pressed` (same data) only when the name is an enabled hotkey of the
+  settings. When the pipe breaks the SessionHost releases all hotkeys, because a key that can do nothing must not be
+  taken away from other programs; the agent sends the list again after the next handshake. `GET /api/v1/hotkeys`
+  reports the last `hotkey_state`, and the settings page shows each conflict next to its entry.
+* Audio devices (T713). The SessionHost (`QoffeeAutomat.SessionHost/Audio/`) provides the enum metrics `audio.output_device`
+  and `audio.input_device` (`sensor`, `enum`, context `user`, on by default, interval 30 s as the safety net) and the built-in
+  actions `audio.set_default_output` and `audio.set_default_input` (`runAs: user`, variable `Device`, a text of at most 256
+  characters). The value of a metric is the label of the current default device (role console) and its options are the labels of
+  the active devices. A label is the friendly name that the Sound settings show; two devices of one direction with the same
+  name get ` #2`, ` #3` in the order of their endpoint ids, so that every option is unique. The options are not part of the
+  static metric catalog: after the handshake, and whenever the devices change, the SessionHost sends the session message
+  `metric_options` (`{ "t": "metric_options", "options": { "<metricId>": ["<label>", ...] } }`, snake_case, the complete sets,
+  additive). The agent keeps them with the connection (`SessionConnection.MetricOptions`), the Windows session bridge adds them
+  to the descriptors of the two metrics and raises `UserMetricsChanged`, the metric engine describes the session metrics again
+  (the session provider is a dynamic provider) and raises `CatalogChanged`, so that the manifest revision changes when a device
+  appears or disappears and the `optionsFrom` variables follow. With no SessionHost or no device the metric has no `options`
+  member. The values come from the Core Audio interfaces (`IMMDeviceEnumerator`, `IMMNotificationClient`), which tell about
+  plugged-in and removed devices and a new default; the SessionHost registers for these notifications only while it is connected
+  to the agent (D-007), collects a burst of notifications into one report after 300 ms, and sends a message only for a metric
+  whose value or options really differ; the changed metrics that are subscribed are sampled at once.
+  `Device` is matched against the labels of the active devices: an exact label first (case-sensitive), otherwise a text that is
+  part of exactly one label, ignoring case; no match, several matches and an empty text are the error `invalid_vars` and
+  nothing is changed. A match is made the default device in all three roles (console, multimedia and communications), which is
+  what "also the default communication device" means. The change uses `IPolicyConfig`, a COM interface of Windows that is widely
+  used (every audio switcher) but not documented; it is isolated behind `IDefaultEndpointSwitch` in one class
+  (`PolicyConfigEndpointSwitch`), and a refusal or a missing interface is a failed run with a message that names the interface
+  (exit code 1, no error code), while the metrics, which only use documented interfaces, keep working. The default commands
+  `audio_output_device` and `audio_input_device` (selects with `optionsFrom` and `stateMetric`, disabled and not exposed, like
+  the power defaults) are created on the first start with an empty configuration.
+* Hardware sensors (T707, D-045, ADR 0002). The member `hardwareSensors` of `settings.json` has the one member
+  `enabled` (absent means off). While it is off, `HardwareMetricProvider` describes no metric and neither the
+  hardware library (LibreHardwareMonitorLib) nor the kernel driver (PawnIO) is loaded or looked at. While it is on
+  the provider opens the library in the background and describes one metric per temperature (`°C`), fan (`rpm`) and
+  power (`W`) sensor of the processor, graphics cards, mainboard and drives, with the id `hardware.` plus the
+  identifier that the library gives the sensor (`hardware.intelcpu.0.temperature.0`), `enabled_default: false`,
+  `entity_category: diagnostic`, context `system`. The provider looks again every minute (a drive that was plugged in,
+  a driver that was installed, a failure to retry) and raises `DescriptorsChanged` when the set differs. A library older
+  than the first PawnIO release, or one that creates the `WinRing0_1_2_0` service, is refused. Turning the setting off
+  disposes the library (closing its handle to the driver) and removes the metrics from the manifest. The settings page
+  shows a warning about the kernel driver beside the switch and the state from `GET /api/v1/hardware-sensors`.
 
 ## S12 GitHub setup
 

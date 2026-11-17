@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "set_volume",
+  "name": "Set volume",
+  "description": "Sets the master volume of the default playback device. In Home Assistant it is a number entity.",
+  "icon": "mdi:volume-high",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "user",
+  "action": { "type": "builtin", "name": "audio.set_volume" },
+  "parameters": [
+    {
+      "name": "Level",
+      "type": "int",
+      "required": true,
+      "default": 30,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "description": "The master volume in percent."
+    }
+  ],
+  "haControl": { "type": "number", "parameter": "Level", "stateMetric": null },
+  "timeoutSeconds": 15,
+  "concurrency": "restart",
+  "cooldownSeconds": 0,
+  "captureOutput": false
+}

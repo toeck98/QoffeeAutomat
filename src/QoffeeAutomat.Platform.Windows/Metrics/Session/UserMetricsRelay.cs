@@ -26,6 +26,8 @@ public sealed class UserMetricsRelay : IDisposable
 
     private static readonly TimeSpan PruneInterval = TimeSpan.FromSeconds(10);
 
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> NoOptions = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+
     private readonly object _gate = new();
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly TimeProvider _time;
@@ -35,6 +37,7 @@ public sealed class UserMetricsRelay : IDisposable
     private readonly Dictionary<string, DateTimeOffset> _requested = new(StringComparer.Ordinal);
     private readonly ITimer? _pruneTimer;
     private SessionConnection? _connection;
+    private IReadOnlyDictionary<string, IReadOnlyList<string>> _options = NoOptions;
     private TaskCompletionSource _arrival = NewArrival();
     private bool _disposed;
 
@@ -61,6 +64,27 @@ public sealed class UserMetricsRelay : IDisposable
         }
     }
 
+    /// <summary>
+    /// Raised after <see cref="MetricOptions"/> changed: the SessionHost reported other options (a device was plugged in), or the
+    /// connection that reported them was replaced or went away. Handlers must return quickly.
+    /// </summary>
+    public event EventHandler? OptionsChanged;
+
+    /// <summary>
+    /// The options of the metrics with dynamic options (the audio devices, T713) that the SessionHost of the attached connection
+    /// reported last, by metric id. Only metrics that have at least one option are in it; there are none without a connection.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> MetricOptions
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _options;
+            }
+        }
+    }
+
     /// <summary>The metrics that the SessionHost is subscribed to now, sorted.</summary>
     public IReadOnlyList<string> Subscribed
     {
@@ -82,6 +106,7 @@ public sealed class UserMetricsRelay : IDisposable
     {
         SessionConnection? previous;
         bool resubscribe;
+        bool optionsChanged;
         lock (_gate)
         {
             if (_disposed || ReferenceEquals(_connection, connection))
@@ -93,21 +118,36 @@ public sealed class UserMetricsRelay : IDisposable
             _connection = connection;
             _values.Clear();
             resubscribe = connection is not null && _requested.Count > 0;
+
+            // The options belong to the connection that reported them.
+            optionsChanged = _options.Count > 0;
+            _options = NoOptions;
             ReleaseWaiters();
         }
 
         if (previous is not null)
         {
             previous.MetricsStateReceived -= OnMetricsState;
+            previous.MetricOptionsReceived -= OnMetricOptions;
         }
 
         if (connection is not null)
         {
             connection.MetricsStateReceived += OnMetricsState;
+            connection.MetricOptionsReceived += OnMetricOptions;
+
+            // The SessionHost reports its options right after the handshake, so they may be there before the relay listens: read
+            // what the connection holds once the handler is attached (the connection stores them before it raises the event).
+            optionsChanged |= ApplyOptions(connection, connection.MetricOptions);
             if (resubscribe)
             {
                 _ = SendSubscriptionAsync(connection);
             }
+        }
+
+        if (optionsChanged)
+        {
+            OptionsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -246,6 +286,7 @@ public sealed class UserMetricsRelay : IDisposable
         if (connection is not null)
         {
             connection.MetricsStateReceived -= OnMetricsState;
+            connection.MetricOptionsReceived -= OnMetricOptions;
         }
     }
 
@@ -290,6 +331,60 @@ public sealed class UserMetricsRelay : IDisposable
 
             ReleaseWaiters();
         }
+    }
+
+    private void OnMetricOptions(object? sender, SessionMetricOptionsEventArgs e)
+    {
+        if (sender is SessionConnection source && ApplyOptions(source, e.Options))
+        {
+            OptionsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Takes the options that a connection reported, if it is the attached one. Metrics without options are left out, because
+    /// "no devices" and "not reported" mean the same to the manifest.
+    /// </summary>
+    /// <returns>True when the options differ from the ones that were known.</returns>
+    private bool ApplyOptions(SessionConnection source, IReadOnlyDictionary<string, IReadOnlyList<string>> reported)
+    {
+        var fresh = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        foreach ((string id, IReadOnlyList<string> options) in reported)
+        {
+            if (options.Count > 0 && DynamicSessionMetrics.Has(id))
+            {
+                fresh[id] = [.. options];
+            }
+        }
+
+        lock (_gate)
+        {
+            if (_disposed || !ReferenceEquals(source, _connection) || SameOptions(_options, fresh))
+            {
+                return false;
+            }
+
+            _options = fresh;
+            return true;
+        }
+    }
+
+    private static bool SameOptions(IReadOnlyDictionary<string, IReadOnlyList<string>> left, Dictionary<string, IReadOnlyList<string>> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        foreach ((string id, IReadOnlyList<string> options) in left)
+        {
+            if (!right.TryGetValue(id, out IReadOnlyList<string>? other) || !options.SequenceEqual(other, StringComparer.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

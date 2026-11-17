@@ -506,6 +506,18 @@
   <data name="Sensors.Field.Precision.Help" xml:space="preserve"><value>Wie viele Nachkommastellen Home Assistant anzeigt.</value></data>
   <data name="Sensors.Field.Options" xml:space="preserve"><value>Optionen</value></data>
   <data name="Sensors.Field.Options.Help" xml:space="preserve"><value>Eine Option pro Zeile. Der Wert des Sensors muss eine davon sein.</value></data>
+  <data name="Sensors.Field.InitialValue" xml:space="preserve"><value>Anfangswert</value></data>
+  <data name="Sensors.Field.InitialValue.Help" xml:space="preserve"><value>Was der Sensor nach dem Start des Agenten zeigt, bis ein Wert gesetzt wird. Leer: Der Sensor hat keinen Wert, bis einer gesetzt wird.</value></data>
+  <data name="Sensors.Field.Persist" xml:space="preserve"><value>Wert über Neustarts behalten</value></data>
+  <data name="Sensors.Field.Persist.Help" xml:space="preserve"><value>An: Der letzte Wert übersteht einen Neustart des Agenten und des PCs. Aus: Der Sensor kehrt zum Anfangswert zurück.</value></data>
+  <data name="Sensors.State.Title" xml:space="preserve"><value>Wert setzen</value></data>
+  <data name="Sensors.State.Help" xml:space="preserve"><value>Ein Skript setzt diesen Wert mit "qoffeeautomat state set &lt;id&gt; &lt;wert&gt;"; hier können Sie ihn von Hand setzen. Er wird gegen den Werttyp geprüft und sofort veröffentlicht.</value></data>
+  <data name="Sensors.State.Current" xml:space="preserve"><value>Aktueller Wert</value></data>
+  <data name="Sensors.State.Value" xml:space="preserve"><value>Neuer Wert</value></data>
+  <data name="Sensors.State.Choose" xml:space="preserve"><value>Wert wählen</value></data>
+  <data name="Sensors.State.Set" xml:space="preserve"><value>Wert setzen</value></data>
+  <data name="Sensors.State.Done" xml:space="preserve"><value>Der Wert ist jetzt {0}.</value></data>
+  <data name="Editor.Error.not_a_bool" xml:space="preserve"><value>Das ist weder wahr noch falsch.</value></data>
   <data name="Sensors.Field.None" xml:space="preserve"><value>Keine</value></data>
   <data name="Sensors.Test.Title" xml:space="preserve"><value>Test</value></data>
   <data name="Sensors.Test.Help" xml:space="preserve"><value>Liest den Sensor einmal so, wie er auf dem Bildschirm steht, ohne ihn zu speichern, und zeigt den Wert, der verstanden wurde.</value></data>
@@ -584,6 +596,34 @@
   <data name="Settings.RemoteUi" xml:space="preserve"><value>Remote-Oberfläche</value></data>
   <data name="Settings.RemoteUi.Explanation" xml:space="preserve"><value>Aus: Diese Oberfläche und die Verwaltungs-API antworten nur auf dem PC selbst. An: Sie antworten auch auf dem Link-Port, sodass andere Geräte im Netzwerk sie öffnen können. Jede Anfrage braucht weiterhin das Passwort.</value></data>
   <data name="Settings.RemoteUi.Warning" xml:space="preserve"><value>Schalte das nur in einem Netzwerk ein, dem du vertraust, und verwende ein starkes Passwort. Wer den Link-Port erreicht und das Passwort kennt, kann die Befehle dieses Agents ausführen.</value></data>
+  <data name="Settings.Hotkeys.Title" xml:space="preserve"><value>Globale Tastenkürzel</value></data>
+  <data name="Settings.Hotkeys.Help" xml:space="preserve"><value>Tastenkombinationen, die in jedem Programm funktionieren. Beim Drücken wird das Ereignis hotkey_pressed mit dem vergebenen Namen ausgelöst, sodass eine Home-Assistant-Automatisierung auf deine Tastatur reagieren kann. Verwende mindestens eine der Tasten Strg, Alt, Umschalt oder Win plus eine Taste, zum Beispiel Ctrl+Alt+F9.</value></data>
+  <data name="Settings.Hotkeys.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Settings.Hotkeys.Keys" xml:space="preserve"><value>Tasten</value></data>
+  <data name="Settings.Hotkeys.Enabled" xml:space="preserve"><value>Aktiv</value></data>
+  <data name="Settings.Hotkeys.Add" xml:space="preserve"><value>Tastenkürzel hinzufügen</value></data>
+  <data name="Settings.Hotkeys.Remove" xml:space="preserve"><value>Entfernen</value></data>
+  <data name="Settings.Hotkeys.Refresh" xml:space="preserve"><value>Status aktualisieren</value></data>
+  <data name="Settings.Hotkeys.Unsupported" xml:space="preserve"><value>Diese Plattform registriert keine globalen Tastenkürzel. Die Einträge bleiben gespeichert, haben aber keine Wirkung.</value></data>
+  <data name="Settings.Hotkeys.State.registered" xml:space="preserve"><value>Registriert.</value></data>
+  <data name="Settings.Hotkeys.State.conflict" xml:space="preserve"><value>Nicht aktiv: Die Tastenkombination wird bereits von einem anderen Programm oder Tastenkürzel verwendet.</value></data>
+  <data name="Settings.Hotkeys.State.invalid" xml:space="preserve"><value>Nicht aktiv: Die Tastenkombination konnte nicht registriert werden.</value></data>
+  <data name="Settings.Hardware.Title" xml:space="preserve"><value>Hardware-Sensoren</value></data>
+  <data name="Settings.Hardware.Switch" xml:space="preserve"><value>Temperaturen, Lüfterdrehzahlen und Leistungsaufnahme auslesen</value></data>
+  <data name="Settings.Hardware.Help" xml:space="preserve"><value>Stellt die Temperaturen, Lüfterdrehzahlen und die Leistungsaufnahme von Prozessor, Grafikkarte, Mainboard und Laufwerken als Metriken bereit. Home Assistant legt dafür erst Entitäten an, wenn du sie dort aktivierst.</value></data>
+  <data name="Settings.Hardware.Warning.Title" xml:space="preserve"><value>Dafür ist ein Kernel-Treiber nötig</value></data>
+  <data name="Settings.Hardware.Warning" xml:space="preserve"><value>Die Sensoren von Prozessor und Mainboard lassen sich nur über den Kernel-Treiber PawnIO auslesen. Du installierst ihn selbst, getrennt von QoffeeAutomat; der Agent installiert nie einen Treiber. Ein Kernel-Treiber läuft mit den höchsten Rechten, die Windows kennt. Installiere ihn deshalb nur aus der offiziellen Quelle und halte ihn aktuell. Virenschutz-Software kann vor Treibern zur Hardware-Überwachung warnen. Solange dieser Schalter aus ist, werden weder die Hardware-Bibliothek noch der Treiber geladen. Beim Ausschalten wird die Verbindung zum Treiber sofort geschlossen; die Bibliothek selbst verlässt den Speicher beim nächsten Neustart des Agents.</value></data>
+  <data name="Settings.Hardware.Refresh" xml:space="preserve"><value>Status aktualisieren</value></data>
+  <data name="Settings.Updates.Title" xml:space="preserve"><value>Updates</value></data>
+  <data name="Settings.Updates.Switch" xml:space="preserve"><value>Einmal am Tag nach einer neuen Version suchen</value></data>
+  <data name="Settings.Updates.Help" xml:space="preserve"><value>Der Agent fragt einmal am Tag die GitHub-Releases-Seite des Projekts nach der neuesten Version und meldet sie Home Assistant, das dann das Update anbietet. Das ist die einzige Anfrage, die der Agent von sich aus ins Internet stellt; sie enthält keine Kennung dieses PCs. Bei ausgeschaltetem Schalter wird keine Anfrage gestellt, und Home Assistant kann nicht erkennen, ob ein Update existiert.</value></data>
+  <data name="Settings.Hardware.Count" xml:space="preserve"><value>Sensoren gefunden.</value></data>
+  <data name="Settings.Hardware.State.off" xml:space="preserve"><value>Aus: Es ist nichts geladen.</value></data>
+  <data name="Settings.Hardware.State.starting" xml:space="preserve"><value>Startet: Die Hardware-Bibliothek wird geöffnet.</value></data>
+  <data name="Settings.Hardware.State.running" xml:space="preserve"><value>Läuft.</value></data>
+  <data name="Settings.Hardware.State.driver_missing" xml:space="preserve"><value>Läuft ohne Treiber: Der Kernel-Treiber PawnIO ist nicht installiert, deshalb werden nur Sensoren gelesen, die keinen Treiber brauchen (Laufwerke, die meisten Grafikkarten). Installiere PawnIO, um Prozessor- und Mainboard-Sensoren zu erhalten.</value></data>
+  <data name="Settings.Hardware.State.failed" xml:space="preserve"><value>Läuft nicht: Die Hardware-Bibliothek konnte nicht verwendet werden. Der Agent versucht es jede Minute erneut.</value></data>
+  <data name="Settings.Hardware.State.unsupported" xml:space="preserve"><value>Diese Plattform hat keine Hardware-Sensoren. Die Einstellung bleibt gespeichert, hat aber keine Wirkung.</value></data>
   <data name="Settings.Saved" xml:space="preserve"><value>Die Einstellungen sind gespeichert.</value></data>
   <data name="Settings.SaveFailed" xml:space="preserve"><value>Die Einstellungen konnten nicht gespeichert werden.</value></data>
   <data name="Settings.RestartRequired" xml:space="preserve"><value>Neustart nötig: Ein Port oder der Schalter der Remote-Oberfläche hat sich geändert, und das gilt erst nach einem Neustart des Agents.</value></data>
@@ -708,4 +748,165 @@
   <data name="Backup.Diagnostics.Button" xml:space="preserve"><value>Diagnose herunterladen</value></data>
   <data name="Backup.Diagnostics.Done" xml:space="preserve"><value>{0} heruntergeladen.</value></data>
   <data name="Backup.Diagnostics.Failed" xml:space="preserve"><value>Die Diagnose konnte nicht heruntergeladen werden.</value></data>
+  <data name="Nav.Templates" xml:space="preserve"><value>Vorlagen</value></data>
+  <data name="Templates.Title" xml:space="preserve"><value>Vorlagen-Galerie</value></data>
+  <data name="Templates.Intro" xml:space="preserve"><value>Fertige Befehle und Sensoren. Sieh dir eine Vorlage zuerst an und füge sie dann hinzu: Sie wird zu einem neuen Befehl oder Sensor, den du wie jeden anderen ändern kannst, und ihre Skripte werden für dich kopiert.</value></data>
+  <data name="Templates.Search" xml:space="preserve"><value>Vorlagen durchsuchen</value></data>
+  <data name="Templates.None" xml:space="preserve"><value>Dieser Agent hat keine Vorlagen installiert.</value></data>
+  <data name="Templates.NoMatch" xml:space="preserve"><value>Keine Vorlage passt zur Suche.</value></data>
+  <data name="Templates.Commands" xml:space="preserve"><value>Befehle</value></data>
+  <data name="Templates.Sensors" xml:space="preserve"><value>Sensoren</value></data>
+  <data name="Templates.Preview" xml:space="preserve"><value>Vorschau</value></data>
+  <data name="Templates.Add" xml:space="preserve"><value>Hinzufügen</value></data>
+  <data name="Templates.Close" xml:space="preserve"><value>Schließen</value></data>
+  <data name="Templates.PreviewTitle" xml:space="preserve"><value>Vorschau: {0}</value></data>
+  <data name="Templates.PreviewFailed" xml:space="preserve"><value>Die Vorlage konnte nicht geladen werden.</value></data>
+  <data name="Templates.RunAs" xml:space="preserve"><value>Läuft als</value></data>
+  <data name="Templates.Control" xml:space="preserve"><value>Steuerelement in Home Assistant</value></data>
+  <data name="Templates.ExposeToHa" xml:space="preserve"><value>Für Home Assistant sichtbar</value></data>
+  <data name="Templates.SensorKind" xml:space="preserve"><value>Art und Wert</value></data>
+  <data name="Templates.Parameters" xml:space="preserve"><value>Variablen (* ist erforderlich)</value></data>
+  <data name="Templates.Requires" xml:space="preserve"><value>Fügt auch die Befehle hinzu, die sie ausführt, wenn sie fehlen: {0}</value></data>
+  <data name="Templates.Script" xml:space="preserve"><value>Skript {0} (wird beim Hinzufügen der Vorlage kopiert)</value></data>
+  <data name="Templates.Added" xml:space="preserve"><value>{0} wurde als {1} hinzugefügt.</value></data>
+  <data name="Templates.AddedScripts" xml:space="preserve"><value>Kopierte Skripte: {0}</value></data>
+  <data name="Templates.AddFailed" xml:space="preserve"><value>{0} konnte nicht hinzugefügt werden.</value></data>
+  <data name="Templates.OpenCommand" xml:space="preserve"><value>Befehl öffnen</value></data>
+  <data name="Templates.OpenSensor" xml:space="preserve"><value>Sensor öffnen</value></data>
+  <data name="Templates.Type.powershell" xml:space="preserve"><value>PowerShell</value></data>
+  <data name="Templates.Type.process" xml:space="preserve"><value>Programm</value></data>
+  <data name="Templates.Type.builtin" xml:space="preserve"><value>Eingebaute Aktion</value></data>
+  <data name="Templates.Type.sequence" xml:space="preserve"><value>Ablauf</value></data>
+  <data name="Templates.Type.process_running" xml:space="preserve"><value>Prozess läuft</value></data>
+  <data name="Templates.Type.perf_counter" xml:space="preserve"><value>Leistungsindikator</value></data>
+  <data name="Templates.Type.cim_query" xml:space="preserve"><value>CIM-Abfrage</value></data>
+  <data name="Templates.Type.service_state" xml:space="preserve"><value>Dienststatus</value></data>
+  <data name="Templates.Type.state" xml:space="preserve"><value>Von außen gesetzter Wert</value></data>
+
+  <data name="Nav.Secrets" xml:space="preserve"><value>Geheimnisse</value></data>
+  <data name="Secrets.Title" xml:space="preserve"><value>Geheimnisse</value></data>
+  <data name="Secrets.Intro" xml:space="preserve"><value>Benannte Geheimnisse für Skripte, etwa ein Passwort oder ein API-Schlüssel. Ein Befehl führt auf, welche er braucht; sein Skript findet jedes in der Umgebungsvariable QA_SECRET_ gefolgt vom Namen in Großbuchstaben. Der Wert wird verschlüsselt gespeichert, nie wieder angezeigt und in der Ausgabe von Läufen maskiert.</value></data>
+  <data name="Secrets.None" xml:space="preserve"><value>Es gibt noch keine Geheimnisse.</value></data>
+  <data name="Secrets.Column.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Secrets.Column.Variable" xml:space="preserve"><value>Umgebungsvariable</value></data>
+  <data name="Secrets.Column.UsedBy" xml:space="preserve"><value>Verwendet von</value></data>
+  <data name="Secrets.Column.Actions" xml:space="preserve"><value>Aktionen</value></data>
+  <data name="Secrets.UsedBy.None" xml:space="preserve"><value>Kein Befehl</value></data>
+  <data name="Secrets.Form.Title" xml:space="preserve"><value>Geheimnis anlegen oder ersetzen</value></data>
+  <data name="Secrets.Form.Help" xml:space="preserve"><value>Der Wert ist nur beschreibbar: Er lässt sich ersetzen, aber niemand kann ihn zurücklesen. Ein vorhandener Name bekommt den neuen Wert.</value></data>
+  <data name="Secrets.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Secrets.Field.Name.Help" xml:space="preserve"><value>Kleinbuchstaben, Ziffern und Unterstriche, beginnend mit einem Buchstaben, höchstens 63 Zeichen.</value></data>
+  <data name="Secrets.Field.Value" xml:space="preserve"><value>Wert</value></data>
+  <data name="Secrets.Field.Value.Help" xml:space="preserve"><value>4 bis 4096 Zeichen.</value></data>
+  <data name="Secrets.Save" xml:space="preserve"><value>Geheimnis speichern</value></data>
+  <data name="Secrets.Replace" xml:space="preserve"><value>Wert ersetzen</value></data>
+  <data name="Secrets.Delete" xml:space="preserve"><value>Löschen</value></data>
+  <data name="Secrets.Delete.Title" xml:space="preserve"><value>Geheimnis löschen?</value></data>
+  <data name="Secrets.Delete.Message" xml:space="preserve"><value>Das Geheimnis {0} wird gelöscht. Das lässt sich nicht rückgängig machen.</value></data>
+  <data name="Secrets.Delete.MessageUsed" xml:space="preserve"><value>Das Geheimnis {0} wird gelöscht. Diese Befehle führen es noch auf und schlagen fehl, bis du es dort entfernst: {1}. Das lässt sich nicht rückgängig machen.</value></data>
+  <data name="Secrets.Created" xml:space="preserve"><value>Das Geheimnis {0} wurde angelegt.</value></data>
+  <data name="Secrets.Replaced" xml:space="preserve"><value>Der Wert des Geheimnisses {0} wurde ersetzt.</value></data>
+  <data name="Secrets.Deleted" xml:space="preserve"><value>Das Geheimnis {0} wurde gelöscht.</value></data>
+  <data name="Secrets.SaveFailed" xml:space="preserve"><value>Das Geheimnis {0} konnte nicht gespeichert werden.</value></data>
+  <data name="Secrets.DeleteFailed" xml:space="preserve"><value>Das Geheimnis {0} konnte nicht gelöscht werden.</value></data>
+
+  <data name="Editor.Conditions.Title" xml:space="preserve"><value>Bedingungen</value></data>
+  <data name="Editor.Conditions.Help" xml:space="preserve"><value>Wann der Befehl laufen darf. Ein Lauf, der die Bedingungen nicht erfüllt, wird mit dem Fehler condition_not_met abgewiesen.</value></data>
+  <data name="Editor.Conditions.Session" xml:space="preserve"><value>Sitzung</value></data>
+  <data name="Editor.Conditions.Session.any" xml:space="preserve"><value>Beliebig (keine Vorgabe)</value></data>
+  <data name="Editor.Conditions.Session.logged_in" xml:space="preserve"><value>Jemand ist angemeldet</value></data>
+  <data name="Editor.Conditions.Session.unlocked" xml:space="preserve"><value>Angemeldet und entsperrt</value></data>
+  <data name="Editor.Conditions.Session.locked" xml:space="preserve"><value>Angemeldet und gesperrt</value></data>
+  <data name="Editor.Conditions.Window.Enable" xml:space="preserve"><value>Nur innerhalb eines Zeitfensters</value></data>
+  <data name="Editor.Conditions.Window.From" xml:space="preserve"><value>Von</value></data>
+  <data name="Editor.Conditions.Window.To" xml:space="preserve"><value>Bis</value></data>
+  <data name="Editor.Conditions.Window.Days" xml:space="preserve"><value>Tage (ohne Auswahl: jeden Tag)</value></data>
+  <data name="Editor.Conditions.Window.Help" xml:space="preserve"><value>Ortszeit des PCs. Ein Ende, das nicht nach dem Anfang liegt, lässt das Fenster über Mitternacht reichen; die Tage sind die Tage, an denen das Fenster beginnt.</value></data>
+  <data name="Editor.Day.mon" xml:space="preserve"><value>Mo</value></data>
+  <data name="Editor.Day.tue" xml:space="preserve"><value>Di</value></data>
+  <data name="Editor.Day.wed" xml:space="preserve"><value>Mi</value></data>
+  <data name="Editor.Day.thu" xml:space="preserve"><value>Do</value></data>
+  <data name="Editor.Day.fri" xml:space="preserve"><value>Fr</value></data>
+  <data name="Editor.Day.sat" xml:space="preserve"><value>Sa</value></data>
+  <data name="Editor.Day.sun" xml:space="preserve"><value>So</value></data>
+  <data name="Editor.Secrets.Title" xml:space="preserve"><value>Geheimnisse</value></data>
+  <data name="Editor.Secrets.Help" xml:space="preserve"><value>Die Geheimnisse, die das Skript als Umgebungsvariablen QA_SECRET_ gefolgt vom Namen in Großbuchstaben bekommt. Ihre Werte erscheinen weder im Verlauf noch in Protokollen, Exporten oder der Diagnose und werden in der Ausgabe maskiert.</value></data>
+  <data name="Editor.Secrets.None" xml:space="preserve"><value>Es sind noch keine Geheimnisse gespeichert.</value></data>
+  <data name="Editor.Secrets.Missing" xml:space="preserve"><value>nicht gespeichert</value></data>
+  <data name="Editor.Secrets.Manage" xml:space="preserve"><value>Geheimnisse verwalten</value></data>
+  <data name="Editor.Secrets.NotAvailable" xml:space="preserve"><value>Nur PowerShell- und Prozess-Aktionen können Geheimnisse verwenden.</value></data>
+  <data name="Nav.Modes" xml:space="preserve"><value>Modi</value></data>
+  <data name="Modes.Title" xml:space="preserve"><value>Modi</value></data>
+  <data name="Modes.Intro" xml:space="preserve"><value>Eine Modusgruppe ist eine Menge von Modi des PCs, zum Beispiel Normal, Lernen oder TV-Gaming. Pro Gruppe ist genau ein Modus aktiv; beim Wechsel laufen zuerst die Ausstiegsschritte des alten und dann die Einstiegsschritte des neuen Modus.</value></data>
+  <data name="Modes.New" xml:space="preserve"><value>Neue Modusgruppe</value></data>
+  <data name="Modes.None" xml:space="preserve"><value>Es gibt noch keine Modusgruppen. Lege eine an oder füge die Modus-Vorlage aus dem Katalog hinzu.</value></data>
+  <data name="Modes.Busy" xml:space="preserve"><value>Ein anderer Wechsel dieser Gruppe läuft gerade. Die Seite zeigt, was er tut.</value></data>
+  <data name="Modes.Current" xml:space="preserve"><value>Aktueller Modus</value></data>
+  <data name="Modes.Unknown" xml:space="preserve"><value>unbekannt</value></data>
+  <data name="Modes.Switching" xml:space="preserve"><value>Wechsel läuft</value></data>
+  <data name="Modes.SwitchingTo" xml:space="preserve"><value>Wechsle zu {0}…</value></data>
+  <data name="Modes.SwitchTo" xml:space="preserve"><value>Wechseln zu</value></data>
+  <data name="Modes.Choose" xml:space="preserve"><value>Modus wählen</value></data>
+  <data name="Modes.SwitchFailed" xml:space="preserve"><value>Der Wechsel von {0} konnte nicht gestartet werden.</value></data>
+  <data name="Modes.Edit" xml:space="preserve"><value>Bearbeiten</value></data>
+  <data name="Modes.Delete" xml:space="preserve"><value>Löschen</value></data>
+  <data name="Modes.Delete.Title" xml:space="preserve"><value>Modusgruppe löschen?</value></data>
+  <data name="Modes.Delete.Message" xml:space="preserve"><value>Die Modusgruppe {0} ({1}) löschen? Frühere Versionen bleiben erhalten, aber der Befehl und der Zustandsmesswert der Gruppe verschwinden.</value></data>
+  <data name="Modes.Deleted" xml:space="preserve"><value>Die Modusgruppe {0} wurde gelöscht.</value></data>
+  <data name="Modes.DeleteFailed" xml:space="preserve"><value>Die Modusgruppe {0} konnte nicht gelöscht werden.</value></data>
+  <data name="Modes.Enabled" xml:space="preserve"><value>Aktiv</value></data>
+  <data name="Modes.Disabled" xml:space="preserve"><value>Deaktiviert</value></data>
+  <data name="Modes.InHa" xml:space="preserve"><value>In Home Assistant sichtbar</value></data>
+  <data name="Modes.Saved" xml:space="preserve"><value>Die Modusgruppe {0} wurde gespeichert.</value></data>
+  <data name="Modes.Error.group_exists" xml:space="preserve"><value>Eine Modusgruppe mit dieser ID gibt es schon. Wähle eine andere ID.</value></data>
+  <data name="Modes.Title.New" xml:space="preserve"><value>Neue Modusgruppe</value></data>
+  <data name="Modes.Title.Edit" xml:space="preserve"><value>Modusgruppe bearbeiten: {0}</value></data>
+  <data name="Modes.Editor.Back" xml:space="preserve"><value>Zurück zur Liste</value></data>
+  <data name="Modes.Editor.Save" xml:space="preserve"><value>Speichern</value></data>
+  <data name="Modes.Editor.NotFound" xml:space="preserve"><value>Es gibt keine Modusgruppe mit dieser ID.</value></data>
+  <data name="Modes.Editor.Validation.Summary" xml:space="preserve"><value>{0} zu beheben, bevor die Modusgruppe gespeichert werden kann:</value></data>
+  <data name="Modes.Editor.General" xml:space="preserve"><value>Allgemein</value></data>
+  <data name="Modes.Editor.Behaviour" xml:space="preserve"><value>Verhalten</value></data>
+  <data name="Modes.Editor.Modes" xml:space="preserve"><value>Modi</value></data>
+  <data name="Modes.Editor.Modes.Help" xml:space="preserve"><value>Jeder Modus hat Schritte, die beim Einstieg laufen, und Schritte, die beim Ausstieg laufen. Ein Schritt startet einen Befehl oder wartet; ein Schritt kann keinen Modus wechseln.</value></data>
+  <data name="Modes.Editor.ModeTitle" xml:space="preserve"><value>Modus {0}: {1}</value></data>
+  <data name="Modes.Editor.AddMode" xml:space="preserve"><value>Modus hinzufügen</value></data>
+  <data name="Modes.Editor.Enter" xml:space="preserve"><value>Beim Einstieg in den Modus</value></data>
+  <data name="Modes.Editor.Enter.Help" xml:space="preserve"><value>Laufen nach den Ausstiegsschritten des verlassenen Modus.</value></data>
+  <data name="Modes.Editor.Exit" xml:space="preserve"><value>Beim Ausstieg aus dem Modus</value></data>
+  <data name="Modes.Editor.Exit.Help" xml:space="preserve"><value>Laufen vor den Einstiegsschritten des nächsten Modus.</value></data>
+  <data name="Modes.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Modes.Field.Id" xml:space="preserve"><value>ID</value></data>
+  <data name="Modes.Field.Id.Help" xml:space="preserve"><value>Wird aus dem Namen gebildet. Bis zum Speichern kannst du sie ändern; der Befehl heißt mode_id und der Messwert mode.id.</value></data>
+  <data name="Modes.Field.Id.Fixed" xml:space="preserve"><value>Die ID einer gespeicherten Gruppe kann sich nicht ändern.</value></data>
+  <data name="Modes.Field.Description" xml:space="preserve"><value>Beschreibung</value></data>
+  <data name="Modes.Field.Enabled" xml:space="preserve"><value>Aktiv</value></data>
+  <data name="Modes.Field.Expose" xml:space="preserve"><value>In Home Assistant anzeigen</value></data>
+  <data name="Modes.Field.Default" xml:space="preserve"><value>Standardmodus</value></data>
+  <data name="Modes.Field.Default.Choose" xml:space="preserve"><value>Standardmodus wählen</value></data>
+  <data name="Modes.Field.Default.Help" xml:space="preserve"><value>Der Modus, mit dem die Gruppe startet und auf den sich das Startverhalten unten bezieht.</value></data>
+  <data name="Modes.Field.OnBoot" xml:space="preserve"><value>Nach dem Start des PCs</value></data>
+  <data name="Modes.Field.OnError" xml:space="preserve"><value>Wenn ein Schritt fehlschlägt</value></data>
+  <data name="Modes.Field.ModeName" xml:space="preserve"><value>Modusname</value></data>
+  <data name="Modes.Field.ModeId" xml:space="preserve"><value>Modus-ID</value></data>
+  <data name="Modes.Field.ModeId.Help" xml:space="preserve"><value>Wird aus dem Namen gebildet, bis du eine eingibst. Sie ist der Wert des Zustands.</value></data>
+  <data name="Modes.OnBoot.reset" xml:space="preserve"><value>Auf den Standardmodus zurücksetzen</value></data>
+  <data name="Modes.OnBoot.reset.Help" xml:space="preserve"><value>Der Zustand wird auf den Standardmodus gesetzt, es läuft kein Schritt.</value></data>
+  <data name="Modes.OnBoot.keep" xml:space="preserve"><value>Letzten Modus behalten</value></data>
+  <data name="Modes.OnBoot.keep.Help" xml:space="preserve"><value>Der letzte Modus wird gemerkt, es läuft kein Schritt.</value></data>
+  <data name="Modes.OnBoot.apply_default" xml:space="preserve"><value>Standardmodus aktivieren</value></data>
+  <data name="Modes.OnBoot.apply_default.Help" xml:space="preserve"><value>Die Einstiegsschritte des Standardmodus laufen, sobald die Benutzersitzung bereit ist.</value></data>
+  <data name="Modes.OnError.stop" xml:space="preserve"><value>Wechsel abbrechen</value></data>
+  <data name="Modes.OnError.stop.Help" xml:space="preserve"><value>Der Zustand wird unbekannt und es wird keine Änderung gemeldet.</value></data>
+  <data name="Modes.OnError.continue" xml:space="preserve"><value>Mit dem nächsten Schritt weitermachen</value></data>
+  <data name="Modes.OnError.continue.Help" xml:space="preserve"><value>Der Wechsel wird auch dann abgeschlossen, wenn ein Schritt fehlschlägt.</value></data>
+  <data name="Editor.Error.unknown_default_mode" xml:space="preserve"><value>Der Standardmodus muss einer der Modi sein.</value></data>
+  <data name="Editor.Error.no_modes" xml:space="preserve"><value>Eine Gruppe braucht mindestens einen Modus.</value></data>
+  <data name="Editor.Error.duplicate_mode_id" xml:space="preserve"><value>Ein anderer Modus hat diese ID.</value></data>
+  <data name="Editor.Error.group_exists" xml:space="preserve"><value>Eine Modusgruppe mit dieser ID gibt es schon. Wähle eine andere ID.</value></data>
+  <data name="Templates.Modes" xml:space="preserve"><value>Modi</value></data>
+  <data name="Templates.OpenMode" xml:space="preserve"><value>Modusgruppe öffnen</value></data>
+  <data name="Templates.ModeDefault" xml:space="preserve"><value>Standardmodus</value></data>
+  <data name="Templates.ModeList" xml:space="preserve"><value>Modi</value></data>
+  <data name="Templates.Type.mode" xml:space="preserve"><value>Modusgruppe</value></data>
 </root>

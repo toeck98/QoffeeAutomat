@@ -3,6 +3,14 @@
     "flow_title": "{name}",
     "step": {
       "user": {
+        "title": "PC hinzufügen",
+        "description": "Wie erreicht Home Assistant den PC?",
+        "menu_options": {
+          "manual": "Home Assistant verbindet sich mit dem PC (er ist im Heimnetz)",
+          "reverse": "Der PC verbindet sich mit Home Assistant (ein Laptop, der unterwegs ist)"
+        }
+      },
+      "manual": {
         "title": "Mit einem PC verbinden",
         "description": "Gib die Adresse des PCs ein, auf dem der QoffeeAutomat-Agent läuft.",
         "data": {
@@ -13,6 +21,34 @@
           "host": "Hostname oder IP-Adresse des PCs.",
           "port": "Der QoffeeLink-Port des Agents (Standard 8481)."
         }
+      },
+      "reverse": {
+        "title": "Den PC mit Home Assistant verbinden lassen",
+        "description": "Gib die Adresse ein, unter der der PC Home Assistant von überall erreicht. Sie muss https verwenden, weil sich der PC mit einem geheimen Token ausweist.",
+        "data": {
+          "url": "Adresse von Home Assistant",
+          "fingerprint": "Zertifikat-Fingerabdruck (optional)"
+        },
+        "data_description": {
+          "url": "Die öffentliche HTTPS-Basisadresse dieser Home-Assistant-Instanz.",
+          "fingerprint": "SHA-256-Fingerabdruck des Zertifikats, nur für ein selbstsigniertes Zertifikat oder eine private Zertifizierungsstelle. Bei einem normalen Zertifikat leer lassen."
+        }
+      },
+      "reverse_rotate": {
+        "title": "Neuen Token erstellen",
+        "description": "Der PC verbindet sich mit einem geheimen Token mit Home Assistant. Ein neuer Token ersetzt den alten, und der PC muss damit erneut eingerichtet werden.",
+        "data": {
+          "url": "Adresse von Home Assistant",
+          "fingerprint": "Zertifikat-Fingerabdruck (optional)"
+        },
+        "data_description": {
+          "url": "Die öffentliche HTTPS-Basisadresse dieser Home-Assistant-Instanz.",
+          "fingerprint": "SHA-256-Fingerabdruck des Zertifikats, nur für ein selbstsigniertes Zertifikat oder eine private Zertifizierungsstelle. Bei einem normalen Zertifikat leer lassen."
+        }
+      },
+      "reverse_show": {
+        "title": "PC einrichten",
+        "description": "Gib diese Einrichtungszeichenfolge dem Agent auf dem PC (der Rückverbindung beitreten). Sie enthält ein Geheimnis: Sie wird nur jetzt angezeigt, behandle sie wie ein Passwort.\n\n`{enrollment}`\n\nWähle „Senden“, wenn der Agent sie hat. Der alte Token funktioniert dann nicht mehr, und ein PC, der ihn noch verwendet, wird abgewiesen, bis er mit der neuen Zeichenfolge eingerichtet ist."
       },
       "confirm": {
         "title": "Agent bestätigen",
@@ -45,7 +81,12 @@
         }
       }
     },
+    "progress": {
+      "waiting_for_agent": "Gib diese Einrichtungszeichenfolge dem Agent auf dem PC (der Rückverbindung beitreten). Sie enthält ein Geheimnis, behandle sie wie ein Passwort. Der PC wählt sich bei {url} ein.\n\n`{enrollment}`\n\nDiese Seite geht von selbst weiter, sobald sich der PC verbindet."
+    },
     "error": {
+      "invalid_reverse_url": "Gib eine https://-Adresse von Home Assistant ein. Eine einfache http://-Adresse würde den Token unverschlüsselt senden.",
+      "invalid_fingerprint": "Ein SHA-256-Fingerabdruck hat 64 Hexadezimalziffern.",
       "cannot_connect": "Verbindung zum Agent nicht möglich. Prüfe die Adresse, ob der Agent läuft und ob sich das Zertifikat geändert hat.",
       "invalid_code": "Der Kopplungscode ist falsch.",
       "code_expired": "Der Kopplungscode ist abgelaufen oder wurde nach zu vielen Versuchen gesperrt. Starte die Kopplung im Agent neu.",
@@ -62,7 +103,26 @@
       "unknown": "Ein unerwarteter Fehler ist aufgetreten. Details stehen im Protokoll.",
       "wrong_agent": "Die Adresse gehört zu einem anderen Agent.",
       "reauth_successful": "Die erneute Authentifizierung war erfolgreich.",
-      "reconfigure_successful": "Die Adresse wurde aktualisiert."
+      "reconfigure_successful": "Die Adresse wurde aktualisiert.",
+      "reverse_no_http": "Home Assistant hat keinen Webserver, mit dem sich der PC verbinden könnte.",
+      "reverse_timeout": "Kein PC hat die Einrichtungszeichenfolge rechtzeitig verwendet. Starte neu, wenn der Agent bereit ist."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wake-on-LAN",
+        "description": "Die Wake-on-LAN-Taste sendet Magic Packets für die Netzwerkadapter des PCs an diese Adresse. Der PC muss zum Aufwecken eingerichtet sein, siehe die Dokumentation.",
+        "data": {
+          "broadcast": "Broadcast-Adresse"
+        },
+        "data_description": {
+          "broadcast": "IPv4-Broadcast-Adresse des Netzwerks des PCs, zum Beispiel 192.168.1.255. Der Standard 255.255.255.255 erreicht nur das lokale Netzwerk von Home Assistant."
+        }
+      }
+    },
+    "error": {
+      "invalid_broadcast": "Gib eine IPv4-Adresse ein, zum Beispiel 192.168.1.255."
     }
   },
   "entity": {
@@ -71,14 +131,28 @@
       "system_pending_reboot": { "name": "Neustart ausstehend" },
       "session_ready": { "name": "Sitzung bereit" },
       "session_locked": { "name": "Sitzung gesperrt" },
+      "agent_paused": { "name": "Wartungsmodus" },
+      "power_keep_awake": { "name": "Wach halten" },
       "audio_muted": { "name": "Audio stummgeschaltet" },
       "privacy_microphone_in_use": { "name": "Mikrofon in Benutzung" },
       "sim_toggle": { "name": "Simulierter Schalter" }
+    },
+    "button": {
+      "wake_on_lan": { "name": "Aufwecken (Wake-on-LAN)" }
     },
     "event": {
       "events": {
         "name": "Ereignisse"
       }
+    },
+    "notify": {
+      "notification": { "name": "Benachrichtigung" }
+    },
+    "media_player": {
+      "media_player": { "name": "Mediaplayer" }
+    },
+    "update": {
+      "agent": { "name": "Agent" }
     },
     "sensor": {
       "cpu_usage": { "name": "CPU-Auslastung" },
@@ -96,6 +170,27 @@
       "window_title": { "name": "Titel des aktiven Fensters" },
       "window_process": { "name": "Prozess des aktiven Fensters" },
       "audio_volume": { "name": "Lautstärke" },
+      "audio_output_device": { "name": "Audioausgabegerät" },
+      "audio_input_device": { "name": "Audioeingabegerät" },
+      "media_state": {
+        "name": "Medienstatus",
+        "state": {
+          "playing": "Wiedergabe",
+          "paused": "Pausiert",
+          "idle": "Inaktiv"
+        }
+      },
+      "media_title": { "name": "Medientitel" },
+      "media_artist": { "name": "Medienkünstler" },
+      "media_album": { "name": "Medienalbum" },
+      "media_app": { "name": "Medien-App" },
+      "media_duration": { "name": "Mediendauer" },
+      "media_position": { "name": "Medienposition" },
+      "media_position_updated_at": { "name": "Zeitpunkt der Medienposition" },
+      "agent_version": { "name": "Agent-Version" },
+      "agent_latest_version": { "name": "Neueste Agent-Version" },
+      "agent_release_url": { "name": "Release-Seite" },
+      "agent_release_notes": { "name": "Release-Notes" },
       "sim_cpu": { "name": "Simulierte CPU-Auslastung" },
       "sim_counter": { "name": "Simulierter Zähler" },
       "sim_mode": {
@@ -156,7 +251,58 @@
         "timeout": {
           "name": "Zeitlimit",
           "description": "Wie lange auf das Ergebnis gewartet wird, in Sekunden."
+        },
+        "wake": {
+          "name": "PC aufwecken",
+          "description": "Sendet zuerst Wake-on-LAN-Magic-Packets, wenn der PC nicht verbunden ist. Verwende es zusammen mit „Warten bis“, sonst läuft der Befehl, bevor der PC bereit ist."
+        },
+        "wait_for": {
+          "name": "Warten bis",
+          "description": "Wartet, bevor der Befehl läuft: bis der PC verbunden ist, oder bis er verbunden ist und eine Benutzersitzung für Desktop-Befehle bereit ist."
+        },
+        "ready_timeout": {
+          "name": "Wartezeit",
+          "description": "Wie lange auf den PC gewartet wird, in Sekunden. Ist er bis dahin nicht bereit, schlägt die Aktion fehl und der Befehl läuft nicht."
         }
+      }
+    },
+    "send_notification": {
+      "name": "Benachrichtigung senden",
+      "description": "Zeigt eine Benachrichtigung auf dem Desktop des PCs, mit optionalem Bild und bis zu drei Schaltflächen. Ein Klick auf eine Schaltfläche wird als Ereignis notification_action gemeldet.",
+      "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Der PC, der die Benachrichtigung anzeigt."
+        },
+        "message": {
+          "name": "Nachricht",
+          "description": "Der Text der Benachrichtigung."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Der Titel der Benachrichtigung."
+        },
+        "image_url": {
+          "name": "Bildadresse",
+          "description": "Eine http- oder https-Adresse eines Bildes (PNG, JPEG, GIF oder BMP, bis 1 MiB). Der Agent auf dem PC lädt es; gelingt das nicht, erscheint die Benachrichtigung ohne Bild."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "Ein Name, der mit jedem Klick auf eine Schaltfläche zurückkommt, damit eine Automation Benachrichtigungen unterscheiden kann. Eine neue Benachrichtigung mit demselben Tag ersetzt die alte."
+        },
+        "actions": {
+          "name": "Schaltflächen",
+          "description": "Bis zu drei Schaltflächen, jede mit einer Aktion (die Id, die im Ereignis zurückkommt) und einem Titel (der Text auf der Schaltfläche)."
+        }
+      }
+    }
+  },
+  "selector": {
+    "wait_for": {
+      "options": {
+        "none": "Nicht warten",
+        "connected": "Der PC ist verbunden",
+        "session_ready": "Die Sitzung ist bereit"
       }
     }
   },
@@ -190,6 +336,51 @@
     },
     "manifest_unavailable": {
       "message": "Der Agent hat sein Manifest nicht geliefert."
+    },
+    "wol_no_mac": {
+      "message": "Es ist keine MAC-Adresse des PCs bekannt, deshalb kann er nicht aufgeweckt werden."
+    },
+    "wol_failed": {
+      "message": "Das Magic Packet konnte nicht gesendet werden: {error}"
+    },
+    "ready_timeout_connected": {
+      "message": "Der PC {name} hat sich nicht innerhalb von {timeout} Sekunden verbunden, deshalb wurde der Befehl {command} nicht ausgeführt."
+    },
+    "ready_timeout_session_ready": {
+      "message": "Der PC {name} hat sich verbunden, aber seine Sitzung war innerhalb von {timeout} Sekunden nicht bereit (die Metrik session.ready war nicht an), deshalb wurde der Befehl {command} nicht ausgeführt."
+    },
+    "ready_timeout_queued": {
+      "message": "Der Befehl {command} wartete nach {timeout} Sekunden noch auf den Start eines früheren Aufrufs für den PC {name}, deshalb wurde er nicht ausgeführt."
+    },
+    "session_ready_unsupported": {
+      "message": "Der Agent von {name} meldet die Metrik session.ready nicht, deshalb kann nicht auf eine bereite Sitzung gewartet werden."
+    },
+    "reverse_entry_invalid": {
+      "message": "Dieser Eintrag eines PCs, der sich mit Home Assistant verbindet, hat keinen Token. Entferne ihn und füge den PC erneut hinzu."
+    },
+    "reverse_no_http": {
+      "message": "Der Webserver von Home Assistant ist nicht bereit, deshalb kann sich der PC noch nicht verbinden."
+    },
+    "notify_unsupported": {
+      "message": "Der Agent bietet keine Benachrichtigungen an, deshalb kann keine Benachrichtigung angezeigt werden."
+    },
+    "notification_failed": {
+      "message": "Der PC konnte die Benachrichtigung nicht anzeigen: {message}"
+    },
+    "invalid_notification_id": {
+      "message": "Der Wert „{value}“ ({what}) ist nicht gültig. Verwende 1 bis 64 Buchstaben, Ziffern und die Zeichen _ . : -."
+    },
+    "too_many_notification_actions": {
+      "message": "Eine Benachrichtigung kann höchstens {max} Schaltflächen haben."
+    },
+    "update_refused": {
+      "message": "Der Agent hat das Update nicht installiert: {message}"
+    },
+    "notification_action_without_title": {
+      "message": "Die Schaltfläche {action} braucht einen Titel."
+    },
+    "duplicate_notification_action": {
+      "message": "Die Schaltflächen-Id {action} wird zweimal verwendet; jede Schaltfläche braucht eine eigene Id."
     }
   }
 }

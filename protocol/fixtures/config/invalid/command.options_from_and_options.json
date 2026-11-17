@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "id": "options_from_and_options",
+  "name": "options and optionsFrom together",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "builtin", "name": "audio.set_default_output" },
+  "parameters": [
+    { "name": "Device", "type": "enum", "options": ["Speakers", "Headset"], "optionsFrom": "audio.output_device" }
+  ]
+}

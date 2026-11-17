@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "bad_mode_id",
+  "name": "Bad mode id",
+  "enabled": true,
+  "exposeToHa": true,
+  "defaultMode": "Normal",
+  "modes": [
+    { "id": "Normal", "name": "Normal" }
+  ]
+}

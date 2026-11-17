@@ -19,6 +19,8 @@ public sealed class ActionCatalogTests
         WindowsActionNames.Restart,
         WindowsActionNames.Sleep,
         WindowsActionNames.Hibernate,
+        WindowsActionNames.KeepAwake,
+        WindowsActionNames.CancelPending,
     ];
 
     private static readonly string[] DesktopActions =
@@ -32,6 +34,10 @@ public sealed class ActionCatalogTests
         WindowsActionNames.AppLaunch,
         WindowsActionNames.UrlOpen,
         WindowsActionNames.ProcessKill,
+        WindowsActionNames.NotifyToast,
+        WindowsActionNames.MediaControl,
+        WindowsActionNames.SetDefaultOutput,
+        WindowsActionNames.SetDefaultInput,
     ];
 
     private static UserBuiltinActions NewUserActions()
@@ -116,6 +122,16 @@ public sealed class ActionCatalogTests
             Assert.NotNull(force.Default);
             Assert.False(force.Default!.Value.GetBoolean());
         }
+    }
+
+    [Fact]
+    public void The_power_actions_and_the_logoff_offer_the_optional_delay_and_message_after_their_own_variables()
+    {
+        Assert.Equal(["Force", "DelaySeconds", "Message"], WindowsActionCatalog.Find(WindowsActionNames.Shutdown)!.Parameters.Select(parameter => parameter.Name));
+        Assert.Equal(["Force", "DelaySeconds", "Message"], WindowsActionCatalog.Find(WindowsActionNames.Restart)!.Parameters.Select(parameter => parameter.Name));
+        Assert.Equal(["Force", "DelaySeconds", "Message"], WindowsActionCatalog.Find(WindowsActionNames.Logoff)!.Parameters.Select(parameter => parameter.Name));
+        Assert.Equal(["DelaySeconds", "Message"], WindowsActionCatalog.Find(WindowsActionNames.Sleep)!.Parameters.Select(parameter => parameter.Name));
+        Assert.Equal(["DelaySeconds", "Message"], WindowsActionCatalog.Find(WindowsActionNames.Hibernate)!.Parameters.Select(parameter => parameter.Name));
     }
 
     [Fact]

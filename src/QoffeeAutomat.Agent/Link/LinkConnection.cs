@@ -28,6 +28,9 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
     private readonly LinkServer _server;
     private readonly WebSocket _socket;
     private readonly LinkClient _client;
+
+    // False for a connection that the agent opened itself (ADR 0003): there is no link token that the pairing service could revoke.
+    private readonly bool _isPaired;
     private readonly LinkOptions _options;
     private readonly TimeProvider _time;
     private readonly ILogger _logger;
@@ -49,6 +52,7 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
     private int _closeCode = CloseCodes.Normal;
     private string _closeReason = string.Empty;
     private int _aborted;
+    private int _peerCloseStatus = -1;
     private int _manifestHandlerAttached;
     private string _announcedRev = string.Empty;
     private IDisposable? _registration;
@@ -58,11 +62,12 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
     private EventSubscription? _eventSubscription;
     private Task? _eventPump;
 
-    public LinkConnection(LinkServer server, WebSocket socket, LinkClient client)
+    public LinkConnection(LinkServer server, WebSocket socket, LinkClient client, bool isPaired = true)
     {
         _server = server;
         _socket = socket;
         _client = client;
+        _isPaired = isPaired;
         _options = server.Options;
         _time = server.Time;
         _logger = server.Logger;
@@ -83,6 +88,16 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
 
     /// <summary>The id of the paired client that owns the connection.</summary>
     public string ClientId => _client.Id;
+
+    /// <summary>The close code that the peer sent, or null while none was received; read it after <see cref="RunAsync"/> returned.</summary>
+    public int? PeerCloseStatus
+    {
+        get
+        {
+            int status = Volatile.Read(ref _peerCloseStatus);
+            return status < 0 ? null : status;
+        }
+    }
 
     /// <summary>True once the handshake is complete and the connection is open for traffic.</summary>
     public bool IsEstablished => _handshakeDone && !_closeRequested;
@@ -140,7 +155,9 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
         _writer = Task.Run(WriteLoopAsync, CancellationToken.None);
         try
         {
-            _registration = await _server.Pairing.RegisterConnectionAsync(_client, this, _lifetime.Token).ConfigureAwait(false);
+            _registration = _isPaired
+                ? await _server.Pairing.RegisterConnectionAsync(_client, this, _lifetime.Token).ConfigureAwait(false)
+                : NoRegistration.Instance;
             if (_registration is null)
             {
                 LinkLog.Refused(_logger, "the link token was revoked");
@@ -337,6 +354,11 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
             ValueWebSocketReceiveResult result = await _socket.ReceiveAsync(_receiveBuffer.AsMemory(), cancellationToken).ConfigureAwait(false);
             if (result.MessageType == WebSocketMessageType.Close)
             {
+                if (_socket.CloseStatus is { } closeStatus)
+                {
+                    Volatile.Write(ref _peerCloseStatus, (int)closeStatus);
+                }
+
                 return new Frame(FrameKind.Closed, ReadOnlyMemory<byte>.Empty);
             }
 
@@ -849,6 +871,17 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
     }
 
     private readonly record struct OutboundFrame(byte[] Payload);
+
+    /// <summary>The registration of a connection that the pairing service does not know (the agent dialled out).</summary>
+    private sealed class NoRegistration : IDisposable
+    {
+        public static readonly NoRegistration Instance = new();
+
+        public void Dispose()
+        {
+            // Nothing to unregister.
+        }
+    }
 
     private enum FrameKind
     {

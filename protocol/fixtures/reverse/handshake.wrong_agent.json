@@ -1,0 +1,20 @@
+{
+  "description": "The token is valid but hello.agent.id is not the id of the entry that owns it (a token that was copied to another PC): the integration closes the connection with code 4401 after hello.",
+  "request": {
+    "method": "GET",
+    "path": "/api/qoffeeautomat/reverse/v1",
+    "headers": {
+      "Authorization": "Bearer qalr_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "Sec-WebSocket-Protocol": "qoffeelink.v1"
+    }
+  },
+  "response": {
+    "status": 101,
+    "headers": { "Sec-WebSocket-Protocol": "qoffeelink.v1" }
+  },
+  "frames": [
+    { "from": "agent", "fixture": "hello.json" }
+  ],
+  "close": { "by": "client", "code": 4401, "reason": "The agent is not the one of this entry." },
+  "agent_state": "rejected"
+}

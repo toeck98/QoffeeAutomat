@@ -142,11 +142,14 @@ public sealed class CommandConcurrencyTests
         Assert.All(h.Engine.ActiveRuns, run => Assert.Equal(ActiveRunState.Running, run.State));
 
         // They finish independently, in any order.
-        calls[2].Finish();
+        GateCall first = calls.Single(call => NameOf(call) == "a");
+        GateCall second = calls.Single(call => NameOf(call) == "b");
+        GateCall third = calls.Single(call => NameOf(call) == "c");
+        third.Finish();
         Assert.True((await CommandHarness.Finished(handles[2])).Succeeded);
         Assert.False(handles[0].Completion.IsCompleted);
-        calls[0].Finish();
-        calls[1].Finish();
+        first.Finish();
+        second.Finish();
         foreach (RunHandle handle in handles)
         {
             Assert.True((await CommandHarness.Finished(handle)).Succeeded);

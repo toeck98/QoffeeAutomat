@@ -2,9 +2,14 @@ using System.Diagnostics;
 using QoffeeAutomat.Contracts.Session;
 using QoffeeAutomat.Core.Execution;
 using QoffeeAutomat.SessionHost.Actions;
+using QoffeeAutomat.SessionHost.Audio;
+using QoffeeAutomat.SessionHost.Dialogs;
 using QoffeeAutomat.SessionHost.Execution;
+using QoffeeAutomat.SessionHost.Hotkeys;
 using QoffeeAutomat.SessionHost.Ipc;
+using QoffeeAutomat.SessionHost.Media;
 using QoffeeAutomat.SessionHost.Metrics;
+using QoffeeAutomat.SessionHost.Notifications;
 using QoffeeAutomat.SessionHost.Tray;
 
 namespace QoffeeAutomat.SessionHost;
@@ -52,15 +57,27 @@ public static class Program
             IsAdministrator = UserTokenInfo.IsAdministrator(),
             Version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0",
         };
+
+        // Notifications from Home Assistant (T702) and the system media session (T716). Both touch the Windows Runtime only when
+        // they are used: a toast when one is shown, the media session when a media metric is subscribed or media.control runs.
+        using var toasts = new WindowsToastPresenter(log);
+        using var mediaSession = new WindowsMediaSessionSource(log);
+
+        // The audio devices (T713): the metrics audio.output_device and audio.input_device with their options, and the actions that
+        // set the default device. Windows is asked for device notifications only while the SessionHost is connected to the agent.
+        AudioDeviceService audioDevices = AudioDeviceService.CreateNative(log);
         var client = new SessionHostClient(
             clientOptions,
             new NativePipeServerVerifier(options.AgentImagePath),
             new ProcessRunner(),
-            UserBuiltinActions.CreateNative(),
+            // The countdown dialog of the delayed power actions (T715): a window is made only when the agent asks for one.
+            UserBuiltinActions.CreateNative(toasts, mediaSession, audioDevices, new WinFormsCountdownDialog(log)),
             locator: null,
             time: null,
             log,
-            new WindowsUserMetricProbe());
+            new AudioDeviceMetricProbe(new MediaMetricProbe(new WindowsUserMetricProbe(), mediaSession), audioDevices),
+            changes: audioDevices);
+        using var notifications = new NotificationCoordinator(client, toasts, log);
 
         log.Info($"Started in session {options.SessionId}.");
 
@@ -71,11 +88,27 @@ public static class Program
         try
         {
             shell = new NotifyIconShell(clientOptions.Version, log);
-            tray = new TrayCoordinator(client, shell, log);
+            tray = new TrayCoordinator(client, shell, log, clientOptions.IsAdministrator);
         }
         catch (InvalidOperationException exception)
         {
             log.Warning("Running without a tray icon: " + exception.Message);
+        }
+
+        // The global hotkeys (T708). They are registered when the agent sends the list; a failure to create the window only
+        // means that there are no hotkeys, never that the SessionHost does not run.
+        WindowsHotkeyApi? hotkeyApi = null;
+        HotkeyManager? hotkeys = null;
+        HotkeyCoordinator? hotkeyCoordinator = null;
+        try
+        {
+            hotkeyApi = new WindowsHotkeyApi();
+            hotkeys = new HotkeyManager(hotkeyApi, log);
+            hotkeyCoordinator = new HotkeyCoordinator(client, hotkeys, log);
+        }
+        catch (InvalidOperationException exception)
+        {
+            log.Warning("Running without global hotkeys: " + exception.Message);
         }
 
         try
@@ -87,7 +120,10 @@ public static class Program
         }
         finally
         {
-            // The icon disappears with the SessionHost.
+            // The icon disappears with the SessionHost, and so do the hotkeys.
+            hotkeyCoordinator?.Dispose();
+            hotkeys?.Dispose();
+            hotkeyApi?.Dispose();
             tray?.Dispose();
             shell?.Dispose();
         }

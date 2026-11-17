@@ -110,20 +110,24 @@ else if (_loadError is null && !_notFound)
           <MudItem xs="12" md="6">
             <MudSwitch T="bool" @bind-Value="_draft.ExposeToHa" Label="@L["Sensors.Field.Expose"]" Color="Color.Primary" data-testid="sensor-field-expose" />
           </MudItem>
-          <MudItem xs="12" md="6">
-            <div data-testid="sensor-field-interval">
-              <MudTextField T="string"
-                            @bind-Value="_draft.IntervalText"
-                            Immediate="true"
-                            InputType="InputType.Number"
-                            Label="@L["Sensors.Field.Interval"]"
-                            HelperText="@L["Sensors.Field.Interval.Help"]"
-                            Variant="Variant.Outlined"
-                            Margin="Margin.Dense"
-                            Error="@_errors.Has("/intervalSeconds")" />
-            </div>
-            <FieldError Errors="_errors" Path="/intervalSeconds" />
-          </MudItem>
+          @if (_draft.SourceType != SensorSourceTypes.State)
+          {
+            @* A state sensor is set from outside and is never read on a timer, so it has no interval. *@
+            <MudItem xs="12" md="6">
+              <div data-testid="sensor-field-interval">
+                <MudTextField T="string"
+                              @bind-Value="_draft.IntervalText"
+                              Immediate="true"
+                              InputType="InputType.Number"
+                              Label="@L["Sensors.Field.Interval"]"
+                              HelperText="@L["Sensors.Field.Interval.Help"]"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Error="@_errors.Has("/intervalSeconds")" />
+              </div>
+              <FieldError Errors="_errors" Path="/intervalSeconds" />
+            </MudItem>
+          }
           @if (SensorAttributeRules.AllowsPrecision(_draft.ValueType))
           {
             <MudItem xs="12" md="6">
@@ -214,6 +218,23 @@ else if (_loadError is null && !_notFound)
             break;
           case SensorSourceTypes.ServiceState:
             @TextField(L["Sensors.Field.Service"], _draft.Service, value => _draft.Service = value, "/source/service", "sensor-field-service")
+            break;
+          case SensorSourceTypes.State:
+            @* The value type and the options are chosen below, under "Value and Home Assistant". *@
+            <div data-testid="sensor-field-initial-value">
+              <MudTextField T="string"
+                            @bind-Value="_draft.InitialValueText"
+                            Immediate="true"
+                            Label="@L["Sensors.Field.InitialValue"]"
+                            HelperText="@L["Sensors.Field.InitialValue.Help"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            Error="@_errors.Has("/source/initialValue")"
+                            spellcheck="false" />
+            </div>
+            <FieldError Errors="_errors" Path="/source/initialValue" />
+            <MudSwitch T="bool" @bind-Value="_draft.Persist" Label="@L["Sensors.Field.Persist"]" Color="Color.Primary" data-testid="sensor-field-persist" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary" data-testid="sensor-persist-help">@L["Sensors.Field.Persist.Help"]</MudText>
             break;
         }
       </MudPaper>
@@ -351,6 +372,52 @@ else if (_loadError is null && !_notFound)
           </MudAlert>
         }
       </MudPaper>
+
+      @if (ShowsStateValue)
+      {
+        @* Setting the value by hand (T714): the same call as `qoffeeautomat state set` and PUT /sensors/{id}/value. *@
+        <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="sensor-state-panel">
+          <MudText Typo="Typo.h6" Class="mb-1">@L["Sensors.State.Title"]</MudText>
+          <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Sensors.State.Help"]</MudText>
+          <div class="mt-2">@L["Sensors.State.Current"]: <strong data-testid="sensor-state-current">@StateCurrentText</strong></div>
+
+          <ErrorDisplay Error="_stateError" Class="mt-2" />
+          @if (_stateNotice is not null)
+          {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mt-2" data-testid="sensor-state-notice">@_stateNotice</MudAlert>
+          }
+
+          @if (StateChoices is { } choices)
+          {
+            <SelectBox Label="@L["Sensors.State.Value"]" @bind-Value="_stateInput" TestId="sensor-state-input">
+              <option value="">@L["Sensors.State.Choose"]</option>
+              @foreach (string choice in choices)
+              {
+                <option value="@choice">@choice</option>
+              }
+            </SelectBox>
+          }
+          else
+          {
+            <div data-testid="sensor-state-input">
+              <MudTextField T="string"
+                            @bind-Value="_stateInput"
+                            Immediate="true"
+                            Label="@L["Sensors.State.Value"]"
+                            Variant="Variant.Outlined"
+                            Margin="Margin.Dense"
+                            spellcheck="false" />
+            </div>
+          }
+
+          <MudButton Variant="Variant.Filled"
+                     Color="Color.Primary"
+                     OnClick="SetStateValueAsync"
+                     Disabled="@(_stateSetting || string.IsNullOrWhiteSpace(_stateInput))"
+                     Class="mt-2"
+                     data-testid="sensor-state-set">@L["Sensors.State.Set"]</MudButton>
+        </MudPaper>
+      }
     </MudItem>
   </MudGrid>
 }

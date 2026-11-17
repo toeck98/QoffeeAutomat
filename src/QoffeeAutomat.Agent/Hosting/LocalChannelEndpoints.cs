@@ -1,5 +1,7 @@
+using System.Buffers;
 using System.Globalization;
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -10,6 +12,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QoffeeAutomat.Core.Events;
+using QoffeeAutomat.Core.Metrics.Custom;
 
 namespace QoffeeAutomat.Agent.Hosting;
 
@@ -32,10 +35,15 @@ public static class LocalChannelEndpoints
     {
         ArgumentNullException.ThrowIfNull(routes);
 
+        // The values of state sensors (T714): the verbs 'state set' and 'state get' of the command line.
+        routes.MapPut(LocalChannelNames.StatePath + "/{id}", SetStateAsync);
+        routes.MapGet(LocalChannelNames.StatePath + "/{id}", GetState);
         return routes.MapPost(LocalChannelNames.EmitPath, EmitAsync);
     }
 
-    private static async Task<IResult> EmitAsync(HttpContext context, LocalChannel channel, IEventBus bus)
+    /// <summary>Applies the rules of the local channel to a request: loopback callers only, and the secret in the bearer header.</summary>
+    /// <returns>The refusal, or null when the caller may use the channel.</returns>
+    private static IResult? Authorize(HttpContext context, LocalChannel channel)
     {
         IPAddress? remote = context.Connection.RemoteIpAddress;
         if (remote is null || !IPAddress.IsLoopback(remote))
@@ -49,9 +57,16 @@ public static class LocalChannelEndpoints
             return Error(StatusCodes.Status401Unauthorized, "A valid local channel token is required.");
         }
 
+        return null;
+    }
+
+    /// <summary>Reads the request body up to <see cref="MaxBodyBytes"/>.</summary>
+    /// <returns>The body, or the refusal when it is too large.</returns>
+    private static async Task<(byte[]? Body, IResult? Failure)> ReadLimitedBodyAsync(HttpContext context)
+    {
         if (context.Request.ContentLength > MaxBodyBytes)
         {
-            return Error(StatusCodes.Status413PayloadTooLarge, "The request is too large.");
+            return (null, Error(StatusCodes.Status413PayloadTooLarge, "The request is too large."));
         }
 
         IHttpMaxRequestBodySizeFeature? limit = context.Features.Get<IHttpMaxRequestBodySizeFeature>();
@@ -67,12 +82,139 @@ public static class LocalChannelEndpoints
         }
         catch (BadHttpRequestException)
         {
-            return Error(StatusCodes.Status413PayloadTooLarge, "The request is too large.");
+            return (null, Error(StatusCodes.Status413PayloadTooLarge, "The request is too large."));
         }
 
-        if (body.Length > MaxBodyBytes)
+        return body.Length > MaxBodyBytes
+            ? (null, Error(StatusCodes.Status413PayloadTooLarge, "The request is too large."))
+            : (body, null);
+    }
+
+    private static async Task<IResult> SetStateAsync(string id, HttpContext context, LocalChannel channel, CustomSensorProvider sensors)
+    {
+        IResult? refusal = Authorize(context, channel);
+        if (refusal is not null)
         {
-            return Error(StatusCodes.Status413PayloadTooLarge, "The request is too large.");
+            return refusal;
+        }
+
+        (byte[]? body, IResult? failure) = await ReadLimitedBodyAsync(context);
+        if (body is null)
+        {
+            return failure!;
+        }
+
+        // The command line sends the value as text; a script that calls the endpoint directly may send a number or a boolean.
+        string? text;
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(body);
+            JsonElement root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("value", out JsonElement value))
+            {
+                return Error(StatusCodes.Status400BadRequest, "The body must be a JSON object with the member 'value'.");
+            }
+
+            text = value.ValueKind switch
+            {
+                JsonValueKind.String => value.GetString(),
+                JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False => value.GetRawText(),
+                _ => null,
+            };
+            if (text is null)
+            {
+                return Error(StatusCodes.Status400BadRequest, "'value' must be a string, a number or a boolean.");
+            }
+        }
+        catch (JsonException)
+        {
+            return Error(StatusCodes.Status400BadRequest, "The body is not valid JSON.");
+        }
+
+        StateSetResult result = await sensors.States.SetTextAsync(id, text, context.RequestAborted);
+        return result.IsSuccess
+            ? StateBody(id, result.Value, updatedAt: null)
+            : StateFailure(result.ErrorCode!, result.Message!);
+    }
+
+    private static IResult GetState(string id, HttpContext context, LocalChannel channel, CustomSensorProvider sensors)
+    {
+        IResult? refusal = Authorize(context, channel);
+        if (refusal is not null)
+        {
+            return refusal;
+        }
+
+        StateGetResult result = sensors.States.Get(id);
+        return result.IsSuccess
+            ? StateBody(id, result.Reading!.Value, result.Reading.UpdatedAt)
+            : StateFailure(result.ErrorCode!, result.Message!);
+    }
+
+    /// <summary>The answer for a value: <c>{"id":"...","value":...}</c>, with <c>updatedAt</c> when the value was set; <c>value</c> is null for a sensor that has none.</summary>
+    private static IResult StateBody(string id, object? value, DateTimeOffset? updatedAt)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("id", id);
+            writer.WritePropertyName("value");
+            switch (value)
+            {
+                case double number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case bool flag:
+                    writer.WriteBooleanValue(flag);
+                    break;
+                case DateTimeOffset moment:
+                    writer.WriteStringValue(moment.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
+                    break;
+                case string text:
+                    writer.WriteStringValue(text);
+                    break;
+                default:
+                    writer.WriteNullValue();
+                    break;
+            }
+
+            if (updatedAt is { } at)
+            {
+                writer.WriteString("updatedAt", at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
+            }
+
+            writer.WriteEndObject();
+        }
+
+        return Results.Text(Encoding.UTF8.GetString(buffer.WrittenSpan), "application/json");
+    }
+
+    /// <summary>Maps the reason that a state value was refused to an HTTP status: unknown sensor 404, sensor of another type 409, invalid value 400, a value that could not be saved 500.</summary>
+    private static IResult StateFailure(string errorCode, string message)
+    {
+        int status = errorCode switch
+        {
+            StateSensorErrors.UnknownSensor => StatusCodes.Status404NotFound,
+            StateSensorErrors.NotStateSensor => StatusCodes.Status409Conflict,
+            StateSensorErrors.PersistFailed => StatusCodes.Status500InternalServerError,
+            _ => StatusCodes.Status400BadRequest,
+        };
+        return Error(status, message);
+    }
+
+    private static async Task<IResult> EmitAsync(HttpContext context, LocalChannel channel, IEventBus bus)
+    {
+        IResult? refusal = Authorize(context, channel);
+        if (refusal is not null)
+        {
+            return refusal;
+        }
+
+        (byte[]? body, IResult? tooLarge) = await ReadLimitedBodyAsync(context);
+        if (body is null)
+        {
+            return tooLarge!;
         }
 
         string? name;

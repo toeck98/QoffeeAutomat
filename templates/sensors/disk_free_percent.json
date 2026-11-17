@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "disk_free_percent",
+  "name": "Disk space free",
+  "description": "The free space of a drive in percent. The drive letter is the default of the parameter in the script; change it there.",
+  "icon": "mdi:harddisk",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "sensor",
+  "valueType": "number",
+  "unit": "%",
+  "stateClass": "measurement",
+  "entityCategory": "diagnostic",
+  "precision": 1,
+  "intervalSeconds": 300,
+  "deadband": 0.5,
+  "source": { "type": "powershell", "source": "file", "script": "disk_free_percent.ps1", "engine": "auto" }
+}

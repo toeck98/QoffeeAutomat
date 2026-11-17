@@ -1,3 +1,4 @@
+using System.Text.Json;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Ui.Components.Pages.Metrics;
 using QoffeeAutomat.Ui.Components.Pages.Sensors;
@@ -18,6 +19,7 @@ public sealed class SensorLogicTests
             [
                 SensorSourceTypes.PowerShell,
                 SensorSourceTypes.ProcessRunning,
+                SensorSourceTypes.State,
                 SensorSourceTypes.PerfCounter,
                 SensorSourceTypes.CimQuery,
                 SensorSourceTypes.ServiceState,
@@ -34,7 +36,7 @@ public sealed class SensorLogicTests
     {
         IReadOnlyList<string> types = SensorAttributeRules.OfferedSourceTypes(platform);
 
-        Assert.Equal([SensorSourceTypes.PowerShell, SensorSourceTypes.ProcessRunning], types);
+        Assert.Equal([SensorSourceTypes.PowerShell, SensorSourceTypes.ProcessRunning, SensorSourceTypes.State], types);
         Assert.False(SensorAttributeRules.IsOffered(platform, SensorSourceTypes.PerfCounter));
         Assert.False(SensorAttributeRules.IsOffered(platform, SensorSourceTypes.CimQuery));
         Assert.False(SensorAttributeRules.IsOffered(platform, SensorSourceTypes.ServiceState));
@@ -48,10 +50,11 @@ public sealed class SensorLogicTests
     }
 
     [Fact]
-    public void A_sensor_whose_value_is_set_from_outside_is_not_offered_anywhere()
+    public void A_sensor_whose_value_is_set_from_outside_is_offered_on_every_platform()
     {
-        Assert.False(SensorAttributeRules.IsOffered("windows", SensorSourceTypes.State));
-        Assert.False(SensorAttributeRules.IsOffered("linux", SensorSourceTypes.State));
+        Assert.True(SensorAttributeRules.IsOffered("windows", SensorSourceTypes.State));
+        Assert.True(SensorAttributeRules.IsOffered("linux", SensorSourceTypes.State));
+        Assert.True(SensorAttributeRules.IsOffered(null, SensorSourceTypes.State));
     }
 
     [Theory]
@@ -247,11 +250,81 @@ public sealed class SensorLogicTests
     [Fact]
     public void A_source_that_the_editor_cannot_author_is_kept_as_stored()
     {
-        SensorDocument stored = Samples.Sensor("external", source: new StateSensorSource(Persist: true));
+        var unknown = new UnknownSensorSource("future_type", Samples.Null());
+        SensorDocument stored = Samples.Sensor("external", source: unknown);
 
         SensorDocument rebuilt = SensorDraft.From(stored).Build().Document;
 
-        Assert.Equal(new StateSensorSource(Persist: true), rebuilt.Source);
+        Assert.Equal(unknown, rebuilt.Source);
+    }
+
+    [Fact]
+    public void A_state_sensor_keeps_its_persist_flag_and_initial_value_through_the_draft()
+    {
+        SensorDocument stored = Samples.Sensor("mode", valueType: "enum", source: new StateSensorSource(Samples.Text("Normal"), Persist: true)) with
+        {
+            Options = ["Normal", "Eco"],
+        };
+
+        SensorDraft draft = SensorDraft.From(stored);
+        Assert.Equal("Normal", draft.InitialValueText);
+        Assert.True(draft.Persist);
+
+        StateSensorSource rebuilt = Assert.IsType<StateSensorSource>(draft.Build().Document.Source);
+        Assert.True(rebuilt.Persist);
+        Assert.Equal("Normal", rebuilt.InitialValue!.Value.GetString());
+    }
+
+    [Theory]
+    [InlineData("number", "21.5", JsonValueKind.Number)]
+    [InlineData("bool", "true", JsonValueKind.True)]
+    [InlineData("bool", "No", JsonValueKind.False)]
+    [InlineData("string", "idle", JsonValueKind.String)]
+    [InlineData("timestamp", "2026-01-01T00:00:00Z", JsonValueKind.String)]
+    public void The_initial_value_of_a_state_sensor_is_typed_by_the_value_type(string valueType, string text, JsonValueKind kind)
+    {
+        var draft = new SensorDraft { Id = "s", Name = "S", ValueType = valueType, SourceType = SensorSourceTypes.State, InitialValueText = text };
+
+        SensorBuild build = draft.Build();
+
+        Assert.Empty(build.Problems);
+        StateSensorSource source = Assert.IsType<StateSensorSource>(build.Document.Source);
+        Assert.Equal(kind, source.InitialValue!.Value.ValueKind);
+    }
+
+    [Theory]
+    [InlineData("number", "warm", "/source/initialValue")]
+    [InlineData("bool", "maybe", "/source/initialValue")]
+    public void An_initial_value_that_does_not_fit_the_value_type_is_reported_at_its_path(string valueType, string text, string path)
+    {
+        var draft = new SensorDraft { Id = "s", Name = "S", ValueType = valueType, SourceType = SensorSourceTypes.State, InitialValueText = text };
+
+        SensorBuild build = draft.Build();
+
+        Assert.Equal(path, Assert.Single(build.Problems).Path);
+    }
+
+    [Fact]
+    public void A_state_sensor_without_an_initial_value_has_none_and_is_never_sampled_on_a_timer()
+    {
+        var draft = new SensorDraft { Id = "s", Name = "S", SourceType = SensorSourceTypes.State, IntervalText = "30", Persist = true };
+
+        SensorDocument document = draft.Build().Document;
+
+        StateSensorSource source = Assert.IsType<StateSensorSource>(document.Source);
+        Assert.Null(source.InitialValue);
+        Assert.True(source.Persist);
+        Assert.Null(document.IntervalSeconds);
+    }
+
+    [Fact]
+    public void The_persist_flag_and_the_initial_value_do_not_leak_into_other_source_types()
+    {
+        var draft = new SensorDraft { Id = "s", Name = "S", SourceType = SensorSourceTypes.State, InitialValueText = "5", Persist = true };
+        draft.SourceType = SensorSourceTypes.ProcessRunning;
+        draft.Process = "notepad.exe";
+
+        Assert.IsType<ProcessRunningSensorSource>(draft.Build().Document.Source);
     }
 
     [Fact]

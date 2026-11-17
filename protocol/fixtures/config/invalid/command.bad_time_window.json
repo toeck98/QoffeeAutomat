@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "id": "night_backup",
+  "name": "Night backup",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "system",
+  "action": { "type": "builtin", "name": "power.sleep" },
+  "conditions": { "timeWindow": { "from": "25:00", "to": "06:00" } }
+}

@@ -1,0 +1,20 @@
+{
+  "description": "The token was revoked while the agent was connected (the entry was removed or its token rotated): the integration closes the connection with code 4401 and the agent stops dialling until it is enrolled again.",
+  "request": {
+    "method": "GET",
+    "path": "/api/qoffeeautomat/reverse/v1",
+    "headers": {
+      "Authorization": "Bearer qalr_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "Sec-WebSocket-Protocol": "qoffeelink.v1"
+    }
+  },
+  "response": {
+    "status": 101,
+    "headers": { "Sec-WebSocket-Protocol": "qoffeelink.v1" }
+  },
+  "frames": [
+    { "from": "agent", "fixture": "hello.json" }
+  ],
+  "close": { "by": "client", "code": 4401, "reason": "The reverse link token was revoked." },
+  "agent_state": "rejected"
+}

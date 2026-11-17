@@ -43,10 +43,7 @@ entity history noise.
 | **Performance counter** (`perf_counter`) | yes | The value of a Windows performance counter (*category*, *counter*, optional *instance*). Value type `number`. |
 | **CIM query** (`cim_query`) | yes | A property of the first result of a CIM (WMI) query (*namespace*, *class*, *property*, optional WQL *filter*), converted to the value type of the sensor. |
 | **Service state** (`service_state`) | yes | The state of a Windows service (*service* name). Value type `enum`. |
-
-!!! note "Value set from outside"
-    The editor also shows a type *Value set from outside*. Setting such a value from a script is planned for a later release
-    and is not available in 1.0; do not use it yet.
+| **Value set from outside** (`state`) | no | Nothing is read: a script, the web interface or the API sets the value; see [Values that scripts set](#values-that-scripts-set). Any value type. |
 
 ### Script sensors
 
@@ -102,6 +99,75 @@ Use them when you know the Windows object you want to read:
 
 Test them with the *Test* button; the editor tells you what is missing.
 
+## Values that scripts set
+
+A sensor of the type **Value set from outside** (`state`) is not read on a timer. It holds a value that something else sets:
+a command script, you in the web interface, or any program through the API. Use it when the PC cannot be asked for the value
+but a script knows it, and for the *real state* of a switch (see the pattern below).
+
+| Setting | Meaning |
+|---------|---------|
+| *Value type* | `number`, `string`, `bool`, `timestamp` or `enum` (with its *options*), like every sensor. Every value that is set is checked against it. |
+| *Initial value* | Optional. What the sensor shows after the agent starts until a value is set. Without it the sensor has no value (it is *unavailable* in Home Assistant) until one is set. |
+| *Keep the value across restarts* (`persist`) | On: the last value is written to `state-values.json` in the data folder and survives a restart of the agent and of the PC. Off: after every start the sensor returns to its initial value. |
+
+There is no interval: a new value is published to Home Assistant at once, within the normal flush time of about one second.
+
+### Set and read a value
+
+From a script that a command runs (the agent gives every script the access it needs, so there is nothing to configure; the
+verbs work like [`emit`](events.md#custom-events)):
+
+```powershell
+$agent = "$env:ProgramFiles\QoffeeAutomat\QoffeeAutomat.Agent.exe"
+& $agent state set pc_mode Eco
+& $agent state get pc_mode
+```
+
+| Verb | Does | Exit code |
+|------|------|-----------|
+| `state set <id> <value>` | Checks the value against the sensor and publishes it. `<value>` is text: `42.5` (a dot), `true`/`false` (also `1`, `0`, `yes`, `no`, `on`, `off`), one of the options (the case is forgiven), a date and time, or any text up to 255 characters. A value that starts with `-` is fine (`-5`); after `--` everything is a value. | `0` set; `64` unknown sensor, sensor of another type or a value that does not fit (the message says which); `77` no access; `69` no agent is running; `1` the value was set but could not be saved. |
+| `state get <id>` | Prints the value alone on stdout (`true`, `-5`, `Eco`), so a script can use it. A sensor without a value prints nothing and says so on stderr. | `0` read; the same error codes as above. |
+
+Outside a script that the agent started, run the verbs as an administrator on the PC: they read the address and the secret from
+the protected file `secrets\local-channel.json`. The agent only accepts them from this PC.
+
+The same through the management API (with a session, see [Management API](reference/api.md)):
+
+```http
+PUT /api/v1/sensors/pc_mode/value
+{ "value": "Eco" }
+```
+
+The answer is `{ "id": "pc_mode", "value": "Eco", "updatedAt": "..." }`. `GET /api/v1/sensors/pc_mode/value` reads it. An unknown
+sensor is answered with 404 (`unknown_sensor`), a sensor of another type with 409 (`not_state_sensor`), and a value that does not
+fit with 422 and the path `/value`.
+
+In the web interface, open a saved sensor of this type: the panel *Set the value* shows the current value and sets a new one.
+
+### Pattern: a switch whose script reports its real state
+
+A command with a `switch` control is *optimistic* by default: Home Assistant assumes that the switch is in the state it asked
+for. If the script can fail, or the state changes by other means, let the script report what really happened:
+
+1. Create a sensor `night_light_state`: type *Value set from outside*, value type `bool`, kind binary sensor, *Keep the value
+   across restarts* on (so the switch is right after a PC start), no initial value (unknown until the first run).
+2. In the command, name it as the real state: `"haControl": { "type": "switch", "parameter": "On", "stateMetric": "custom.night_light_state" }`.
+3. At the end of the command script, report the result, after the work has really succeeded:
+
+```powershell
+param([bool]$On)
+$ErrorActionPreference = 'Stop'
+
+Set-NightLight -On $On          # the actual work; throws when it fails
+$state = if ($On) { 'true' } else { 'false' }
+& "$env:ProgramFiles\QoffeeAutomat\QoffeeAutomat.Agent.exe" state set night_light_state $state
+```
+
+If the work fails the script stops before the last line, the sensor keeps the old value, and Home Assistant shows the switch in
+its real state again after the run instead of the state it asked for. The same sensor can be set from anywhere else that learns
+about the light, for example a script that a Windows event or a schedule starts.
+
 ## Use a sensor as the state of a command
 
 A [command's control](commands.md#the-state-of-the-entity) can name a sensor in `stateMetric`, so the Home Assistant entity
@@ -117,6 +183,18 @@ and the program of the active window) are **off by default**; the list carries a
 
 In Home Assistant you can additionally disable the entity: then the agent does not sample it for Home Assistant (it may still
 sample it while the web interface shows it).
+
+### Audio devices
+
+*Audio output device* and *Audio input device* (`audio.output_device`, `audio.input_device`) are **enum** sensors whose value is
+the name of the current default playback or recording device and whose options are the names of the **active** devices (not
+unplugged, not disabled). They come from the session helper, so they need a logged-in user. A change is reported at once by
+the device notifications of Windows, not at the next interval: when you plug in a headset the option appears and the manifest
+revision changes, so Home Assistant offers it without a restart. A second device with the same name gets the suffix ` #2`.
+Use the sensors as the `stateMetric` of a [select that switches the device](commands.md#switch-the-audio-device).
+
+The session helper asks Windows for device notifications only while it is connected to the agent, and the value is only read
+while somebody is subscribed to it.
 
 ## Limits
 

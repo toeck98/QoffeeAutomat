@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 2,
+  "id": "night_backup",
+  "name": "Night backup",
+  "description": "Runs only at night while nobody is working at the PC.",
+  "icon": "mdi:backup-restore",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "system",
+  "action": { "type": "process", "file": "C:\\Tools\\backup.exe", "args": ["--target", "D:\\Backup"], "waitForExit": true },
+  "haControl": { "type": "button" },
+  "timeoutSeconds": 3600,
+  "concurrency": "single",
+  "cooldownSeconds": 0,
+  "captureOutput": true,
+  "conditions": {
+    "session": "locked",
+    "timeWindow": { "from": "22:00", "to": "06:00", "days": ["mon", "tue", "wed", "thu", "fri"] }
+  },
+  "secrets": ["backup_password"]
+}

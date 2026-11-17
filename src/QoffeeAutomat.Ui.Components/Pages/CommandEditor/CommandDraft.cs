@@ -19,6 +19,12 @@ public sealed class CommandDraft
     /// <summary>The seconds of the timeout of a new command.</summary>
     public const int DefaultTimeoutSeconds = 60;
 
+    /// <summary>The start of a time window that was just switched on.</summary>
+    public const string DefaultWindowFrom = "08:00";
+
+    /// <summary>The end of a time window that was just switched on.</summary>
+    public const string DefaultWindowTo = "18:00";
+
     private string _name = string.Empty;
     private string _id = string.Empty;
 
@@ -26,7 +32,7 @@ public sealed class CommandDraft
     public bool IsNew { get; set; } = true;
 
     /// <summary>The schema version of the document.</summary>
-    public int SchemaVersion { get; set; } = DocumentSchema.CurrentVersion;
+    public int SchemaVersion { get; set; } = DocumentSchema.CommandVersion;
 
     /// <summary>The id. Editing it stops the derivation from the name; emptying it starts it again.</summary>
     public string Id
@@ -136,6 +142,24 @@ public sealed class CommandDraft
     /// <summary>Whether stdout and stderr are captured.</summary>
     public bool CaptureOutput { get; set; }
 
+    /// <summary>The session that the command needs, one of <see cref="SessionRequirements"/> (T705); <c>any</c> means no requirement.</summary>
+    public string ConditionSession { get; set; } = SessionRequirements.Any;
+
+    /// <summary>Whether the command only runs inside a time window (T705).</summary>
+    public bool WindowEnabled { get; set; }
+
+    /// <summary>The start of the time window, <c>HH:mm</c>.</summary>
+    public string WindowFrom { get; set; } = DefaultWindowFrom;
+
+    /// <summary>The end of the time window, <c>HH:mm</c>; a time that is not later than the start makes the window cross midnight.</summary>
+    public string WindowTo { get; set; } = DefaultWindowTo;
+
+    /// <summary>The days on which the window starts (see <see cref="WeekdayNames"/>); none means every day.</summary>
+    public List<string> WindowDays { get; } = [];
+
+    /// <summary>The names of the secrets that the run receives as <c>QA_SECRET_&lt;NAME&gt;</c> (T706).</summary>
+    public List<string> Secrets { get; } = [];
+
     /// <summary>The revision of the stored command; the save is refused when somebody else saved in between.</summary>
     public int? Revision { get; set; }
 
@@ -147,6 +171,9 @@ public sealed class CommandDraft
 
     /// <summary>True when the action is one of the four types that the editor has a form for.</summary>
     public bool HasKnownAction => ActionType is ActionTypes.PowerShell or ActionTypes.Process or ActionTypes.Builtin or ActionTypes.Sequence;
+
+    /// <summary>True when the action can use secrets: only PowerShell and process actions get the environment variables (the validator's rule).</summary>
+    public bool SupportsSecrets => ActionType is ActionTypes.PowerShell or ActionTypes.Process;
 
     /// <summary>Creates the draft of a stored command.</summary>
     /// <param name="command">The command.</param>
@@ -262,8 +289,25 @@ public sealed class CommandDraft
             CaptureOutput,
             Revision,
             UpdatedAt,
-            Origin);
+            Origin,
+            BuildConditions(),
+            SupportsSecrets && Secrets.Count > 0 ? Secrets.ToArray() : null);
         return new DraftBuild(document, problems);
+    }
+
+    /// <summary>The conditions as the document will have them; <c>null</c> when the command has none, so that a command without conditions stays as it was.</summary>
+    /// <returns>The conditions, or <c>null</c>.</returns>
+    public CommandConditions? BuildConditions()
+    {
+        string? session = string.IsNullOrEmpty(ConditionSession) || ConditionSession == SessionRequirements.Any ? null : ConditionSession;
+        TimeWindow? window = null;
+        if (WindowEnabled)
+        {
+            string[] days = [.. WeekdayNames.All.Where(day => WindowDays.Contains(day)), .. WindowDays.Where(day => !WeekdayNames.All.Contains(day)).Distinct()];
+            window = new TimeWindow(WindowFrom.Trim(), WindowTo.Trim(), days.Length == 0 ? null : days);
+        }
+
+        return session is null && window is null ? null : new CommandConditions(session, window);
     }
 
     private static int ParseSeconds(string text, string path, int fallback, List<ApiValidationError> problems)
@@ -336,6 +380,17 @@ public sealed class CommandDraft
         {
             Parameters.Add(ParameterDraft.From(parameter));
         }
+
+        ConditionSession = command.Conditions?.Session ?? SessionRequirements.Any;
+        if (command.Conditions?.TimeWindow is { } window)
+        {
+            WindowEnabled = true;
+            WindowFrom = window.From ?? DefaultWindowFrom;
+            WindowTo = window.To ?? DefaultWindowTo;
+            WindowDays.AddRange(window.Days ?? []);
+        }
+
+        Secrets.AddRange(command.Secrets ?? []);
 
         if (command.HaControl is { } control)
         {

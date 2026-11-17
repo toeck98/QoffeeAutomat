@@ -3,6 +3,14 @@
     "flow_title": "{name}",
     "step": {
       "user": {
+        "title": "Add a PC",
+        "description": "How can Home Assistant reach the PC?",
+        "menu_options": {
+          "manual": "Home Assistant connects to the PC (it is on the home network)",
+          "reverse": "The PC connects to Home Assistant (a laptop that roams)"
+        }
+      },
+      "manual": {
         "title": "Connect to a PC",
         "description": "Enter the address of the PC that runs the QoffeeAutomat agent.",
         "data": {
@@ -13,6 +21,34 @@
           "host": "Host name or IP address of the PC.",
           "port": "The QoffeeLink port of the agent (default 8481)."
         }
+      },
+      "reverse": {
+        "title": "Let the PC connect to Home Assistant",
+        "description": "Enter the address under which the PC can reach Home Assistant from wherever it is. It must use https, because the PC proves who it is with a secret token.",
+        "data": {
+          "url": "Address of Home Assistant",
+          "fingerprint": "Certificate fingerprint (optional)"
+        },
+        "data_description": {
+          "url": "The public HTTPS base address of this Home Assistant instance.",
+          "fingerprint": "SHA-256 fingerprint of the certificate, only for a self-signed certificate or a private certificate authority. Leave it empty for a normal certificate."
+        }
+      },
+      "reverse_rotate": {
+        "title": "Create a new token",
+        "description": "The PC connects to Home Assistant with a secret token. A new token replaces the old one, and the PC has to be enrolled again with it.",
+        "data": {
+          "url": "Address of Home Assistant",
+          "fingerprint": "Certificate fingerprint (optional)"
+        },
+        "data_description": {
+          "url": "The public HTTPS base address of this Home Assistant instance.",
+          "fingerprint": "SHA-256 fingerprint of the certificate, only for a self-signed certificate or a private certificate authority. Leave it empty for a normal certificate."
+        }
+      },
+      "reverse_show": {
+        "title": "Enroll the PC",
+        "description": "Give this enrollment string to the agent on the PC (join the reverse link in the agent). It contains a secret: it is shown only now, and treat it like a password.\n\n`{enrollment}`\n\nSelect Submit when the agent has it. The old token stops working then, and a PC that still uses it is rejected until it is enrolled with the new string."
       },
       "confirm": {
         "title": "Confirm the agent",
@@ -45,7 +81,12 @@
         }
       }
     },
+    "progress": {
+      "waiting_for_agent": "Give this enrollment string to the agent on the PC (join the reverse link in the agent). It contains a secret, so treat it like a password. The PC will dial {url}.\n\n`{enrollment}`\n\nThis page continues by itself as soon as the PC connects."
+    },
     "error": {
+      "invalid_reverse_url": "Enter an https:// address of Home Assistant. A plain http:// address would send the token unencrypted.",
+      "invalid_fingerprint": "A SHA-256 fingerprint has 64 hexadecimal digits.",
       "cannot_connect": "Cannot connect to the agent. Check the address, that the agent is running and that the certificate has not changed.",
       "invalid_code": "The pairing code is wrong.",
       "code_expired": "The pairing code has expired or was blocked after too many attempts. Start pairing again in the agent.",
@@ -62,7 +103,26 @@
       "unknown": "An unexpected error occurred. See the log for details.",
       "wrong_agent": "The address belongs to a different agent.",
       "reauth_successful": "Re-authentication was successful.",
-      "reconfigure_successful": "The address was updated."
+      "reconfigure_successful": "The address was updated.",
+      "reverse_no_http": "Home Assistant has no web server that the PC could connect to.",
+      "reverse_timeout": "No PC used the enrollment string in time. Start again when the agent is ready."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wake-on-LAN",
+        "description": "The Wake-on-LAN button sends magic packets for the network adapters of the PC to this address. The PC must be set up for waking, see the documentation.",
+        "data": {
+          "broadcast": "Broadcast address"
+        },
+        "data_description": {
+          "broadcast": "IPv4 broadcast address of the network of the PC, for example 192.168.1.255. The default 255.255.255.255 reaches the local network of Home Assistant only."
+        }
+      }
+    },
+    "error": {
+      "invalid_broadcast": "Enter an IPv4 address, for example 192.168.1.255."
     }
   },
   "entity": {
@@ -71,14 +131,28 @@
       "system_pending_reboot": { "name": "Restart pending" },
       "session_ready": { "name": "Session ready" },
       "session_locked": { "name": "Session locked" },
+      "agent_paused": { "name": "Maintenance mode" },
+      "power_keep_awake": { "name": "Keep awake" },
       "audio_muted": { "name": "Audio muted" },
       "privacy_microphone_in_use": { "name": "Microphone in use" },
       "sim_toggle": { "name": "Simulated toggle" }
+    },
+    "button": {
+      "wake_on_lan": { "name": "Wake on LAN" }
     },
     "event": {
       "events": {
         "name": "Events"
       }
+    },
+    "notify": {
+      "notification": { "name": "Notification" }
+    },
+    "media_player": {
+      "media_player": { "name": "Media player" }
+    },
+    "update": {
+      "agent": { "name": "Agent" }
     },
     "sensor": {
       "cpu_usage": { "name": "CPU usage" },
@@ -96,6 +170,27 @@
       "window_title": { "name": "Active window title" },
       "window_process": { "name": "Active window process" },
       "audio_volume": { "name": "Audio volume" },
+      "audio_output_device": { "name": "Audio output device" },
+      "audio_input_device": { "name": "Audio input device" },
+      "media_state": {
+        "name": "Media state",
+        "state": {
+          "playing": "Playing",
+          "paused": "Paused",
+          "idle": "Idle"
+        }
+      },
+      "media_title": { "name": "Media title" },
+      "media_artist": { "name": "Media artist" },
+      "media_album": { "name": "Media album" },
+      "media_app": { "name": "Media app" },
+      "media_duration": { "name": "Media duration" },
+      "media_position": { "name": "Media position" },
+      "media_position_updated_at": { "name": "Media position time" },
+      "agent_version": { "name": "Agent version" },
+      "agent_latest_version": { "name": "Latest agent version" },
+      "agent_release_url": { "name": "Release page" },
+      "agent_release_notes": { "name": "Release notes" },
       "sim_cpu": { "name": "Simulated CPU usage" },
       "sim_counter": { "name": "Simulated counter" },
       "sim_mode": {
@@ -156,7 +251,58 @@
         "timeout": {
           "name": "Timeout",
           "description": "How long to wait for the result, in seconds."
+        },
+        "wake": {
+          "name": "Wake the PC",
+          "description": "Send Wake-on-LAN magic packets first if the PC is not connected. Use it together with Wait until, otherwise the command runs before the PC is up."
+        },
+        "wait_for": {
+          "name": "Wait until",
+          "description": "Wait before the command runs: until the PC is connected, or until it is connected and a user session is ready for desktop commands."
+        },
+        "ready_timeout": {
+          "name": "Waiting time",
+          "description": "How long to wait for the PC, in seconds. If it is not ready in time, the action fails and the command does not run."
         }
+      }
+    },
+    "send_notification": {
+      "name": "Send notification",
+      "description": "Shows a notification on the desktop of the PC, with an optional picture and up to three buttons. A press of a button is reported as the event notification_action.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The PC that shows the notification."
+        },
+        "message": {
+          "name": "Message",
+          "description": "The text of the notification."
+        },
+        "title": {
+          "name": "Title",
+          "description": "The title of the notification."
+        },
+        "image_url": {
+          "name": "Picture address",
+          "description": "An http or https address of a picture (PNG, JPEG, GIF or BMP, up to 1 MiB). The agent on the PC fetches it; if it cannot, the notification appears without the picture."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "A name that comes back with every button press, so an automation can tell notifications apart. A new notification with the same tag replaces the old one."
+        },
+        "actions": {
+          "name": "Buttons",
+          "description": "Up to three buttons, each with an action (the id that comes back in the event) and a title (the text on the button)."
+        }
+      }
+    }
+  },
+  "selector": {
+    "wait_for": {
+      "options": {
+        "none": "Do not wait",
+        "connected": "The PC is connected",
+        "session_ready": "The session is ready"
       }
     }
   },
@@ -190,6 +336,51 @@
     },
     "manifest_unavailable": {
       "message": "The agent did not deliver its manifest."
+    },
+    "wol_no_mac": {
+      "message": "No MAC address of the PC is known, so it cannot be woken."
+    },
+    "wol_failed": {
+      "message": "The magic packet could not be sent: {error}"
+    },
+    "ready_timeout_connected": {
+      "message": "The PC {name} did not connect within {timeout} seconds, so the command {command} was not run."
+    },
+    "ready_timeout_session_ready": {
+      "message": "The PC {name} connected, but its session was not ready (the metric session.ready was not on) within {timeout} seconds, so the command {command} was not run."
+    },
+    "ready_timeout_queued": {
+      "message": "The command {command} was still waiting for an earlier call for the PC {name} to start when {timeout} seconds were over, so it was not run."
+    },
+    "session_ready_unsupported": {
+      "message": "The agent of {name} does not report the metric session.ready, so it is not possible to wait until the session is ready."
+    },
+    "reverse_entry_invalid": {
+      "message": "This entry of a PC that connects to Home Assistant has no token. Remove it and add the PC again."
+    },
+    "reverse_no_http": {
+      "message": "The web server of Home Assistant is not ready, so the PC cannot connect yet."
+    },
+    "notify_unsupported": {
+      "message": "The agent does not offer notifications, so no notification can be shown."
+    },
+    "notification_failed": {
+      "message": "The PC could not show the notification: {message}"
+    },
+    "invalid_notification_id": {
+      "message": "The {what} \"{value}\" is not valid. Use 1 to 64 letters, digits and the characters _ . : -."
+    },
+    "too_many_notification_actions": {
+      "message": "A notification can have at most {max} buttons."
+    },
+    "update_refused": {
+      "message": "The agent did not install the update: {message}"
+    },
+    "notification_action_without_title": {
+      "message": "The button {action} needs a title."
+    },
+    "duplicate_notification_action": {
+      "message": "The button id {action} is used twice; every button needs its own id."
     }
   }
 }

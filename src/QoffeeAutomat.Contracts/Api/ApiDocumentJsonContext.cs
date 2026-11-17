@@ -21,10 +21,15 @@ namespace QoffeeAutomat.Contracts.Api;
 [JsonSerializable(typeof(SensorDocument))]
 [JsonSerializable(typeof(MetricOverridesDocument))]
 [JsonSerializable(typeof(AgentSettingsDocument))]
+[JsonSerializable(typeof(ModeGroupDocument))]
+[JsonSerializable(typeof(ModeGroupList))]
 [JsonSerializable(typeof(MetricOverride))]
 [JsonSerializable(typeof(CommandList))]
 [JsonSerializable(typeof(SensorList))]
 [JsonSerializable(typeof(CommandTestRequest))]
+[JsonSerializable(typeof(TemplateList))]
+[JsonSerializable(typeof(TemplateDetail))]
+[JsonSerializable(typeof(TemplateInstantiation))]
 public sealed partial class ApiDocumentJsonContext : JsonSerializerContext
 {
 }

@@ -46,7 +46,7 @@ MESSAGE_TYPES = (
     "result",
 )
 OTHER_SCHEMAS = ("manifest", "pair_request", "pair_response")
-CONFIG_SCHEMAS = ("command", "sensor", "metrics", "settings")
+CONFIG_SCHEMAS = ("command", "sensor", "mode", "metrics", "settings")
 FORBIDDEN_FILE_NAMES = {"config.yaml", "config.yml", "config.json"}
 
 # Keywords that are only annotations for this validator.

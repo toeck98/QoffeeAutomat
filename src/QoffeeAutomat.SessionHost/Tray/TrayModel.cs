@@ -106,6 +106,24 @@ public static class TrayPresenter
         return uri;
     }
 
+    /// <summary>The path on the agent that turns a one-time login token into a session and redirects to the UI (T711).</summary>
+    public const string OneTimeLoginPath = "api/v1/auth/one-time";
+
+    /// <summary>
+    /// Builds the address that Open UI opens for an administrator: the loopback address of the UI plus the one-time login
+    /// token. The token is escaped; the agent accepts it once, for 30 seconds, from loopback only.
+    /// </summary>
+    /// <param name="ui">The loopback address of the UI, as <see cref="ParseUiUrl"/> returned it.</param>
+    /// <param name="token">The token from the agent.</param>
+    /// <returns>The address to open.</returns>
+    public static Uri BuildLoginUri(Uri ui, string token)
+    {
+        ArgumentNullException.ThrowIfNull(ui);
+        ArgumentException.ThrowIfNullOrEmpty(token);
+
+        return new Uri(ui, OneTimeLoginPath + "?token=" + Uri.EscapeDataString(token));
+    }
+
     private static string Tooltip(string text)
     {
         return text.Length <= MaxTooltipLength ? text : string.Concat(text.AsSpan(0, MaxTooltipLength - 3), "...");

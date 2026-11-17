@@ -7,7 +7,7 @@ using QoffeeAutomat.Core.Secrets;
 namespace QoffeeAutomat.Agent;
 
 /// <summary>
-/// Entry point of the agent: <c>qoffeeautomat [run|version|service|emit|reset-password] [options]</c> (PLAN.md T201).
+/// Entry point of the agent: <c>qoffeeautomat [run|version|service|emit|state|reset-password] [options]</c> (PLAN.md T201).
 /// The class is public and not static so that <c>WebApplicationFactory&lt;Program&gt;</c> can start the
 /// host in tests.
 /// </summary>
@@ -44,6 +44,8 @@ public sealed class Program
                 return await WindowsHostIntegration.RunServiceVerbAsync(options, Console.Out, Console.Error).ConfigureAwait(false);
             case AgentVerb.Emit:
                 return await EmitCommand.RunAsync(options, Console.Out, Console.Error, Environment.GetEnvironmentVariable).ConfigureAwait(false);
+            case AgentVerb.State:
+                return await StateCommand.RunAsync(options, Console.Out, Console.Error, Environment.GetEnvironmentVariable).ConfigureAwait(false);
             case AgentVerb.ResetPassword:
                 return await ResetPasswordCommand.RunAsync(options, Console.Out, Console.Error, ResetPasswordCommand.IsPrivileged).ConfigureAwait(false);
             default:

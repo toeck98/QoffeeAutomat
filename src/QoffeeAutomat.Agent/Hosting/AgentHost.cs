@@ -8,11 +8,13 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using QoffeeAutomat.Agent.Api;
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Api.Prometheus;
 using QoffeeAutomat.Agent.Discovery;
 using QoffeeAutomat.Agent.Link;
 using QoffeeAutomat.Agent.Link.Pairing;
 using QoffeeAutomat.Agent.Security;
 using QoffeeAutomat.Agent.Security.Auth;
+using QoffeeAutomat.Agent.Updates;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Core.Commands;
 using QoffeeAutomat.Core.Config;
@@ -25,6 +27,9 @@ using QoffeeAutomat.Core.Metrics;
 using QoffeeAutomat.Core.Metrics.Custom;
 using QoffeeAutomat.Core.Platform;
 using QoffeeAutomat.Core.Secrets;
+using QoffeeAutomat.Core.Secrets.Named;
+using QoffeeAutomat.Core.Templates;
+using QoffeeAutomat.Core.Updates;
 using QoffeeAutomat.Platform.Simulated;
 using LinkOptions = QoffeeAutomat.Agent.Link.LinkOptions;
 
@@ -48,10 +53,14 @@ public static class AgentHost
     /// <summary>The name of the file in the data directory that keeps the agent id.</summary>
     internal const string AgentIdFileName = "agent-id.txt";
 
+    /// <summary>The environment variable that points the template gallery at another directory.</summary>
+    internal const string TemplatesDirEnvironmentVariable = "QOFFEEAUTOMAT_TEMPLATES_DIR";
+
     private const string SecretKeyFileName = "secrets.key";
     private const string SecretsFileName = "secrets.json";
     private const string EventsDatabaseFileName = "events.db";
     private const string RunsDatabaseFileName = "runs.db";
+    private const string StateValuesFileName = "state-values.json";
 
     /// <summary>Builds the host without starting it.</summary>
     /// <param name="options">The parsed command line.</param>
@@ -89,6 +98,10 @@ public static class AgentHost
         // Security (T211, T212): the management API stays on this PC unless remote UI is on, every route
         // below /api/v1 needs a session except the documented ones, and the pairing endpoint of QoffeeLink
         // needs only a one-time code.
+        //
+        // The Prometheus export (T709) answers GET /metrics on the HTTPS listener with its own read-only token. It sits in front
+        // of the gate because the export is meant for another PC; it passes on everything else, and the UI page /metrics too.
+        app.UseMiddleware<PrometheusMiddleware>();
         app.UseMiddleware<RemoteAccessGate>();
 
         // The web UI (T401): static files behind the gate, so other PCs get them only while remote UI is on.
@@ -136,6 +149,9 @@ public static class AgentHost
         services.AddAgentSecurity();
         AddSimulatedPlatform(services);
         WindowsHostIntegration.ConfigureServices(services, platform);
+
+        // The update check and the built-in action agent.update (T704). After the platform: the action wraps its built-in actions.
+        services.AddAgentUpdates(platform);
         AddEngines(services);
 
         // The management API (T213, T214): the uptime for /status and the published OpenAPI document.
@@ -195,6 +211,12 @@ public static class AgentHost
         // What the tray icon of the SessionHost shows (T310); only the Windows platform sends it anywhere.
         services.AddSingleton<ITrayStatusSource, AgentTrayStatusSource>();
 
+        // The status of the global hotkeys (T708); the Windows platform replaces this with the real one.
+        services.TryAddSingleton<IHotkeyStatusSource>(NoHotkeyStatusSource.Instance);
+
+        // The status of the optional hardware sensors (T707); the Windows platform replaces this with the real one.
+        services.TryAddSingleton<IHardwareSensorStatusSource>(NoHardwareSensorStatusSource.Instance);
+
         // The live output of the runs that have not finished (T214, GET /runs/{id}/stream).
         services.AddSingleton(new RunOutputHub());
         services.AddSingleton<IProcessRunner>(provider => new ProcessRunner(provider.GetRequiredService<TimeProvider>()));
@@ -242,7 +264,9 @@ public static class AgentHost
                     LocalChannel = provider.GetRequiredService<LocalChannel>(),
                     RunOutput = provider.GetRequiredService<RunOutputHub>(),
                 },
-                provider.GetRequiredService<IAgentPause>());
+                provider.GetRequiredService<IAgentPause>(),
+                provider.GetRequiredService<ISessionBridge>(),
+                provider.GetRequiredService<INamedSecretStore>());
             ILogger logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger("QoffeeAutomat.Commands");
             engine.Faulted += (_, fault) => AgentLog.CommandEngineFault(logger, fault.RunId, fault.Stage, fault.Exception.Message);
             return engine;
@@ -254,12 +278,23 @@ public static class AgentHost
             provider.GetRequiredService<IPlatformInfo>(),
             provider.GetRequiredService<IConfigStore>(),
             provider.GetRequiredService<AgentOptions>()));
+        // The values of the sensors of type state (T714) are kept in data/state-values.json when the sensor asks for persist.
+        services.AddSingleton(provider => new StateSensorStore(
+            provider.GetRequiredService<IConfigStore>(),
+            provider.GetRequiredService<TimeProvider>(),
+            Path.Combine(provider.GetRequiredService<IAppPaths>().DataDirectory, StateValuesFileName)));
         services.AddSingleton(provider => new CustomSensorProvider(
             provider.GetRequiredService<IConfigStore>(),
             provider.GetRequiredService<PowerShellRunner>(),
             provider.GetRequiredService<IProcessLauncher>(),
             provider.GetRequiredService<TimeProvider>(),
-            handlers: provider.GetServices<ISensorSourceHandler>()));
+            handlers: provider.GetServices<ISensorSourceHandler>(),
+            states: provider.GetRequiredService<StateSensorStore>()));
+        // The maintenance mode (the pause flag) as the metric agent.paused (T705); the switch is the system command agent_maintenance.
+        // The installed and the newest version as the metrics agent.version and agent.latest_version (T704), which the update entity follows.
+        services.AddSingleton<IMetricProvider>(provider => new AgentMetricProvider(
+            provider.GetRequiredService<IAgentPause>(),
+            provider.GetRequiredService<IUpdateStatusSource>()));
         services.AddSingleton(provider =>
         {
             var engine = new MetricEngine(
@@ -268,16 +303,41 @@ public static class AgentHost
                 provider.GetRequiredService<TimeProvider>(),
                 session: provider.GetRequiredService<ISessionBridge>(),
                 customSensors: provider.GetRequiredService<CustomSensorProvider>());
+            provider.GetRequiredService<AgentPause>().Changed += (_, _) => engine.RequestSample(AgentMetricIds.Paused);
+
+            // A release that the check finds is published at once (T704): the metrics are event-driven.
+            provider.GetRequiredService<IUpdateStatusSource>().Changed += (_, _) =>
+            {
+                foreach (string metricId in AgentMetricIds.Updates)
+                {
+                    engine.RequestSample(metricId);
+                }
+            };
+
+            // A value that a script, the UI or the API sets is published at once: the sensor is event-driven (T714).
+            provider.GetRequiredService<StateSensorStore>().Changed += (_, change) => engine.RequestSample(change.MetricId);
             ILogger logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger("QoffeeAutomat.Metrics");
             engine.ProviderFailed += (_, failure) => AgentLog.MetricProviderFailed(logger, failure.MetricIds.Count, failure.Exception.Message, failure.RetryIn.TotalSeconds);
             return engine;
         });
+        // The optional Prometheus export (T709): a scrape is a subscriber of the metric engine with a keep-alive window, and the
+        // read-only token that it needs is kept as a hash in the secret store.
+        services.AddSingleton(provider => new PrometheusTokenStore(provider.GetRequiredService<ISecretStore>()));
+        services.AddSingleton(provider => new PrometheusExporter(
+            provider.GetRequiredService<MetricEngine>(),
+            provider.GetRequiredService<IConfigStore>(),
+            provider.GetRequiredService<AgentIdentity>(),
+            provider.GetRequiredService<TimeProvider>(),
+            provider.GetService<PrometheusOptions>()));
         services.AddSingleton(provider => new ManifestService(
             provider.GetRequiredService<CommandRegistry>(),
             provider.GetRequiredService<MetricEngine>(),
             provider.GetRequiredService<AgentIdentity>().Current,
-            features: null,
-            config: provider.GetRequiredService<IConfigStore>()));
+            // The features follow the built-in actions of the platform: notify.toast announces notify (T702), media.control
+            // announces media (T716); the simulated platform has neither, so it announces nothing.
+            features: () => AgentFeatures.FromActions(provider.GetRequiredService<IBuiltinActionProvider>()),
+            config: provider.GetRequiredService<IConfigStore>(),
+            includeSystemCommands: true));
         services.AddSingleton<IManifestSource>(provider => provider.GetRequiredService<ManifestService>());
     }
 
@@ -298,6 +358,12 @@ public static class AgentHost
         });
         services.AddSingleton<IConfigStore>(provider => provider.GetRequiredService<ConfigStore>());
 
+        // The template gallery (T701): the templates ship next to the executable and are read once, on first use.
+        services.AddSingleton(_ => new TemplateCatalogSource(ResolveTemplatesDirectory()));
+        services.AddSingleton(provider => new TemplateInstantiator(
+            provider.GetRequiredService<TemplateCatalogSource>(),
+            provider.GetRequiredService<IConfigStore>()));
+
         // The file key serves the simulated platform and Linux; the Windows platform replaces it by DPAPI (T301).
         services.AddSingleton<ISecretProtector>(provider =>
             new FileKeyProtector(Path.Combine(provider.GetRequiredService<IAppPaths>().SecretsDirectory, SecretKeyFileName)));
@@ -305,6 +371,21 @@ public static class AgentHost
             new SecretStore(
                 Path.Combine(provider.GetRequiredService<IAppPaths>().SecretsDirectory, SecretsFileName),
                 provider.GetRequiredService<ISecretProtector>()));
+
+        // The named secrets of scripts (T706) live in the same file, under script.<name>.
+        services.AddSingleton<INamedSecretStore>(provider => new NamedSecretStore(provider.GetRequiredService<ISecretStore>()));
+    }
+
+    /// <summary>
+    /// The directory of the shipped templates: <c>QOFFEEAUTOMAT_TEMPLATES_DIR</c> when set, otherwise the folder
+    /// <c>templates</c> next to the executable (the build and the publish copy <c>templates/</c> of the repository there).
+    /// </summary>
+    internal static string ResolveTemplatesDirectory()
+    {
+        string? configured = Environment.GetEnvironmentVariable(TemplatesDirEnvironmentVariable);
+        return string.IsNullOrWhiteSpace(configured)
+            ? Path.Combine(AppContext.BaseDirectory, "templates")
+            : Path.GetFullPath(configured);
     }
 
     private static void AddSimulatedPlatform(IServiceCollection services)

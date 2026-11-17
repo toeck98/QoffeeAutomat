@@ -4,6 +4,7 @@ using MudBlazor.Services;
 using QoffeeAutomat.Ui.Components.Pages.Dashboard;
 using QoffeeAutomat.Ui.Components.Pages.History;
 using QoffeeAutomat.Ui.Components.Pages.Link;
+using QoffeeAutomat.Ui.Components.Pages.Modes;
 
 namespace QoffeeAutomat.Ui.Components.Services;
 
@@ -29,6 +30,7 @@ public static class UiServiceCollectionExtensions
         services.TryAddSingleton<CommandEditorOptions>();
         services.TryAddSingleton<LinkOptions>();
         services.TryAddSingleton<LogViewerOptions>();
+        services.TryAddSingleton<ModeOptions>();
         return services;
     }
 }

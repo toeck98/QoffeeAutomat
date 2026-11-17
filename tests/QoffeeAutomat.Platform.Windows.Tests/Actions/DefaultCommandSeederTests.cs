@@ -21,8 +21,12 @@ public sealed class DefaultCommandSeederTests : IDisposable
         "power_restart",
         "power_sleep",
         "power_hibernate",
+        "power_cancel",
         "session_lock",
         "session_logoff",
+        "power_keep_awake",
+        "audio_output_device",
+        "audio_input_device",
     ];
 
     private readonly TempDirectory _temp = new();
@@ -60,7 +64,7 @@ public sealed class DefaultCommandSeederTests : IDisposable
     private static IReadOnlyList<string> Ids(ConfigStore store) => [.. store.Effective.List<CommandDocument>().Select(command => command.Id).Order(StringComparer.Ordinal)];
 
     [Fact]
-    public async Task The_first_start_with_an_empty_configuration_creates_the_six_default_commands()
+    public async Task The_first_start_with_an_empty_configuration_creates_the_default_commands()
     {
         using ConfigStore store = await OpenStoreAsync();
 
@@ -114,31 +118,75 @@ public sealed class DefaultCommandSeederTests : IDisposable
     }
 
     [Fact]
-    public async Task The_commands_that_can_force_carry_the_force_parameter_and_the_others_have_none()
+    public async Task The_commands_that_can_wait_carry_all_variables_of_their_action_and_the_others_have_none()
     {
         using ConfigStore store = await OpenStoreAsync();
         await NewSeeder(store).SeedAsync(CancellationToken.None);
         IReadOnlyList<CommandDocument> commands = store.Effective.List<CommandDocument>();
 
+        // T715: DelaySeconds and Message come after Force, where an action has it.
         foreach (string id in new[] { "power_shutdown", "power_restart", "session_logoff" })
         {
             CommandDocument command = commands.Single(candidate => candidate.Id == id);
-            Assert.Equal(WindowsActionParameters.Force, Assert.Single(command.Parameters!).Name);
+            Assert.Equal(["Force", "DelaySeconds", "Message"], command.Parameters!.Select(parameter => parameter.Name));
         }
 
-        foreach (string id in new[] { "power_sleep", "power_hibernate", "session_lock" })
+        foreach (string id in new[] { "power_sleep", "power_hibernate" })
+        {
+            CommandDocument command = commands.Single(candidate => candidate.Id == id);
+            Assert.Equal(["DelaySeconds", "Message"], command.Parameters!.Select(parameter => parameter.Name));
+        }
+
+        foreach (string id in new[] { "session_lock", "power_cancel" })
         {
             Assert.Null(commands.Single(candidate => candidate.Id == id).Parameters);
         }
     }
 
     [Fact]
-    public async Task A_default_command_runs_without_variables_because_every_parameter_is_optional()
+    public async Task The_commands_that_can_wait_have_a_timeout_that_outlasts_the_longest_delay_and_the_others_keep_30_seconds()
+    {
+        using ConfigStore store = await OpenStoreAsync();
+        await NewSeeder(store).SeedAsync(CancellationToken.None);
+        IReadOnlyList<CommandDocument> commands = store.Effective.List<CommandDocument>();
+
+        foreach (string id in new[] { "power_shutdown", "power_restart", "power_sleep", "power_hibernate", "session_logoff" })
+        {
+            Assert.True(commands.Single(candidate => candidate.Id == id).TimeoutSeconds > PowerActionSpec.MaxDelaySeconds, id);
+        }
+
+        foreach (string id in new[] { "session_lock", "power_cancel", "power_keep_awake" })
+        {
+            Assert.Equal(30, commands.Single(candidate => candidate.Id == id).TimeoutSeconds);
+        }
+    }
+
+    [Fact]
+    public async Task The_keep_awake_switch_is_stored_with_its_state_metric_and_the_cancel_button_runs_in_the_service()
+    {
+        using ConfigStore store = await OpenStoreAsync();
+        await NewSeeder(store).SeedAsync(CancellationToken.None);
+        IReadOnlyList<CommandDocument> commands = store.Effective.List<CommandDocument>();
+
+        CommandDocument keepAwake = commands.Single(candidate => candidate.Id == "power_keep_awake");
+        Assert.Equal(HaControlTypes.Switch, keepAwake.HaControl!.Type);
+        Assert.Equal("On", keepAwake.HaControl.Parameter);
+        Assert.Equal("power.keep_awake", keepAwake.HaControl.StateMetric);
+
+        CommandDocument cancel = commands.Single(candidate => candidate.Id == "power_cancel");
+        Assert.Equal(HaControlTypes.Button, cancel.HaControl!.Type);
+        Assert.Equal(WindowsActionNames.CancelPending, Assert.IsType<BuiltinAction>(cancel.Action).Name);
+        Assert.Equal(RunAsValues.System, cancel.RunAs);
+    }
+
+    [Fact]
+    public async Task A_default_button_command_runs_without_variables_because_every_parameter_is_optional()
     {
         using ConfigStore store = await OpenStoreAsync();
         await NewSeeder(store).SeedAsync(CancellationToken.None);
 
-        foreach (CommandDocument command in store.Effective.List<CommandDocument>())
+        // The audio device switches are selects: they need the device (T713) and are covered by their own test.
+        foreach (CommandDocument command in store.Effective.List<CommandDocument>().Where(command => command.HaControl?.Type == HaControlTypes.Button))
         {
             BindResult result = VariableBinder.Bind(command.Parameters, null);
 
@@ -254,13 +302,24 @@ public sealed class DefaultCommandSeederTests : IDisposable
     public async Task A_first_start_that_was_interrupted_is_finished_without_duplicates()
     {
         using ConfigStore store = await OpenStoreAsync();
+        CommandDocument sessionLock = DefaultCommandSeeder.DefaultCommands.Single(command => command.Id == "session_lock");
         Assert.True((await store.Local.SaveAsync(DefaultCommandSeeder.DefaultCommands[0], expectedRevision: 0, CancellationToken.None)).IsApplied);
-        Assert.True((await store.Local.SaveAsync(DefaultCommandSeeder.DefaultCommands[4], expectedRevision: 0, CancellationToken.None)).IsApplied);
+        Assert.True((await store.Local.SaveAsync(sessionLock, expectedRevision: 0, CancellationToken.None)).IsApplied);
 
         SeedOutcome outcome = await NewSeeder(store).SeedAsync(CancellationToken.None);
 
         Assert.Equal(SeedStatus.Seeded, outcome.Status);
-        string[] expectedCreated = ["power_restart", "power_sleep", "power_hibernate", "session_logoff"];
+        string[] expectedCreated =
+        [
+            "power_restart",
+            "power_sleep",
+            "power_hibernate",
+            "power_cancel",
+            "session_logoff",
+            "power_keep_awake",
+            "audio_output_device",
+            "audio_input_device",
+        ];
         Assert.Equal(expectedCreated, outcome.Created);
         Assert.Equal(DefaultIds.Order(StringComparer.Ordinal), Ids(store));
         Assert.True(File.Exists(MarkerPath));
@@ -279,6 +338,6 @@ public sealed class DefaultCommandSeederTests : IDisposable
 
         (LogLevel level, string message) = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Information, level);
-        Assert.Contains("6", message, StringComparison.Ordinal);
+        Assert.Contains(DefaultIds.Length.ToString(System.Globalization.CultureInfo.InvariantCulture), message, StringComparison.Ordinal);
     }
 }

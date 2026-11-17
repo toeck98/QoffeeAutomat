@@ -1,0 +1,133 @@
+@page "/templates"
+@using QoffeeAutomat.Contracts.Api
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The template gallery (PLAN.md T701): ready-made commands and sensors that can be previewed and added as a new command or sensor. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@L["Templates.Title"]</MudText>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Templates.Intro"]</MudText>
+
+<ErrorDisplay Error="_listError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_actionError is not null)
+{
+  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="action-failed">@_actionFailure</MudAlert>
+  <ErrorDisplay Error="_actionError" Class="mb-4" />
+}
+@if (_added is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="template-added">
+    <div data-testid="template-added-text">@L.Format("Templates.Added", _addedName ?? string.Empty, _added.Id)</div>
+    @if (_addedScripts.Length > 0)
+    {
+      <div class="qa-muted" data-testid="template-added-scripts">@L.Format("Templates.AddedScripts", _addedScripts)</div>
+    }
+    @if (_addedHref is not null)
+    {
+      <MudButton Size="Size.Small" Variant="Variant.Text" Href="@_addedHref" Class="mt-2" data-testid="template-open">@OpenText(_added.Kind)</MudButton>
+    }
+  </MudAlert>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_templates.Count == 0)
+{
+  if (_listError is null)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="templates-none">@L["Templates.None"]</MudText>
+    </MudPaper>
+  }
+}
+else
+{
+  <MudPaper Class="pa-3 mb-4 qa-card" Elevation="1">
+    <div data-testid="template-search">
+      <MudTextField T="string"
+                    @bind-Value="_search"
+                    Immediate="true"
+                    Clearable="true"
+                    Label="@L["Templates.Search"]"
+                    Variant="Variant.Outlined"
+                    Margin="Margin.Dense"
+                    Adornment="Adornment.Start"
+                    AdornmentIcon="@Icons.Material.Filled.Search" />
+    </div>
+  </MudPaper>
+
+  if (_preview is not null || _previewError is not null)
+  {
+    <MudPaper Class="pa-4 mb-4 qa-card" Elevation="2" data-testid="template-preview">
+      @if (_previewError is not null)
+      {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="preview-failed">@L["Templates.PreviewFailed"]</MudAlert>
+        <ErrorDisplay Error="_previewError" Class="mb-2" />
+      }
+      else if (_preview is not null)
+      {
+        <TemplatePreview Detail="_preview" />
+      }
+
+      <div class="mt-3">
+        @if (_preview is not null)
+        {
+          TemplateSummary previewed = _preview.Summary;
+          <MudButton Variant="Variant.Filled"
+                     Color="Color.Primary"
+                     StartIcon="@Icons.Material.Filled.Add"
+                     Disabled="@IsBusy(previewed.Id)"
+                     OnClick="@(() => AddAsync(previewed))"
+                     data-testid="preview-add">@L["Templates.Add"]</MudButton>
+        }
+        <MudButton Variant="Variant.Text" OnClick="ClosePreview" data-testid="preview-close">@L["Templates.Close"]</MudButton>
+      </div>
+    </MudPaper>
+  }
+
+  IReadOnlyList<TemplateGroup> groups = Groups();
+  if (groups.Count == 0)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="templates-nomatch">@L["Templates.NoMatch"]</MudText>
+    </MudPaper>
+  }
+
+  foreach (TemplateGroup group in groups)
+  {
+    <MudText Typo="Typo.h6" Class="mb-2 mt-3">@group.Title</MudText>
+    <MudGrid Spacing="2" data-testid="@group.TestId">
+      @foreach (TemplateSummary template in group.Items)
+      {
+        <MudItem xs="12" md="6" lg="4" @key="template.Id">
+          <MudPaper Class="pa-3 qa-card" Elevation="1" data-testid="@($"template-{template.Id}")" data-kind="@template.Kind">
+            <div class="qa-command-name">@template.Name</div>
+            <div class="qa-muted"><code>@template.Id</code> · @TypeText(template.ActionType)</div>
+            @if (!string.IsNullOrWhiteSpace(template.Description))
+            {
+              <div class="qa-muted mt-1">@template.Description</div>
+            }
+            <div class="mt-2">
+              <MudButton Size="Size.Small"
+                         Variant="Variant.Outlined"
+                         Disabled="@IsBusy(template.Id)"
+                         OnClick="@(() => PreviewAsync(template))"
+                         aria-label="@(L["Templates.Preview"] + ": " + template.Name)"
+                         data-testid="@($"preview-{template.Id}")">@L["Templates.Preview"]</MudButton>
+              <MudButton Size="Size.Small"
+                         Variant="Variant.Filled"
+                         Color="Color.Primary"
+                         Disabled="@IsBusy(template.Id)"
+                         OnClick="@(() => AddAsync(template))"
+                         aria-label="@(L["Templates.Add"] + ": " + template.Name)"
+                         data-testid="@($"add-{template.Id}")">@L["Templates.Add"]</MudButton>
+            </div>
+          </MudPaper>
+        </MudItem>
+      }
+    </MudGrid>
+  }
+}

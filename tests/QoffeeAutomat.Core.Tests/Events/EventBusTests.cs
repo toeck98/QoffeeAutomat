@@ -199,6 +199,10 @@ public sealed class EventBusTests : IDisposable
                 "user_logged_out",
                 "session_ready",
                 "resumed",
+                "mode_changed",
+                "hotkey_pressed",
+                "notification_action",
+                "power_action_cancelled",
                 "custom",
             ],
             EventCatalog.Types.Select(entry => entry.Type));

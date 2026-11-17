@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
 
@@ -108,6 +109,12 @@ public sealed class SensorDraft
     /// <summary>The service name.</summary>
     public string Service { get; set; } = string.Empty;
 
+    /// <summary>The initial value of a <c>state</c> sensor, as typed: what the sensor shows after a start until a value is set; empty for none.</summary>
+    public string InitialValueText { get; set; } = string.Empty;
+
+    /// <summary>Whether a <c>state</c> sensor keeps its value across restarts of the agent and of the PC.</summary>
+    public bool Persist { get; set; }
+
     /// <summary>Starts a draft from a stored sensor.</summary>
     /// <param name="sensor">The sensor.</param>
     /// <returns>The draft; it remembers the revision to save against.</returns>
@@ -169,6 +176,10 @@ public sealed class SensorDraft
             case ServiceStateSensorSource service:
                 Service = service.Service;
                 break;
+            case StateSensorSource state:
+                Persist = state.Persist;
+                InitialValueText = TextOf(state.InitialValue);
+                break;
         }
     }
 
@@ -190,7 +201,10 @@ public sealed class SensorDraft
             }
         }
 
-        double? interval = ParseOptional(IntervalText, "/intervalSeconds", problems);
+        // A state sensor is set from outside and never sampled on a timer: it has no interval.
+        double? interval = string.Equals(SourceType, SensorSourceTypes.State, StringComparison.Ordinal)
+            ? null
+            : ParseOptional(IntervalText, "/intervalSeconds", problems);
         double? deadband = SensorAttributeRules.AllowsPrecision(ValueType) ? ParseOptional(DeadbandText, "/deadband", problems) : null;
 
         IReadOnlyList<string>? options = SensorAttributeRules.UsesOptions(ValueType)
@@ -206,7 +220,7 @@ public sealed class SensorDraft
             ExposeToHa,
             SensorAttributeRules.KindFor(valueType),
             valueType,
-            BuildSource(),
+            BuildSource(problems),
             Description: NullIfEmpty(Description),
             Icon: NullIfEmpty(Icon),
             EnabledDefault: _original?.EnabledDefault,
@@ -250,7 +264,79 @@ public sealed class SensorDraft
         return null;
     }
 
-    private SensorSource BuildSource()
+    /// <summary>The initial value as the text that the form shows: a string without quotes, a number or <c>true</c>/<c>false</c>; empty for none.</summary>
+    private static string TextOf(JsonElement? value)
+    {
+        return value is not { } element
+            ? string.Empty
+            : element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString() ?? string.Empty,
+                JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False => element.GetRawText(),
+                _ => string.Empty,
+            };
+    }
+
+    /// <summary>
+    /// The initial value of a state sensor as JSON of the value type: a number, a boolean (<c>true</c>, <c>false</c>, also yes, no,
+    /// on, off, 1 and 0) or a text. A text that does not fit the value type is a problem of the field, not a guess.
+    /// </summary>
+    private JsonElement? BuildInitialValue(List<ApiValidationError> problems)
+    {
+        string text = InitialValueText;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        switch (ValueType)
+        {
+            case "number":
+                if (double.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double number) && double.IsFinite(number))
+                {
+                    return ParseJson(number.ToString("R", CultureInfo.InvariantCulture));
+                }
+
+                problems.Add(new ApiValidationError("/source/initialValue", "not_a_number", "This is not a number."));
+                return null;
+            case "bool":
+                switch (text.Trim().ToLowerInvariant())
+                {
+                    case "true" or "yes" or "on" or "1":
+                        return ParseJson("true");
+                    case "false" or "no" or "off" or "0":
+                        return ParseJson("false");
+                    default:
+                        problems.Add(new ApiValidationError("/source/initialValue", "not_a_bool", "This is neither true nor false."));
+                        return null;
+                }
+
+            default:
+                using (var stream = new MemoryStream())
+                {
+                    using (var writer = new Utf8JsonWriter(stream))
+                    {
+                        writer.WriteStringValue(text.Trim());
+                    }
+
+                    return ParseJson(stream.ToArray());
+                }
+        }
+    }
+
+    private static JsonElement ParseJson(string json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
+    }
+
+    private static JsonElement ParseJson(byte[] json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
+    }
+
+    private SensorSource BuildSource(List<ApiValidationError> problems)
     {
         return SourceType switch
         {
@@ -261,8 +347,9 @@ public sealed class SensorDraft
             SensorSourceTypes.PerfCounter => new PerfCounterSensorSource(Category.Trim(), Counter.Trim(), NullIfEmpty(Instance)),
             SensorSourceTypes.CimQuery => new CimQuerySensorSource(CimNamespace.Trim(), CimClass.Trim(), CimProperty.Trim(), NullIfEmpty(CimFilter)),
             SensorSourceTypes.ServiceState => new ServiceStateSensorSource(Service.Trim()),
+            SensorSourceTypes.State => new StateSensorSource(BuildInitialValue(problems), Persist),
 
-            // A type that this editor cannot author (state) keeps its source as it was stored.
+            // A type that this editor cannot author (one from a later version) keeps its source as it was stored.
             _ => _original?.Source ?? new PowerShellSensorSource(PowerShellSources.Inline, Code: Code, Engine: Engine),
         };
     }

@@ -11,6 +11,14 @@
         "default": "mdi:lock-open-variant-outline",
         "state": { "on": "mdi:lock-outline" }
       },
+      "agent_paused": {
+        "default": "mdi:wrench-outline",
+        "state": { "on": "mdi:wrench" }
+      },
+      "power_keep_awake": {
+        "default": "mdi:coffee-off-outline",
+        "state": { "on": "mdi:coffee" }
+      },
       "audio_muted": {
         "default": "mdi:volume-high",
         "state": { "on": "mdi:volume-off" }
@@ -24,10 +32,26 @@
         "state": { "on": "mdi:toggle-switch-outline" }
       }
     },
+    "button": {
+      "wake_on_lan": { "default": "mdi:lan-connect" }
+    },
     "event": {
       "events": { "default": "mdi:bell-outline" }
     },
+    "notify": {
+      "notification": { "default": "mdi:message-badge-outline" }
+    },
+    "media_player": {
+      "media_player": { "default": "mdi:play-box-outline" }
+    },
+    "update": {
+      "agent": { "default": "mdi:update" }
+    },
     "sensor": {
+      "agent_version": { "default": "mdi:tag-outline" },
+      "agent_latest_version": { "default": "mdi:tag-plus-outline" },
+      "agent_release_url": { "default": "mdi:link-variant" },
+      "agent_release_notes": { "default": "mdi:text-box-outline" },
       "cpu_usage": { "default": "mdi:cpu-64-bit" },
       "gpu_usage": { "default": "mdi:expansion-card" },
       "memory_used_percent": { "default": "mdi:memory" },
@@ -43,6 +67,23 @@
       "window_title": { "default": "mdi:application-outline" },
       "window_process": { "default": "mdi:application-cog-outline" },
       "audio_volume": { "default": "mdi:volume-high" },
+      "audio_output_device": { "default": "mdi:speaker" },
+      "audio_input_device": { "default": "mdi:microphone-settings" },
+      "media_state": {
+        "default": "mdi:play-pause",
+        "state": {
+          "playing": "mdi:play",
+          "paused": "mdi:pause",
+          "idle": "mdi:stop"
+        }
+      },
+      "media_title": { "default": "mdi:music" },
+      "media_artist": { "default": "mdi:account-music" },
+      "media_album": { "default": "mdi:album" },
+      "media_app": { "default": "mdi:application-brackets-outline" },
+      "media_duration": { "default": "mdi:timer-outline" },
+      "media_position": { "default": "mdi:progress-clock" },
+      "media_position_updated_at": { "default": "mdi:clock-check-outline" },
       "sim_cpu": { "default": "mdi:cpu-64-bit" },
       "sim_counter": { "default": "mdi:counter" },
       "sim_mode": {
@@ -69,6 +110,9 @@
   "services": {
     "run_command": {
       "service": "mdi:console-line"
+    },
+    "send_notification": {
+      "service": "mdi:message-badge"
     }
   }
 }

@@ -18,6 +18,9 @@ public sealed class CommandRegistry : IDisposable
     private readonly CancellationTokenSource _stop = new();
     private IReadOnlyList<CommandDocument> _commands = [];
     private Dictionary<string, CommandDocument> _byId = new(StringComparer.Ordinal);
+    private IReadOnlyList<ModeGroupDocument> _groups = [];
+    private IReadOnlyList<CommandDocument> _modeCommands = [];
+    private Dictionary<string, CommandDocument> _modeById = new(StringComparer.Ordinal);
     private bool _notifyPending;
     private Task? _pump;
 
@@ -48,7 +51,24 @@ public sealed class CommandRegistry : IDisposable
         }
     }
 
-    /// <summary>Finds a command.</summary>
+    /// <summary>
+    /// The commands that the mode groups provide (<c>mode_&lt;groupId&gt;</c>, PLAN.md S06, T717), ordered by group id. They are derived from the
+    /// mode group documents, not stored, and are not part of <see cref="Commands"/>. A group whose command id is taken by a stored command
+    /// provides none: the stored command wins.
+    /// </summary>
+    public IReadOnlyList<CommandDocument> ModeGroupCommands
+    {
+        get
+        {
+            Refresh(markPending: true);
+            lock (_gate)
+            {
+                return _modeCommands;
+            }
+        }
+    }
+
+    /// <summary>Finds a command: a stored one, the command of a mode group, or one of the <see cref="SystemCommands"/>.</summary>
     /// <param name="id">The command id.</param>
     /// <returns>The document, or null when there is no such command.</returns>
     public CommandDocument? TryGet(string id)
@@ -61,7 +81,20 @@ public sealed class CommandRegistry : IDisposable
         Refresh(markPending: true);
         lock (_gate)
         {
-            return _byId.GetValueOrDefault(id);
+            return _byId.GetValueOrDefault(id) ?? _modeById.GetValueOrDefault(id) ?? SystemCommands.TryGet(id);
+        }
+    }
+
+    /// <summary>Tells whether a command is the generated command of a mode group, which the engine hands to the mode engine.</summary>
+    /// <param name="command">The command as <see cref="TryGet"/> returned it.</param>
+    /// <returns>True for the instance that the registry holds for a mode group; a draft or a stored command with the same id is not one.</returns>
+    public bool IsModeCommand(CommandDocument command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        lock (_gate)
+        {
+            return _modeById.TryGetValue(command.Id, out CommandDocument? generated) && ReferenceEquals(generated, command);
         }
     }
 
@@ -103,7 +136,7 @@ public sealed class CommandRegistry : IDisposable
         {
             await foreach (ConfigChange change in _subscription.Changes.ReadAllAsync(cancellationToken))
             {
-                if (change.Kind != ConfigKind.Command)
+                if (change.Kind is not (ConfigKind.Command or ConfigKind.Mode))
                 {
                     continue;
                 }
@@ -131,15 +164,30 @@ public sealed class CommandRegistry : IDisposable
     private void Refresh(bool markPending)
     {
         IReadOnlyList<CommandDocument> current = _config.Effective.List<CommandDocument>();
+        IReadOnlyList<ModeGroupDocument> groups = _config.Effective.List<ModeGroupDocument>();
         lock (_gate)
         {
-            if (SameDocuments(_commands, current))
+            bool commandsChanged = !SameDocuments(_commands, current);
+            bool groupsChanged = !SameDocuments(_groups, groups);
+            if (!commandsChanged && !groupsChanged)
             {
                 return;
             }
 
-            _commands = current;
-            _byId = current.ToDictionary(command => command.Id, StringComparer.Ordinal);
+            if (commandsChanged)
+            {
+                _commands = current;
+                _byId = current.ToDictionary(command => command.Id, StringComparer.Ordinal);
+            }
+
+            _groups = groups;
+            _modeCommands =
+            [
+                .. groups
+                    .Select(Modes.ModeCommands.Generate)
+                    .Where(command => !_byId.ContainsKey(command.Id)),
+            ];
+            _modeById = _modeCommands.ToDictionary(command => command.Id, StringComparer.Ordinal);
             _notifyPending |= markPending;
         }
     }
@@ -158,7 +206,8 @@ public sealed class CommandRegistry : IDisposable
 #pragma warning restore CA1031
     }
 
-    private static bool SameDocuments(IReadOnlyList<CommandDocument> left, IReadOnlyList<CommandDocument> right)
+    private static bool SameDocuments<T>(IReadOnlyList<T> left, IReadOnlyList<T> right)
+        where T : class
     {
         if (left.Count != right.Count)
         {
@@ -182,6 +231,10 @@ public interface IAgentPause
 {
     /// <summary>True while every run is rejected with <c>paused</c>.</summary>
     bool IsPaused { get; }
+
+    /// <summary>Pauses or resumes the agent; runs that are already running are not affected.</summary>
+    /// <param name="paused">The new value.</param>
+    void SetPaused(bool paused);
 }
 
 /// <summary>The default <see cref="IAgentPause"/>: a flag that the API sets.</summary>
@@ -195,8 +248,7 @@ public sealed class AgentPause : IAgentPause
     /// <summary>Raised after the flag changed.</summary>
     public event EventHandler? Changed;
 
-    /// <summary>Pauses or resumes the agent; runs that are already running are not affected.</summary>
-    /// <param name="paused">The new value.</param>
+    /// <inheritdoc />
     public void SetPaused(bool paused)
     {
         if (_isPaused == paused)

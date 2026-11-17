@@ -129,7 +129,8 @@ public static class SensorOutputParser
             : SensorParseResult.Success(match);
     }
 
-    private static bool TryParseBool(string line, out bool value)
+    /// <summary>Reads <c>true</c>/<c>false</c>, <c>1</c>/<c>0</c>, <c>yes</c>/<c>no</c> and <c>on</c>/<c>off</c> in any case; also used for values of state sensors.</summary>
+    internal static bool TryParseBool(string line, out bool value)
     {
         switch (line.ToUpperInvariant())
         {

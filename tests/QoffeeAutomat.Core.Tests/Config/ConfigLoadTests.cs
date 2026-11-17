@@ -40,7 +40,7 @@ public sealed class ConfigLoadTests
         const string brokenText = "{ this is not json";
         const string invalidText = """{ "schemaVersion": 1, "id": "invalid", "name": "No run as", "enabled": true, "exposeToHa": false, "action": { "type": "builtin", "name": "power.shutdown" } }""";
         const string mismatchText = """{ "schemaVersion": 1, "id": "other_id", "name": "Mismatch", "enabled": true, "exposeToHa": false, "runAs": "system", "action": { "type": "builtin", "name": "power.shutdown" } }""";
-        const string newerText = """{ "schemaVersion": 2, "id": "newer", "name": "Future", "enabled": true, "exposeToHa": false, "runAs": "system", "action": { "type": "builtin", "name": "power.shutdown" } }""";
+        const string newerText = """{ "schemaVersion": 3, "id": "newer", "name": "Future", "enabled": true, "exposeToHa": false, "runAs": "system", "action": { "type": "builtin", "name": "power.shutdown" } }""";
         WriteFile(broken, brokenText);
         WriteFile(invalid, invalidText);
         WriteFile(mismatch, mismatchText);
@@ -122,11 +122,12 @@ public sealed class ConfigLoadTests
 
         CommandDocument command = store.Effective.GetDocument<CommandDocument>("old_command")!;
         Assert.Equal("Old command", command.Name);
-        Assert.Equal(DocumentSchema.CurrentVersion, command.SchemaVersion);
+        // The test migration leads from 0 to 1, the built-in step (T705) from 1 to the current version of commands.
+        Assert.Equal(DocumentSchema.CommandVersion, command.SchemaVersion);
         Assert.Empty(store.Problems);
 
         string upgraded = await File.ReadAllTextAsync(path);
-        Assert.Contains("\"schemaVersion\": 1", upgraded, StringComparison.Ordinal);
+        Assert.Contains("\"schemaVersion\": 2", upgraded, StringComparison.Ordinal);
         Assert.Contains("\"name\": \"Old command\"", upgraded, StringComparison.Ordinal);
         Assert.DoesNotContain("title", upgraded, StringComparison.Ordinal);
 

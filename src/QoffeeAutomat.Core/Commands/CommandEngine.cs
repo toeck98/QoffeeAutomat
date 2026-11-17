@@ -4,9 +4,12 @@ using System.Text;
 using System.Text.Json;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Contracts.Link;
+using QoffeeAutomat.Core.Commands.Conditions;
 using QoffeeAutomat.Core.Events;
 using QoffeeAutomat.Core.History;
 using QoffeeAutomat.Core.Platform;
+using QoffeeAutomat.Core.Secrets;
+using QoffeeAutomat.Core.Secrets.Named;
 using QoffeeAutomat.Core.Validation;
 
 namespace QoffeeAutomat.Core.Commands;
@@ -19,7 +22,8 @@ namespace QoffeeAutomat.Core.Commands;
 /// <list type="number">
 /// <item><c>unknown_command</c>: no command with that id.</item>
 /// <item><c>command_disabled</c>: the command is disabled.</item>
-/// <item><c>paused</c>: the agent is paused.</item>
+/// <item><c>paused</c>: the agent is paused (the maintenance mode switch itself is exempt, otherwise nobody could switch it off).</item>
+/// <item><c>condition_not_met</c>: the command's conditions (session state, time window) do not hold (T705).</item>
 /// <item><c>cooldown</c>: the previous run of the command started less than <c>cooldownSeconds</c> ago.</item>
 /// <item><c>invalid_vars</c>: a variable is missing, unknown or invalid (<see cref="VariableBinder"/>).</item>
 /// <item><c>busy</c>: the concurrency mode forbids another run (<c>single</c>, or a full queue or parallel limit).</item>
@@ -28,7 +32,10 @@ namespace QoffeeAutomat.Core.Commands;
 /// a new run while one is active, <c>queue</c> runs them one after the other in order, <c>parallel</c>
 /// lets them overlap and <c>restart</c> cancels the active runs and then starts the new one.
 /// An admitted run is dispatched to the <see cref="IActionHandler"/> of its action type (a sequence is
-/// executed by the engine), under the command's timeout. Rejected requests of existing commands and every
+/// executed by the engine), under the command's timeout. The named secrets that a command lists (T706) are read when
+/// the run starts and reach the process only as <c>QA_SECRET_&lt;NAME&gt;</c> environment variables; their values are
+/// masked in the captured output before it is stored, streamed or returned, and a command with secrets shows its
+/// output only when it ends, because a value could be split across two pieces of live output. Rejected requests of existing commands and every
 /// run are written to the <see cref="IRunHistory"/>; <see cref="EventTypes.CommandStarted"/> and
 /// <see cref="EventTypes.CommandFinished"/> are published on the <see cref="IEventBus"/>. All timing uses the
 /// injected <see cref="TimeProvider"/>.
@@ -48,6 +55,8 @@ public sealed class CommandEngine : IAsyncDisposable
     private readonly TimeProvider _time;
     private readonly CommandEngineOptions _options;
     private readonly IAgentPause? _pause;
+    private readonly ISessionBridge? _session;
+    private readonly INamedSecretStore? _secrets;
     private readonly ConcurrentDictionary<string, CommandSlot> _slots = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ActiveRun> _runs = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _shutdown = new();
@@ -62,6 +71,8 @@ public sealed class CommandEngine : IAsyncDisposable
     /// <param name="time">The clock for timeouts, cooldowns, delays and timestamps.</param>
     /// <param name="options">Tuning; null uses the defaults.</param>
     /// <param name="pause">The global pause flag; null means the agent is never paused.</param>
+    /// <param name="session">The session bridge, for the session condition of commands; null means nobody is ever logged in.</param>
+    /// <param name="secrets">The named secrets that commands may list; null makes a command that lists one fail with <c>internal</c>.</param>
     public CommandEngine(
         CommandRegistry registry,
         IEnumerable<IActionHandler> handlers,
@@ -70,7 +81,9 @@ public sealed class CommandEngine : IAsyncDisposable
         IEventBus events,
         TimeProvider time,
         CommandEngineOptions? options = null,
-        IAgentPause? pause = null)
+        IAgentPause? pause = null,
+        ISessionBridge? session = null,
+        INamedSecretStore? secrets = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(handlers);
@@ -87,6 +100,8 @@ public sealed class CommandEngine : IAsyncDisposable
         _options = options ?? new CommandEngineOptions();
         _options.Validate();
         _pause = pause;
+        _session = session;
+        _secrets = secrets;
 
         foreach (IActionHandler handler in handlers)
         {
@@ -257,9 +272,15 @@ public sealed class CommandEngine : IAsyncDisposable
             return await RejectAsync(runId, request, command, lineage, ErrorCodes.CommandDisabled, "The command is disabled.", cancellationToken);
         }
 
-        if (_pause?.IsPaused == true)
+        if (_pause?.IsPaused == true && !SystemCommands.IsMaintenance(command))
         {
             return await RejectAsync(runId, request, command, lineage, ErrorCodes.Paused, "The agent is paused.", cancellationToken);
+        }
+
+        ConditionVerdict verdict = CommandConditionEvaluator.Evaluate(command.Conditions, _session?.State ?? SessionState.None, _time.GetLocalNow());
+        if (!verdict.IsMet)
+        {
+            return await RejectAsync(runId, request, command, lineage, ErrorCodes.ConditionNotMet, verdict.Reason!, cancellationToken);
         }
 
         // A draft has its own slot, so trying it out neither blocks nor is blocked by the saved command of the same id.
@@ -511,13 +532,30 @@ public sealed class CommandEngine : IAsyncDisposable
         using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(run.Token, timeoutSource.Token);
 
         ExecutionResult execution;
+        SecretMasker masker = SecretMasker.Empty;
         try
         {
-            execution = await DispatchAsync(run, linked.Token);
+            ResolvedSecrets secrets = await ResolveSecretsAsync(run.Command, linked.Token);
+            if (secrets.IsComplete)
+            {
+                masker = secrets.CreateMasker();
+                execution = await DispatchAsync(run, secrets, linked.Token);
+            }
+            else
+            {
+                execution = ExecutionResult.Failure(
+                    ErrorCodes.Internal,
+                    $"The command uses secrets that are not stored: {string.Join(", ", secrets.Missing)}.");
+            }
         }
         catch (OperationCanceledException)
         {
             execution = ExecutionResult.Failure(ErrorCodes.Cancelled, "The run was cancelled.");
+        }
+        catch (SecretStoreException exception)
+        {
+            // The message of the exception never contains a secret value.
+            execution = ExecutionResult.Failure(ErrorCodes.Internal, "The secrets of the command could not be read: " + exception.Message);
         }
 #pragma warning disable CA1031 // A failing handler ends this run with the error internal, nothing more.
         catch (Exception exception)
@@ -526,6 +564,10 @@ public sealed class CommandEngine : IAsyncDisposable
             RaiseFault(run.RunId, "handler", exception);
             execution = ExecutionResult.Failure(ErrorCodes.Internal, "The action failed unexpectedly: " + exception.Message);
         }
+
+        // Whatever the script printed, the values of its secrets do not leave the engine: not in the history, not in the
+        // live output, not in the result that goes back to the caller.
+        execution = MaskExecution(execution, masker);
 
         bool timedOut = timeoutSource.IsCancellationRequested && !run.Token.IsCancellationRequested;
         if (timedOut && execution.ErrorCode == ErrorCodes.Cancelled)
@@ -573,8 +615,42 @@ public sealed class CommandEngine : IAsyncDisposable
         return result;
     }
 
-    private async ValueTask<ExecutionResult> DispatchAsync(ActiveRun run, CancellationToken cancellationToken)
+    private async Task<ResolvedSecrets> ResolveSecretsAsync(CommandDocument command, CancellationToken cancellationToken)
     {
+        if (command.Secrets is not { Count: > 0 } names)
+        {
+            return ResolvedSecrets.None;
+        }
+
+        if (_secrets is null)
+        {
+            throw new SecretStoreException("This agent has no secret store.");
+        }
+
+        return await _secrets.ResolveAsync(names, cancellationToken);
+    }
+
+    private static ExecutionResult MaskExecution(ExecutionResult execution, SecretMasker masker)
+    {
+        if (masker.IsEmpty)
+        {
+            return execution;
+        }
+
+        return execution with
+        {
+            StandardOutput = masker.Apply(execution.StandardOutput),
+            StandardError = masker.Apply(execution.StandardError),
+        };
+    }
+
+    private async ValueTask<ExecutionResult> DispatchAsync(ActiveRun run, ResolvedSecrets secrets, CancellationToken cancellationToken)
+    {
+        if (SystemCommands.IsMaintenance(run.Command))
+        {
+            return RunMaintenance(run);
+        }
+
         CommandAction action = run.Command.Action;
         if (action is SequenceAction sequence)
         {
@@ -586,10 +662,23 @@ public sealed class CommandEngine : IAsyncDisposable
             return ExecutionResult.Failure(ErrorCodes.Internal, $"The '{action.Type}' action is not available in this version of the agent.");
         }
 
-        return await handler.ExecuteAsync(BuildContext(run), cancellationToken);
+        return await handler.ExecuteAsync(BuildContext(run, secrets), cancellationToken);
     }
 
-    private ActionContext BuildContext(ActiveRun run)
+    /// <summary>Switches the maintenance mode (the pause flag) on or off.</summary>
+    private ExecutionResult RunMaintenance(ActiveRun run)
+    {
+        if (_pause is null)
+        {
+            return ExecutionResult.Failure(ErrorCodes.Internal, "This agent has no maintenance mode.");
+        }
+
+        bool enable = run.Variables.TryGetValue(SystemCommands.MaintenanceVariable, out object? value) && value is true;
+        _pause.SetPaused(enable);
+        return new ExecutionResult(0, enable ? "Maintenance mode is on." : "Maintenance mode is off.", string.Empty);
+    }
+
+    private ActionContext BuildContext(ActiveRun run, ResolvedSecrets secrets)
     {
         string agentName = _options.AgentName?.Invoke() ?? DefaultAgentName;
         var environment = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -611,9 +700,16 @@ public sealed class CommandEngine : IAsyncDisposable
             environment["QA_VAR_" + name.ToUpperInvariant()] = ActionContext.FormatValue(value);
         }
 
-        // A secret variable could be split across two pieces of live output, so such a command only shows its
-        // redacted output when it ends.
-        bool streams = run.Feed is not null && !(run.Command.Parameters?.Any(parameter => parameter.Secret) ?? false);
+        // The named secrets the command listed (T706). They go to the process as environment variables and nowhere else.
+        foreach ((string name, string value) in secrets.ToEnvironment())
+        {
+            environment[name] = value;
+        }
+
+        // A secret variable or a named secret could be split across two pieces of live output, so such a command only
+        // shows its redacted output when it ends.
+        bool hasSecrets = secrets.Count > 0 || (run.Command.Parameters?.Any(parameter => parameter.Secret) ?? false);
+        bool streams = run.Feed is not null && !hasSecrets;
         IProcessLauncher launcher = streams ? new OutputTapLauncher(_launcher, run.Feed!) : _launcher;
 
         return new ActionContext(

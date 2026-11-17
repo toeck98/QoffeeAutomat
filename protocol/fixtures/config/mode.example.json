@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "revision": 2,
+  "updatedAt": "2026-11-16T18:05:00Z",
+  "origin": "local",
+  "id": "pc_mode",
+  "name": "PC mode",
+  "description": "How the PC is set up: display profile and programs.",
+  "icon": "mdi:monitor-dashboard",
+  "enabled": true,
+  "exposeToHa": true,
+  "defaultMode": "normal",
+  "onBoot": "reset",
+  "onError": "stop",
+  "modes": [
+    {
+      "id": "normal",
+      "name": "Normal",
+      "enter": [ { "command": "set_display_profile", "vars": { "Profile": "Normal-Mode" } } ],
+      "exit": []
+    },
+    {
+      "id": "tv_gaming",
+      "name": "TV gaming",
+      "enter": [
+        { "command": "set_display_profile", "vars": { "Profile": "TV-Mode" } },
+        { "command": "launch_steam_big_picture" }
+      ],
+      "exit": [ { "command": "close_steam" }, { "delaySeconds": 2 } ]
+    }
+  ]
+}

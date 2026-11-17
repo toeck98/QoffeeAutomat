@@ -156,6 +156,7 @@ unknown codes and treat them like `internal`.
 | `cancelled` | The run was cancelled. |
 | `timeout` | The run exceeded its timeout and was killed. |
 | `paused` | The agent is in maintenance mode and does not run commands. |
+| `condition_not_met` | The command's conditions (required session state, time window) are not met. Added after the first v1 release in a backward compatible way: receivers treat unknown codes as a generic failure. |
 | `internal` | Unexpected error in the agent. |
 
 ## Close codes
@@ -202,11 +203,37 @@ attempts. The token is shown once; the agent stores only its SHA-256 hash. Failu
 (wrong or expired code, too many attempts) use HTTP status codes and are specified with the
 pairing implementation (task T211).
 
+## Reverse link (the agent dials the client)
+
+For roaming devices behind NAT the agent dials a WebSocket endpoint that the Home Assistant
+integration exposes (ADR `docs/adr/0003-reverse-link.md`, decision D-043). Only the transport
+differs; after the upgrade the connection is QoffeeLink v1 as described above, with the agent
+sending `hello` first (S07: "no matter who dialled").
+
+| | Inbound link | Reverse link |
+|---|---|---|
+| Who dials | the client | the agent |
+| Endpoint | `wss://<agent>:8481/link/v1` | `wss://<home assistant>/api/qoffeeautomat/reverse/v1` |
+| Credential | link token (hash kept by the agent) | reverse token `qalr_…` (hash kept by Home Assistant, token kept by the agent) |
+| Unknown credential | HTTP 401, no upgrade | HTTP 401, no upgrade; the agent stops dialling until it is enrolled again |
+| Revoked while connected | close code 4401 | close code 4401, same consequence |
+| TLS | self-signed, pinned fingerprint of the agent | system trust store, or a pinned fingerprint of the certificate of Home Assistant or its proxy; `ws://` only for loopback hosts |
+| Reconnect | the client, with backoff | the agent, 1 s to 5 min with jitter, at once after a resume or a network change |
+
+The enrollment string that carries URL, token and optional fingerprint to the agent is
+`qalr1.<base64url(JSON {"url","token","fp"})>`. `fixtures/reverse/enrollment.json` is the
+decoded payload; `fixtures/reverse/handshake*.json` are transcripts of the handshake and of
+its failures (frames refer to the fixtures of this folder by name). They are replayed by
+`tests/QoffeeAutomat.Agent.Tests` (`Category=OutboundLink`) against the agent and by
+`tests_integration/test_reverse_link.py` against the endpoint of Home Assistant. There is no
+JSON Schema for them: they are not part of the frames of the protocol.
+
 ## Configuration documents
 
 `schema/config/` publishes the schemas of the documents that the management API and the
-hub exchange (PLAN.md S06): command, custom sensor, metric overrides and agent settings,
-with the common header `schemaVersion`, `revision`, `updatedAt`, `origin`. Their JSON uses
+hub exchange (PLAN.md S06): command (`command.schema.json`), custom sensor
+(`sensor.schema.json`), mode group (`mode.schema.json`), metric overrides and agent
+settings, with the common header `schemaVersion`, `revision`, `updatedAt`, `origin`. Their JSON uses
 camelCase. The schemas describe the structure only; semantic rules (for example the
 `haControl` requirements or cycle detection in sequences) are enforced by the
 `DocumentValidator` in `QoffeeAutomat.Core`.

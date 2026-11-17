@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "id": "audio_output_device",
+  "name": "Audio output device",
+  "description": "Switches the default audio playback device. The options are the active playback devices.",
+  "icon": "mdi:speaker",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "user",
+  "action": { "type": "builtin", "name": "audio.set_default_output" },
+  "parameters": [
+    {
+      "name": "Device",
+      "type": "enum",
+      "required": true,
+      "optionsFrom": "audio.output_device",
+      "description": "The playback device that becomes the default."
+    }
+  ],
+  "haControl": { "type": "select", "parameter": "Device", "stateMetric": "audio.output_device" },
+  "timeoutSeconds": 30,
+  "concurrency": "single",
+  "cooldownSeconds": 0,
+  "captureOutput": true
+}

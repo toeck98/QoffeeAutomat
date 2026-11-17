@@ -1,0 +1,80 @@
+@using QoffeeAutomat.Contracts.Api
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The preview of one template of the gallery (T701): what it does, how it is controlled, its variables and the scripts that are copied. *@
+@{
+  TemplateSummary summary = Detail.Summary;
+}
+<MudText Typo="Typo.h6" data-testid="preview-title">@L.Format("Templates.PreviewTitle", summary.Name)</MudText>
+@if (!string.IsNullOrWhiteSpace(summary.Description))
+{
+  <MudText Typo="Typo.body2" Class="mb-2">@summary.Description</MudText>
+}
+<div class="qa-muted mb-2">
+  <code>@summary.Id</code> · @KindText(summary.Kind) · @TypeText(summary.ActionType)
+</div>
+
+@if (Detail.Command is { } command)
+{
+  <div data-testid="preview-command">
+    <div>@L["Templates.RunAs"]: <code data-testid="preview-runas">@command.RunAs</code></div>
+    <div>@L["Templates.Control"]: <code data-testid="preview-control">@(command.HaControl?.Type ?? HaControlTypes.None)</code></div>
+    <div>@L["Templates.ExposeToHa"]: @(command.ExposeToHa ? L["Common.On"] : L["Common.Off"])</div>
+    @if (command.Parameters is { Count: > 0 } parameters)
+    {
+      <MudText Typo="Typo.subtitle2" Class="mt-2">@L["Templates.Parameters"]</MudText>
+      <MudSimpleTable Dense="true" data-testid="preview-parameters">
+        <tbody>
+          @foreach (ParameterDefinition parameter in parameters)
+          {
+            <tr @key="parameter.Name">
+              <td><code>@parameter.Name</code></td>
+              <td>@(parameter.Type + (parameter.Required ? " *" : string.Empty))</td>
+              <td>@parameter.Description</td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+  </div>
+}
+@if (Detail.Sensor is { } sensor)
+{
+  <div data-testid="preview-sensor">
+    <div>@L["Templates.SensorKind"]: <code>@sensor.Kind</code> / <code>@sensor.ValueType</code>@(string.IsNullOrEmpty(sensor.Unit) ? string.Empty : " (" + sensor.Unit + ")")</div>
+    <div>@L["Templates.ExposeToHa"]: @(sensor.ExposeToHa ? L["Common.On"] : L["Common.Off"])</div>
+  </div>
+}
+@if (Detail.Mode is { } group)
+{
+  <div data-testid="preview-mode">
+    <div>@L["Templates.ModeDefault"]: <code data-testid="preview-mode-default">@group.DefaultMode</code></div>
+    <div>@L["Templates.ExposeToHa"]: @(group.ExposeToHa ? L["Common.On"] : L["Common.Off"])</div>
+    <div>@L["Templates.ModeList"]: <span data-testid="preview-mode-list">@string.Join(", ", group.Modes.Select(mode => mode.Id))</span></div>
+  </div>
+}
+@if (summary.Requires is { Count: > 0 } requires)
+{
+  <div class="qa-muted mt-2" data-testid="preview-requires">@L.Format("Templates.Requires", string.Join(", ", requires))</div>
+}
+@foreach (TemplateScript script in Detail.Scripts)
+{
+  <MudText Typo="Typo.subtitle2" Class="mt-2">@L.Format("Templates.Script", script.Name)</MudText>
+  <pre class="qa-script" data-testid="@($"preview-script-{script.Name}")">@script.Content</pre>
+}
+
+@code {
+  /// <summary>The template to show.</summary>
+  [Parameter, EditorRequired]
+  public TemplateDetail Detail { get; set; } = null!;
+
+  private string KindText(string kind) => kind switch
+  {
+    TemplateKinds.Command => L["Templates.Commands"],
+    TemplateKinds.Mode => L["Templates.Modes"],
+    _ => L["Templates.Sensors"],
+  };
+
+  private string TypeText(string? type) => type is null ? string.Empty : L.Find("Templates.Type." + type) ?? type;
+}

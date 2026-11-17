@@ -7,8 +7,8 @@ namespace QoffeeAutomat.Core.Tests.Templates;
 
 /// <summary>
 /// The command templates under <c>templates/</c> (T309, ported from the prototype): every document passes the config
-/// schema and the semantic validator, scripts exist and declare the parameters of their commands, and the example mode
-/// refers to templates that exist and to values that they accept.
+/// schema and the semantic validator, scripts exist and declare the parameters of their commands, and the PC mode
+/// template refers to command templates that exist and to values that they accept.
 /// </summary>
 [Trait("Category", "Templates")]
 public sealed class CommandTemplateTests
@@ -17,8 +17,9 @@ public sealed class CommandTemplateTests
     [
         "set_display_profile",
         "save_display_profile",
-        "mode_example",
     ];
+
+    private static readonly string[] ExpectedModeIds = ["normal", "study", "tv_gaming", "tv_entertainment", "racing"];
 
     [Fact]
     public void The_required_templates_exist()
@@ -113,13 +114,18 @@ public sealed class CommandTemplateTests
     }
 
     [Fact]
-    public void Every_script_template_is_used_by_a_command()
+    public void Every_script_template_is_used_by_a_command_or_a_sensor()
     {
         HashSet<string> used = TemplateFiles.AllCommands().Values
             .Select(command => command.Action)
             .OfType<PowerShellAction>()
             .Where(action => action.Script is not null)
             .Select(action => action.Script!)
+            .Concat(TemplateFiles.AllSensors().Values
+                .Select(sensor => sensor.Source)
+                .OfType<PowerShellSensorSource>()
+                .Where(source => source.Script is not null)
+                .Select(source => source.Script!))
             .ToHashSet(StringComparer.Ordinal);
 
         foreach (string path in TemplateFiles.ScriptFiles())
@@ -166,33 +172,37 @@ public sealed class CommandTemplateTests
     }
 
     [Fact]
-    public void The_example_mode_applies_a_profile_launches_programs_and_waits()
+    public void The_pc_mode_template_ports_the_modes_of_the_prototype()
     {
         IReadOnlyDictionary<string, CommandDocument> commands = TemplateFiles.AllCommands();
-        CommandDocument mode = commands["mode_example"];
+        ModeGroupDocument group = TemplateFiles.AllModes()["pc_mode"];
 
-        SequenceAction sequence = Assert.IsType<SequenceAction>(mode.Action);
-        Assert.Equal(SequenceErrorModes.Stop, sequence.OnError);
+        Assert.Equal(ExpectedModeIds, group.Modes.Select(mode => mode.Id).ToArray());
+        Assert.Equal("normal", group.DefaultMode);
+        Assert.Equal(ModeBootBehaviors.Reset, group.OnBoot);
+        Assert.Equal(SequenceErrorModes.Continue, group.OnError);
+        Assert.True(group.ExposeToHa);
 
-        SequenceStep first = sequence.Steps[0];
-        Assert.Equal("set_display_profile", first.Command);
-        Assert.Contains(sequence.Steps, step => step.DelaySeconds is > 0);
-        Assert.Contains(sequence.Steps, step => step.Command is not null
+        // Racing is TV-Rennsport-Mode of the prototype: profile, programs, a wait between the launches, Steam.
+        ModeDefinition racing = group.Modes.Single(mode => mode.Id == "racing");
+        IReadOnlyList<SequenceStep> enter = racing.Enter!;
+        Assert.Equal("set_display_profile", enter[0].Command);
+        Assert.Contains(enter, step => step.DelaySeconds is > 0);
+        Assert.Contains(enter, step => step.Command is not null
             && commands[step.Command].Action is ProcessAction { WaitForExit: false });
-        Assert.Contains(sequence.Steps, step => step.Command is "launch_steam_big_picture");
-
-        // The delay sits between launches, as in TV-Rennsport-Mode of the prototype.
-        int delay = sequence.Steps.ToList().FindIndex(step => step.DelaySeconds is not null);
-        Assert.True(delay > 1 && delay < sequence.Steps.Count - 1, "The wait belongs between two program launches.");
+        Assert.Contains(enter, step => step.Command is "launch_steam_big_picture");
+        int delay = enter.ToList().FindIndex(step => step.DelaySeconds is not null);
+        Assert.True(delay > 1 && delay < enter.Count - 1, "The wait belongs between two program launches.");
+        Assert.Equal(3, racing.Exit!.Count(step => step.Command == "kill_process"));
     }
 
     [Fact]
-    public void Steps_of_the_example_mode_refer_to_templates_and_pass_accepted_values()
+    public void Steps_of_the_pc_mode_template_refer_to_templates_and_pass_accepted_values()
     {
         IReadOnlyDictionary<string, CommandDocument> commands = TemplateFiles.AllCommands();
-        SequenceAction sequence = Assert.IsType<SequenceAction>(commands["mode_example"].Action);
+        ModeGroupDocument group = TemplateFiles.AllModes()["pc_mode"];
 
-        foreach (SequenceStep step in sequence.Steps.Where(step => step.Command is not null))
+        foreach (SequenceStep step in group.Modes.SelectMany(mode => (mode.Enter ?? []).Concat(mode.Exit ?? [])).Where(step => step.Command is not null))
         {
             Assert.True(commands.ContainsKey(step.Command!), $"Step {step.Command} has no template.");
             CommandDocument target = commands[step.Command!];

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "service_state",
+  "name": "Service state",
+  "description": "The state of a Windows service. Change the service name; a state that is not among the options makes the sensor unavailable.",
+  "icon": "mdi:cog-sync",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "sensor",
+  "valueType": "enum",
+  "options": ["running", "stopped", "paused", "start_pending", "stop_pending", "continue_pending", "pause_pending", "not_installed"],
+  "intervalSeconds": 30,
+  "source": { "type": "service_state", "service": "Spooler" }
+}

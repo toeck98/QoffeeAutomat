@@ -26,7 +26,23 @@ public sealed record CommandDocument(
     bool CaptureOutput = false,
     int? Revision = null,
     DateTimeOffset? UpdatedAt = null,
-    string? Origin = null) : IConfigDocument;
+    string? Origin = null,
+    CommandConditions? Conditions = null,
+    IReadOnlyList<string>? Secrets = null) : IConfigDocument;
+
+/// <summary>
+/// Conditions under which a command may run (schema version 2, PLAN.md S06, T705). A run that does not meet them is
+/// rejected with the error <c>condition_not_met</c>. Absent members impose no requirement.
+/// </summary>
+/// <param name="Session">One of <see cref="SessionRequirements"/>; null means <see cref="SessionRequirements.Any"/>.</param>
+/// <param name="TimeWindow">The command may only run inside this window of the local day.</param>
+public sealed record CommandConditions(string? Session = null, TimeWindow? TimeWindow = null);
+
+/// <summary>A window of the local day, optionally limited to some days of the week.</summary>
+/// <param name="From">Start, <c>HH:mm</c> (24-hour clock, local time of the PC), inclusive.</param>
+/// <param name="To">End, <c>HH:mm</c>, exclusive. An end that is not later than the start makes the window cross midnight.</param>
+/// <param name="Days">The days (see <see cref="WeekdayNames"/>) on which the window starts; null or empty means every day.</param>
+public sealed record TimeWindow(string From, string To, IReadOnlyList<string>? Days = null);
 
 /// <summary>A command variable (R-04, PLAN.md S06).</summary>
 /// <param name="Name">Matches <c>^[A-Za-z][A-Za-z0-9_]{0,31}$</c>, unique per command ignoring case.</param>

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "app_running",
+  "name": "Program running",
+  "description": "On while a process with this name is running. Change the process name to the program you want to watch.",
+  "icon": "mdi:application-cog",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "binary_sensor",
+  "valueType": "bool",
+  "intervalSeconds": 10,
+  "source": { "type": "process_running", "process": "notepad" }
+}

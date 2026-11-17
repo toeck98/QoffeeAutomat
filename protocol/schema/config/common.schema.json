@@ -63,7 +63,19 @@
         "secret": { "type": "boolean" },
         "unit": { "type": "string" },
         "description": { "type": "string" }
-      }
+      },
+      "allOf": [
+        {
+          "description": "optionsFrom (after v1, T713) is the id of an enum metric whose current options replace options; the manifest builder resolves it, so the manifest only carries the resulting options. It belongs to enum variables only. A variable without optionsFrom is not affected.",
+          "if": { "required": ["optionsFrom"] },
+          "then": { "required": ["type"], "properties": { "type": { "const": "enum" } } }
+        },
+        {
+          "description": "optionsFrom replaces options: only one of them may be set. A variable without optionsFrom is not affected.",
+          "if": { "required": ["optionsFrom"] },
+          "then": { "properties": { "options": { "type": "null" } } }
+        }
+      ]
     },
     "ha_control": {
       "description": "Maps a command to a Home Assistant entity.",

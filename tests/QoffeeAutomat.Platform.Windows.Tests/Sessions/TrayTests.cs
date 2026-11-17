@@ -239,11 +239,25 @@ public sealed class TrayTests
 
         public event EventHandler<TrayPauseRequestedEventArgs>? PauseRequested;
 
+        public event EventHandler? OpenUiRequested;
+
         public TrayView? Last => Volatile.Read(ref _last);
+
+        public Uri? Opened { get; private set; }
 
         public void Update(TrayView view)
         {
             Volatile.Write(ref _last, view);
+        }
+
+        public void OpenBrowser(Uri address)
+        {
+            Opened = address;
+        }
+
+        public void ChooseOpenUi()
+        {
+            OpenUiRequested?.Invoke(this, EventArgs.Empty);
         }
 
         public void ChoosePause(bool paused)

@@ -1,0 +1,149 @@
+@page "/modes"
+@using QoffeeAutomat.Contracts.Config
+@inherits LocalizedComponentBase
+
+@* The mode groups (PLAN.md T717): every group with its current mode and the control that switches it, and the way into the editor. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@L["Modes.Title"]</MudText>
+  <MudButton Variant="Variant.Filled"
+             Color="Color.Primary"
+             StartIcon="@Icons.Material.Filled.Add"
+             Href="/modes/new"
+             data-testid="mode-new">@L["Modes.New"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Modes.Intro"]</MudText>
+
+<ErrorDisplay Error="_listError" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_actionError is not null)
+{
+  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="action-failed">@_actionFailure</MudAlert>
+  <ErrorDisplay Error="_actionError" Class="mb-4" />
+}
+@if (_switchBusy)
+{
+  <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4" data-testid="mode-busy">@L["Modes.Busy"]</MudAlert>
+}
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="notice">@_notice</MudAlert>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_groups.Count == 0)
+{
+  if (_listError is null)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="modes-none">@L["Modes.None"]</MudText>
+    </MudPaper>
+  }
+}
+else
+{
+  <div data-testid="mode-groups">
+    @foreach (ModeGroupItem item in _groups)
+    {
+      ModeGroupDocument group = item.Group;
+      ModeState state = item.State;
+      bool controlsOff = state.Switching || !group.Enabled || IsBusy(group);
+      <MudPaper @key="group.Id"
+                Class="pa-4 mb-4 qa-card"
+                Elevation="1"
+                data-testid="@($"mode-group-{group.Id}")"
+                data-enabled="@(group.Enabled ? "true" : "false")"
+                data-current="@(state.Current ?? string.Empty)"
+                data-switching="@(state.Switching ? "true" : "false")">
+        <div class="qa-card-header">
+          <div>
+            <div class="qa-command-name">@group.Name</div>
+            <div class="qa-muted"><code>@group.Id</code></div>
+            @if (!string.IsNullOrWhiteSpace(group.Description))
+            {
+              <div class="qa-muted">@group.Description</div>
+            }
+          </div>
+          <span class="qa-row-actions">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                           Size="Size.Small"
+                           Href="@EditHref(group)"
+                           aria-label="@Aria(L["Modes.Edit"], group)"
+                           title="@L["Modes.Edit"]"
+                           data-testid="@($"edit-{group.Id}")" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                           Size="Size.Small"
+                           Color="Color.Error"
+                           Disabled="@IsBusy(group)"
+                           OnClick="@(() => DeleteAsync(group))"
+                           aria-label="@Aria(L["Modes.Delete"], group)"
+                           title="@L["Modes.Delete"]"
+                           data-testid="@($"delete-{group.Id}")" />
+          </span>
+        </div>
+
+        <div class="qa-chip-row mb-2">
+          <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@(group.Enabled ? Color.Success : Color.Default)" data-testid="@($"enabled-{group.Id}")">@(group.Enabled ? L["Modes.Enabled"] : L["Modes.Disabled"])</MudChip>
+          @if (group.ExposeToHa)
+          {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info" data-testid="@($"expose-{group.Id}")">@L["Modes.InHa"]</MudChip>
+          }
+        </div>
+
+        <div class="mb-2">
+          <span class="qa-muted">@L["Modes.Current"]: </span>
+          @if (state.Switching)
+          {
+            <strong data-testid="@($"mode-switching-{group.Id}")">@L.Format("Modes.SwitchingTo", ModeName(group, state.Target))</strong>
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-1" aria-label="@L["Modes.Switching"]" />
+          }
+          else if (state.Current is null)
+          {
+            <strong data-testid="@($"mode-current-{group.Id}")" data-value="">@L["Modes.Unknown"]</strong>
+          }
+          else
+          {
+            <strong data-testid="@($"mode-current-{group.Id}")" data-value="@state.Current">@ModeName(group, state.Current)</strong>
+          }
+        </div>
+
+        @if (group.Modes.Count <= SegmentedLimit)
+        {
+          <div class="qa-chip-row" role="group" aria-label="@L["Modes.SwitchTo"]" data-testid="@($"mode-switch-{group.Id}")">
+            @foreach (ModeDefinition mode in group.Modes)
+            {
+              bool active = !state.Switching && string.Equals(mode.Id, state.Current, StringComparison.Ordinal);
+              string target = mode.Id;
+              <MudButton @key="mode.Id"
+                         Size="Size.Small"
+                         Variant="@(active ? Variant.Filled : Variant.Outlined)"
+                         Color="@(active ? Color.Primary : Color.Default)"
+                         StartIcon="@(active ? Icons.Material.Filled.Check : null)"
+                         Disabled="@controlsOff"
+                         OnClick="@(() => SwitchAsync(group.Id, target))"
+                         aria-pressed="@(active ? "true" : "false")"
+                         data-active="@(active ? "true" : "false")"
+                         data-testid="@($"mode-switch-{group.Id}-{mode.Id}")">@mode.Name</MudButton>
+            }
+          </div>
+        }
+        else
+        {
+          string groupId = group.Id;
+          <SelectBox Label="@L["Modes.SwitchTo"]"
+                     Value="@(state.Current ?? string.Empty)"
+                     ValueChanged="@((string value) => SwitchAsync(groupId, value))"
+                     Disabled="@controlsOff"
+                     TestId="@($"mode-select-{group.Id}")">
+            <option value="" disabled>@L["Modes.Choose"]</option>
+            @foreach (ModeDefinition mode in group.Modes)
+            {
+              <option value="@mode.Id">@mode.Name</option>
+            }
+          </SelectBox>
+        }
+      </MudPaper>
+    }
+  </div>
+}

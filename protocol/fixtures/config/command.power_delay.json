@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "power_restart",
+  "name": "Restart",
+  "description": "Restarts the computer, after a countdown that can be cancelled.",
+  "icon": "mdi:restart",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "system",
+  "action": { "type": "builtin", "name": "power.restart" },
+  "parameters": [
+    { "name": "Force", "type": "bool", "default": false },
+    { "name": "DelaySeconds", "type": "int", "min": 0, "max": 3600, "step": 1, "default": 0, "unit": "s" },
+    { "name": "Message", "type": "string", "maxLength": 256 }
+  ],
+  "haControl": { "type": "button" },
+  "timeoutSeconds": 3660,
+  "captureOutput": true
+}

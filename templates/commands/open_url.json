@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "open_url",
+  "name": "Open web address",
+  "description": "Opens an http or https address in the default browser of the logged-in user.",
+  "icon": "mdi:web",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "builtin", "name": "url.open" },
+  "parameters": [
+    {
+      "name": "Url",
+      "type": "string",
+      "required": true,
+      "default": "https://www.home-assistant.io/",
+      "maxLength": 2048,
+      "description": "An http or https address."
+    }
+  ],
+  "haControl": { "type": "none" },
+  "timeoutSeconds": 30,
+  "concurrency": "parallel",
+  "cooldownSeconds": 0,
+  "captureOutput": false
+}

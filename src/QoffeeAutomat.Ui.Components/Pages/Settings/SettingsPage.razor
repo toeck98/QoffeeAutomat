@@ -1,8 +1,8 @@
 @page "/settings"
 @inherits LocalizedComponentBase
 
-@* The agent settings (PLAN.md T407): name, ports, remote UI with its security explanation, log level, retention, tray icon, and
-   the password. A change of a port or of the remote UI switch takes effect after a restart, which the page offers. *@
+@* The agent settings (PLAN.md T407): name, ports, remote UI with its security explanation, log level, retention, tray icon,
+   the global hotkeys (T708, with the registration conflicts that the SessionHost reports), and the password. A change of a port or of the remote UI switch takes effect after a restart, which the page offers. *@
 <div class="qa-card-header">
   <MudText Typo="Typo.h4" GutterBottom="true">@L["Settings.Title"]</MudText>
 </div>
@@ -94,6 +94,97 @@ else if (_settings is not null)
             <div class="mt-1" data-testid="remoteui-warning">@L["Settings.RemoteUi.Warning"]</div>
           }
         </MudAlert>
+      </MudItem>
+      <MudItem xs="12">
+        <div data-testid="hardware-sensors">
+          <MudText Typo="Typo.h6" Class="mb-1">@L["Settings.Hardware.Title"]</MudText>
+          <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">@L["Settings.Hardware.Help"]</MudText>
+          <span data-testid="setting-hardware" data-checked="@(_hardwareSensors ? "true" : "false")">
+            <MudSwitch T="bool" @bind-Value="_hardwareSensors" Color="Color.Warning" Label="@L["Settings.Hardware.Switch"]" />
+          </span>
+          <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mb-2" data-testid="hardware-warning">
+            <strong>@L["Settings.Hardware.Warning.Title"]</strong>
+            <div>@L["Settings.Hardware.Warning"]</div>
+          </MudAlert>
+          @if (_hardwareStatus is not null)
+          {
+            <MudAlert Severity="@HardwareSeverity()" Variant="Variant.Text" Dense="true" data-testid="hardware-status" data-state="@_hardwareStatus.State">
+              @L["Settings.Hardware.State." + _hardwareStatus.State]
+              @if (_hardwareStatus.SensorCount > 0)
+              {
+                <span data-testid="hardware-count">@_hardwareStatus.SensorCount @L["Settings.Hardware.Count"]</span>
+              }
+              @if (!string.IsNullOrEmpty(_hardwareStatus.Message) && _hardwareStatus.State == "failed")
+              {
+                <div class="mt-1" data-testid="hardware-message">@_hardwareStatus.Message</div>
+              }
+            </MudAlert>
+          }
+          <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ReloadHardwareStatusAsync" data-testid="hardware-refresh">@L["Settings.Hardware.Refresh"]</MudButton>
+        </div>
+      </MudItem>
+      <MudItem xs="12">
+        <div data-testid="updates">
+          <MudText Typo="Typo.h6" Class="mb-1">@L["Settings.Updates.Title"]</MudText>
+          <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">@L["Settings.Updates.Help"]</MudText>
+          <span data-testid="setting-updates" data-checked="@(_updateCheck ? "true" : "false")">
+            <MudSwitch T="bool" @bind-Value="_updateCheck" Color="Color.Primary" Label="@L["Settings.Updates.Switch"]" />
+          </span>
+        </div>
+      </MudItem>
+      <MudItem xs="12">
+        <div data-testid="hotkeys">
+          <MudText Typo="Typo.h6" Class="mb-1">@L["Settings.Hotkeys.Title"]</MudText>
+          <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">@L["Settings.Hotkeys.Help"]</MudText>
+          @if (_hotkeyStatus is { Supported: false })
+          {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-2" data-testid="hotkeys-unsupported">@L["Settings.Hotkeys.Unsupported"]</MudAlert>
+          }
+          @for (int index = 0; index < _hotkeys.Count; index++)
+          {
+            HotkeyRow row = _hotkeys[index];
+            HotkeyStatusEntry? status = StatusOf(row);
+            <MudGrid Spacing="2" Class="mb-1" data-testid="hotkey-row">
+              <MudItem xs="12" md="3">
+                <div data-testid="hotkey-name">
+                  <MudTextField T="string" @bind-Value="row.Name" Label="@L["Settings.Hotkeys.Name"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </div>
+              </MudItem>
+              <MudItem xs="12" md="4">
+                <div data-testid="hotkey-keys">
+                  <MudTextField T="string" @bind-Value="row.Keys" Label="@L["Settings.Hotkeys.Keys"]" Placeholder="Ctrl+Alt+F9" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                Error="@(KeysProblem(row) is not null)" ErrorText="@KeysProblem(row)" />
+                </div>
+              </MudItem>
+              <MudItem xs="6" md="2">
+                <span data-testid="hotkey-enabled" data-checked="@(row.Enabled ? "true" : "false")">
+                  <MudSwitch T="bool" @bind-Value="row.Enabled" Color="Color.Primary" Label="@L["Settings.Hotkeys.Enabled"]" />
+                </span>
+              </MudItem>
+              <MudItem xs="6" md="3">
+                <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" OnClick="@(() => RemoveHotkey(row))" data-testid="hotkey-remove">@L["Settings.Hotkeys.Remove"]</MudButton>
+              </MudItem>
+              @if (status is not null && status.State != "registered")
+              {
+                <MudItem xs="12">
+                  <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" data-testid="hotkey-conflict" data-state="@status.State">
+                    @L["Settings.Hotkeys.State." + status.State]@(string.IsNullOrEmpty(status.Message) ? string.Empty : " " + status.Message)
+                  </MudAlert>
+                </MudItem>
+              }
+              else if (status is not null)
+              {
+                <MudItem xs="12">
+                  <MudText Typo="Typo.caption" Color="Color.Success" data-testid="hotkey-registered">@L["Settings.Hotkeys.State.registered"]</MudText>
+                </MudItem>
+              }
+            </MudGrid>
+          }
+          <div class="mt-1">
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="AddHotkey" data-testid="hotkey-add">@L["Settings.Hotkeys.Add"]</MudButton>
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ReloadHotkeyStatusAsync" data-testid="hotkey-refresh">@L["Settings.Hotkeys.Refresh"]</MudButton>
+          </div>
+        </div>
       </MudItem>
     </MudGrid>
     <div class="mt-4">

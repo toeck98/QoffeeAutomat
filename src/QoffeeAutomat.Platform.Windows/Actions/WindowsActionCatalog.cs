@@ -19,6 +19,12 @@ public static class WindowsActionNames
     /// <summary>Hibernates the computer.</summary>
     public const string Hibernate = "power.hibernate";
 
+    /// <summary>Keeps the computer awake through a power request of the agent (T715).</summary>
+    public const string KeepAwake = "power.keep_awake";
+
+    /// <summary>Cancels the delayed power action that is pending (T715).</summary>
+    public const string CancelPending = "power.cancel";
+
     /// <summary>Locks the session of the user.</summary>
     public const string LockSession = "session.lock";
 
@@ -45,6 +51,18 @@ public static class WindowsActionNames
 
     /// <summary>Ends the processes of the user that have a given name.</summary>
     public const string ProcessKill = "process.kill";
+
+    /// <summary>Shows a toast notification on the desktop of the user (T702).</summary>
+    public const string NotifyToast = "notify.toast";
+
+    /// <summary>Controls the current system media session (T716).</summary>
+    public const string MediaControl = "media.control";
+
+    /// <summary>Makes a playback device the default device (T713).</summary>
+    public const string SetDefaultOutput = "audio.set_default_output";
+
+    /// <summary>Makes a recording device the default device (T713).</summary>
+    public const string SetDefaultInput = "audio.set_default_input";
 }
 
 /// <summary>The names of the parameters of the built-in actions.</summary>
@@ -132,26 +150,38 @@ public static class WindowsActionCatalog
             WindowsActionNames.Shutdown,
             "Shut down",
             RunAsValues.System,
-            [Force],
-            "Shuts the computer down."),
+            [Force, .. PowerActionSpec.DelayParameters],
+            "Shuts the computer down, at once or after DelaySeconds with a countdown dialog that can be cancelled."),
         new(
             WindowsActionNames.Restart,
             "Restart",
             RunAsValues.System,
-            [Force],
-            "Restarts the computer."),
+            [Force, .. PowerActionSpec.DelayParameters],
+            "Restarts the computer, at once or after DelaySeconds with a countdown dialog that can be cancelled."),
         new(
             WindowsActionNames.Sleep,
             "Sleep",
             RunAsValues.System,
-            [],
-            "Puts the computer to sleep. The run ends when the request was made, not when the computer wakes up."),
+            PowerActionSpec.DelayParameters,
+            "Puts the computer to sleep, at once or after DelaySeconds with a countdown dialog that can be cancelled. The run ends when the request was made, not when the computer wakes up."),
         new(
             WindowsActionNames.Hibernate,
             "Hibernate",
             RunAsValues.System,
-            [],
-            "Hibernates the computer. Fails when hibernation is not enabled."),
+            PowerActionSpec.DelayParameters,
+            "Hibernates the computer, at once or after DelaySeconds with a countdown dialog that can be cancelled. Fails when hibernation is not enabled."),
+        new(
+            WindowsActionNames.KeepAwake,
+            PowerActionSpec.KeepAwakeTitle,
+            RunAsValues.System,
+            PowerActionSpec.KeepAwakeParameters,
+            PowerActionSpec.KeepAwakeDescription),
+        new(
+            WindowsActionNames.CancelPending,
+            PowerActionSpec.CancelTitle,
+            RunAsValues.System,
+            PowerActionSpec.CancelParameters,
+            PowerActionSpec.CancelDescription),
         new(
             WindowsActionNames.LockSession,
             "Lock",
@@ -162,8 +192,8 @@ public static class WindowsActionCatalog
             WindowsActionNames.Logoff,
             "Log off",
             RunAsValues.User,
-            [Force],
-            "Logs the user off."),
+            [Force, .. PowerActionSpec.DelayParameters],
+            "Logs the user off, at once or after DelaySeconds with a countdown dialog that can be cancelled."),
         new(
             WindowsActionNames.DisplayOff,
             "Turn displays off",
@@ -256,6 +286,30 @@ public static class WindowsActionCatalog
                     Description: "The name of the program without path, with or without .exe."),
             ],
             "Ends every process of the logged-in user that has this name, together with its child processes."),
+        new(
+            WindowsActionNames.NotifyToast,
+            NotifyToastSpec.ActionTitle,
+            RunAsValues.User,
+            NotifyToastSpec.Parameters,
+            NotifyToastSpec.ActionDescription),
+        new(
+            WindowsActionNames.MediaControl,
+            MediaControlSpec.ActionTitle,
+            RunAsValues.User,
+            MediaControlSpec.Parameters,
+            MediaControlSpec.ActionDescription),
+        new(
+            WindowsActionNames.SetDefaultOutput,
+            AudioDeviceSpec.OutputTitle,
+            RunAsValues.User,
+            AudioDeviceSpec.OutputParameters,
+            AudioDeviceSpec.OutputDescription),
+        new(
+            WindowsActionNames.SetDefaultInput,
+            AudioDeviceSpec.InputTitle,
+            RunAsValues.User,
+            AudioDeviceSpec.InputParameters,
+            AudioDeviceSpec.InputDescription),
     ];
 
     /// <summary>Every action, in the order the editor shows them.</summary>

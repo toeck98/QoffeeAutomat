@@ -12,13 +12,13 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
-from .client import QoffeeLinkClient, QoffeeLinkError
-from .const import DOMAIN, MANUFACTURER, MODEL
+from .client import LinkClient, QoffeeLinkError
+from .const import CONF_MACS, DOMAIN, MANUFACTURER, MODEL
 from .protocol import (
     AgentInfo,
     CommandDescriptor,
@@ -28,6 +28,7 @@ from .protocol import (
     ProtocolError,
     parse_manifest,
 )
+from .wol import normalize_mac
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,6 +64,9 @@ class ManifestDiff:
     # True when the list of event types of the agent is different (the event entity
     # then updates its event types).
     events_changed: bool = False
+    # True when the optional features of the agent are different (the entities of the
+    # features appear and vanish, T702 and T716).
+    features_changed: bool = False
 
     @property
     def empty(self) -> bool:
@@ -73,6 +77,7 @@ class ManifestDiff:
             or self.added_commands
             or self.removed_commands
             or self.events_changed
+            or self.features_changed
         )
 
 
@@ -100,6 +105,7 @@ def compute_diff(old: Manifest | None, new: Manifest) -> ManifestDiff:
         added_commands,
         removed_commands,
         events_changed=(old.events if old else ()) != new.events,
+        features_changed=(old.features if old else ()) != new.features,
     )
 
 
@@ -141,7 +147,7 @@ class ManifestManager:
     """Fetch, cache and diff the manifest of one agent."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, client: QoffeeLinkClient
+        self, hass: HomeAssistant, entry: ConfigEntry, client: LinkClient
     ) -> None:
         """Create the manager; call :meth:`async_load` once the client is connected."""
         self._hass = hass
@@ -151,6 +157,14 @@ class ManifestManager:
         self._listeners: list[DiffListener] = []
         self._lock = asyncio.Lock()
         self._remove_client_listener: Callable[[], None] | None = None
+        # True for an agent that dials Home Assistant (reverse link): the first
+        # connection, whenever it comes, loads the manifest.
+        self._deferred = False
+
+    @property
+    def loaded(self) -> bool:
+        """True once a manifest was fetched."""
+        return self._manifest is not None
 
     @property
     def manifest(self) -> Manifest:
@@ -175,6 +189,20 @@ class ManifestManager:
             self._handle_manifest_changed
         )
         return self.manifest
+
+    def start_following(self) -> None:
+        """Follow the client without a manifest yet (outbound agent).
+
+        The agent may be away when the integration starts, so there is nothing to
+        fetch. The first connection loads the manifest and tells the platforms, which
+        then add their entities; until then the PC has no entities except the ones
+        that do not need the manifest.
+        """
+        self._deferred = True
+        if self._remove_client_listener is None:
+            self._remove_client_listener = self._client.add_manifest_listener(
+                self._handle_manifest_changed
+            )
 
     def close(self) -> None:
         """Stop following the client."""
@@ -215,10 +243,33 @@ class ManifestManager:
                 return False
             self._manifest = fetched
             register_device(self._hass, self._entry.entry_id, fetched.agent)
-            if previous is not None:
-                await self._async_notify(compute_diff(previous, fetched))
+            self._store_macs(fetched.agent.macs)
+            # The first manifest of a direct entry arrives before any platform listens;
+            # for a deferred one the platforms are waiting for it.
+            await self._async_notify(compute_diff(previous, fetched))
             self.async_remove_stale()
             return True
+
+    @callback
+    def _store_macs(self, macs: tuple[str, ...]) -> None:
+        """Keep the MAC addresses of the PC in the config entry (T703).
+
+        The Wake-on-LAN button needs them while the agent is not connected, so they
+        cannot come from the manifest at that time. A manifest without addresses leaves
+        the stored ones alone: the adapters of a PC that is off or on battery may be
+        missing from the list, and the stored addresses are still the ones to wake.
+        """
+        normalized = list(dict.fromkeys(normalize_mac(mac) for mac in macs))
+        previous = list(self._entry.data.get(CONF_MACS, ()))
+        if not normalized or normalized == previous:
+            return
+        self._hass.config_entries.async_update_entry(
+            self._entry, data={**self._entry.data, CONF_MACS: normalized}
+        )
+        if not previous and self._entry.state is ConfigEntryState.LOADED:
+            # The button only exists once there are addresses; the platforms are
+            # already set up, so load them again.
+            self._hass.config_entries.async_schedule_reload(self._entry.entry_id)
 
     async def _async_notify(self, diff: ManifestDiff) -> None:
         if diff.empty:
@@ -264,7 +315,10 @@ class ManifestManager:
     @callback
     def handle_hello_rev(self, rev: str) -> None:
         """Refresh after a (re)connect if the agent announces another revision."""
-        if self._manifest is not None and rev != self._manifest.rev:
+        if self._manifest is None:
+            if self._deferred:
+                self._schedule_refresh(rev)
+        elif rev != self._manifest.rev:
             self._schedule_refresh(rev)
 
     @callback

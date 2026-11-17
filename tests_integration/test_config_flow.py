@@ -115,10 +115,20 @@ def make_discovery(
     )
 
 
-async def start_user(hass: HomeAssistant) -> FlowResult:
-    """Start the flow as the user."""
+async def start_menu(hass: HomeAssistant) -> FlowResult:
+    """Start the flow as the user; it asks how the PC is reached."""
     return await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+
+async def start_user(hass: HomeAssistant) -> FlowResult:
+    """Start the flow as the user and choose that Home Assistant connects to the PC."""
+    result = await start_menu(hass)
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["manual", "reverse"]
+    return await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "manual"}
     )
 
 
@@ -156,7 +166,7 @@ async def test_user_flow_creates_the_entry(
 ) -> None:
     result = await start_user(hass)
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "user"
+    assert result["step_id"] == "manual"
 
     with patch(FETCH, new=AsyncMock(return_value=FINGERPRINT)) as fetch:
         result = await hass.config_entries.flow.async_configure(
@@ -214,7 +224,7 @@ async def test_user_flow_reports_connection_errors(
             result["flow_id"], {CONF_HOST: "10.0.0.5", CONF_PORT: DEFAULT_PORT}
         )
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "user"
+    assert result["step_id"] == "manual"
     assert result["errors"] == {"base": key}
 
     with patch(FETCH, new=AsyncMock(return_value=FINGERPRINT)):
@@ -587,9 +597,18 @@ def test_german_translation_has_the_keys_of_the_english_one() -> None:
 
 def test_every_error_and_step_of_the_flow_has_a_text() -> None:
     strings = json.loads((INTEGRATION / "strings.json").read_text("utf-8"))["config"]
-    assert {"user", "confirm", "pair", "reauth_confirm", "reconfigure"} <= set(
-        strings["step"]
-    )
+    assert {
+        "user",
+        "manual",
+        "confirm",
+        "pair",
+        "reauth_confirm",
+        "reconfigure",
+        "reverse",
+        "reverse_rotate",
+        "reverse_show",
+    } <= set(strings["step"])
+    assert "waiting_for_agent" in strings["progress"]
     assert {
         "cannot_connect",
         "invalid_code",

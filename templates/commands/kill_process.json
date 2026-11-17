@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "kill_process",
+  "name": "Kill process",
+  "description": "Ends every process of the logged-in user that has the given name, together with its child processes. Unsaved work in the program is lost.",
+  "icon": "mdi:skull-crossbones",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "builtin", "name": "process.kill" },
+  "parameters": [
+    {
+      "name": "Name",
+      "type": "string",
+      "required": true,
+      "maxLength": 255,
+      "pattern": "^[^\\\\/:*?\"<>|\\x00-\\x1F]+$",
+      "description": "The name of the program without path, with or without .exe, for example notepad."
+    }
+  ],
+  "haControl": { "type": "none" },
+  "timeoutSeconds": 30,
+  "concurrency": "parallel",
+  "cooldownSeconds": 0,
+  "captureOutput": false
+}

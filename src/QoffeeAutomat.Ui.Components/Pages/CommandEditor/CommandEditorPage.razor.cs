@@ -24,6 +24,7 @@ public partial class CommandEditorPage
     private IReadOnlyDictionary<string, JsonElement>? _entered;
     private IReadOnlyList<MetricInfo> _metrics = [];
     private IReadOnlyList<ScriptSummary> _scripts = [];
+    private IReadOnlyList<string> _secretNames = [];
     private SessionStatus? _session;
     private string _baseline = string.Empty;
     private string? _loadedId;
@@ -195,6 +196,7 @@ public partial class CommandEditorPage
             _commandIds.AddRange(list.Commands.Select(command => command.Id).OrderBy(id => id, StringComparer.Ordinal));
         });
         await Lookup(async () => _session = (await Api.GetStatusAsync()).Session);
+        await Lookup(async () => _secretNames = [.. (await Api.GetSecretsAsync()).Secrets.Select(secret => secret.Name)]);
     }
 
     private async Task Lookup(Func<Task> read)

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "id": "options_from_not_enum",
+  "name": "optionsFrom on a text variable",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "user",
+  "action": { "type": "builtin", "name": "audio.set_default_output" },
+  "parameters": [
+    { "name": "Device", "type": "string", "optionsFrom": "audio.output_device" }
+  ]
+}

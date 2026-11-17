@@ -1,0 +1,6 @@
+{
+  "t": "event",
+  "type": "notification_action",
+  "ts": 1763126402000,
+  "data": { "action": "open", "tag": "door" }
+}

@@ -7,15 +7,22 @@ using Microsoft.Extensions.Logging.EventLog;
 using QoffeeAutomat.Contracts.Session;
 using QoffeeAutomat.Core.Commands;
 using QoffeeAutomat.Core.Config;
+using QoffeeAutomat.Core.Events;
 using QoffeeAutomat.Core.Execution.PowerShell;
+using QoffeeAutomat.Core.Metrics;
 using QoffeeAutomat.Core.Metrics.Custom;
 using QoffeeAutomat.Core.Platform;
 using QoffeeAutomat.Core.Secrets;
+using QoffeeAutomat.Core.Updates;
 using QoffeeAutomat.Platform.Windows.Actions;
+using QoffeeAutomat.Platform.Windows.Actions.Power;
 using QoffeeAutomat.Platform.Windows.Metrics.CustomSensors;
+using QoffeeAutomat.Platform.Windows.Metrics.HardwareSensors;
 using QoffeeAutomat.Platform.Windows.Metrics.SystemMetrics;
+using QoffeeAutomat.Platform.Windows.Notifications;
 using QoffeeAutomat.Platform.Windows.Security;
 using QoffeeAutomat.Platform.Windows.Sessions;
+using QoffeeAutomat.Platform.Windows.Updates;
 
 namespace QoffeeAutomat.Platform.Windows.Service;
 
@@ -37,6 +44,9 @@ public static class WindowsPlatformServices
 
     /// <summary>The category of the messages about the SessionHosts and the session pipe.</summary>
     public const string SessionsLogCategory = "QoffeeAutomat.Sessions";
+
+    /// <summary>The category of the messages about the optional hardware sensors.</summary>
+    public const string HardwareLogCategory = "QoffeeAutomat.HardwareSensors";
 
     /// <summary>The path of the SessionHost executable: it is installed next to the agent executable (PLAN.md S09 item 7).</summary>
     /// <returns>The full path.</returns>
@@ -146,6 +156,42 @@ public static class WindowsPlatformServices
             provider.GetRequiredService<ILoggerFactory>().CreateLogger(SessionsLogCategory)));
         services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<TrayStateService>());
 
+        // One-click UI login (T711): answers the tray's request for a single-use login token, for administrators only. The agent
+        // host registers ILoginTokenIssuer.
+        services.AddSingleton(provider =>
+        {
+            var bridge = provider.GetRequiredService<WindowsSessionBridge>();
+            return new LoginTokenService(
+                provider.GetRequiredService<WindowsSessionManager>(),
+                () => bridge.ActiveConnection,
+                provider.GetRequiredService<IElevatedNativeApi>(),
+                provider.GetRequiredService<ILoginTokenIssuer>(),
+                provider.GetRequiredService<ILoggerFactory>().CreateLogger(SessionsLogCategory));
+        });
+        services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<LoginTokenService>());
+
+        // Global hotkeys (T708): the hotkeys of the settings go to the session helpers, presses come back as the event
+        // hotkey_pressed, and the outcome of each registration is what the UI shows. The agent host registers IConfigStore and IEventBus.
+        services.AddSingleton(provider =>
+        {
+            var bridge = provider.GetRequiredService<WindowsSessionBridge>();
+            return new HotkeyService(
+                provider.GetRequiredService<WindowsSessionManager>(),
+                () => bridge.ActiveConnection,
+                provider.GetRequiredService<IConfigStore>(),
+                provider.GetRequiredService<IEventBus>(),
+                provider.GetRequiredService<ILoggerFactory>().CreateLogger(SessionsLogCategory));
+        });
+        services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<HotkeyService>());
+        services.RemoveAll<IHotkeyStatusSource>();
+        services.AddSingleton<IHotkeyStatusSource>(provider => provider.GetRequiredService<HotkeyService>());
+
+        // Button presses of notifications (T702) come back from the session helpers as the event notification_action.
+        services.AddSingleton(provider => new NotificationActionRelay(
+            provider.GetRequiredService<WindowsSessionManager>(),
+            provider.GetRequiredService<IEventBus>()));
+        services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<NotificationActionRelay>());
+
         // When the computer started: the source of the metric system.last_boot and of the boot id in hello (T304).
         services.AddSingleton(provider => new WindowsBootTime(provider.GetService<TimeProvider>() ?? TimeProvider.System));
         services.RemoveAll<IPlatformInfo>();
@@ -163,6 +209,23 @@ public static class WindowsPlatformServices
         services.RemoveAll<IMetricProvider>();
         services.AddSingleton<IMetricProvider>(provider => provider.GetRequiredService<WindowsSystemMetricProvider>());
 
+        // The optional hardware sensors (T707, ADR 0002): temperatures, fans and power draw through LibreHardwareMonitorLib and the
+        // PawnIO kernel driver. The provider follows the setting hardwareSensors.enabled, which is off by default; while it is off,
+        // nothing here calls IHardwareSourceFactory.Open, so neither the library nor a driver handle is loaded. Creating the
+        // factory does not load the library either (see LibreHardwareSourceFactory). The agent host registers IConfigStore.
+        services.TryAddSingleton<IHardwareSourceFactory, LibreHardwareSourceFactory>();
+        services.TryAddSingleton<IHardwareDriverProbe, PawnIoDriverProbe>();
+        services.AddSingleton(provider => new HardwareMetricProvider(
+            provider.GetRequiredService<IConfigStore>(),
+            provider.GetRequiredService<IHardwareSourceFactory>(),
+            provider.GetRequiredService<IHardwareDriverProbe>(),
+            provider.GetService<TimeProvider>() ?? TimeProvider.System,
+            provider.GetRequiredService<ILoggerFactory>().CreateLogger(HardwareLogCategory)));
+        services.AddSingleton<IMetricProvider>(provider => provider.GetRequiredService<HardwareMetricProvider>());
+        services.AddSingleton<IHostedService>(provider => provider.GetRequiredService<HardwareMetricProvider>());
+        services.RemoveAll<IHardwareSensorStatusSource>();
+        services.AddSingleton<IHardwareSensorStatusSource>(provider => provider.GetRequiredService<HardwareMetricProvider>());
+
         // The custom sensor types that need Windows (T307): the custom sensor provider takes them and the sensor endpoints
         // validate with them, while on other platforms they are reported as unsupported.
         services.TryAddSingleton<IPerformanceCounterReader>(provider => new PerformanceCounterReader(provider.GetService<TimeProvider>()));
@@ -176,11 +239,38 @@ public static class WindowsPlatformServices
         // The built-in actions (T306): the power actions run here through IPowerNativeApi, every action of the desktop is
         // handed to the SessionHost by the decorator, which has its own provider (UserBuiltinActions).
         services.TryAddSingleton<IPowerNativeApi, WindowsPowerNativeApi>();
-        services.AddSingleton(provider => new WindowsBuiltinActions(provider.GetRequiredService<IPowerNativeApi>()));
+
+        // Keep awake (T715): one power request that the agent owns. It is given back when the agent stops and is never restored after a
+        // restart; the metric power.keep_awake reports the real state and the relay publishes every change at once.
+        services.TryAddSingleton<IPowerRequestApi, WindowsPowerRequestApi>();
+        services.AddSingleton(provider => new KeepAwakeService(
+            provider.GetRequiredService<IPowerRequestApi>(),
+            provider.GetService<TimeProvider>()));
+        services.AddSingleton<IMetricProvider>(provider => new KeepAwakeMetricProvider(provider.GetRequiredService<KeepAwakeService>()));
+        services.AddSingleton<IHostedService>(provider => new KeepAwakeMetricRelay(
+            provider.GetRequiredService<KeepAwakeService>(),
+            provider.GetService<MetricEngine>() is { } engine ? engine.RequestSample : null));
+
+        // The one pending delayed power action (T715): the countdown dialog is shown by the SessionHost of the logged-in user, the
+        // event power_action_cancelled goes to the event bus that the agent host registers.
+        services.TryAddSingleton<ICountdownPresenter>(provider => new SessionHostCountdownPresenter(provider.GetRequiredService<WindowsSessionBridge>()));
+        services.AddSingleton(provider => new PowerActionScheduler(
+            provider.GetService<TimeProvider>(),
+            provider.GetRequiredService<ICountdownPresenter>(),
+            provider.GetService<IEventBus>(),
+            provider.GetRequiredService<ILoggerFactory>().CreateLogger(ActionsLogCategory)));
+        services.AddSingleton(provider => new WindowsBuiltinActions(
+            provider.GetRequiredService<IPowerNativeApi>(),
+            provider.GetRequiredService<PowerActionScheduler>(),
+            provider.GetRequiredService<KeepAwakeService>()));
+        // notify.toast (T702) has its picture fetched by the agent; the fetcher is replaceable for tests.
+        services.TryAddSingleton<INotificationImageFetcher>(_ => new NotificationImageFetcher());
         services.RemoveAll<IBuiltinActionProvider>();
         services.AddSingleton<IBuiltinActionProvider>(provider => new UserContextBuiltinActions(
             provider.GetRequiredService<WindowsBuiltinActions>(),
-            provider.GetRequiredService<WindowsSessionBridge>()));
+            provider.GetRequiredService<WindowsSessionBridge>(),
+            provider.GetRequiredService<INotificationImageFetcher>(),
+            provider.GetRequiredService<PowerActionScheduler>()));
 
         // Commands with runAs: user_elevated (T311, D-036).
         services.TryAddSingleton<IElevatedNativeApi, WindowsElevatedNativeApi>();
@@ -190,6 +280,10 @@ public static class WindowsPlatformServices
             provider.GetRequiredService<IFileSystemAcl>(),
             provider.GetService<TimeProvider>(),
             logger: provider.GetRequiredService<ILoggerFactory>().CreateLogger(SecurityLogCategory)));
+
+        // The Authenticode signature of the installer that agent.update downloads (T704).
+        services.RemoveAll<IAuthenticodeVerifier>();
+        services.AddSingleton<IAuthenticodeVerifier, WinTrustAuthenticodeVerifier>();
 
         services.RemoveAll<IScriptAccessGuard>();
         services.AddSingleton<IScriptAccessGuard>(provider => new SystemScriptAclGuard(

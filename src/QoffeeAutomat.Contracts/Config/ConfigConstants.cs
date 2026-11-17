@@ -3,8 +3,54 @@ namespace QoffeeAutomat.Contracts.Config;
 /// <summary>Schema version of the configuration documents.</summary>
 public static class DocumentSchema
 {
-    /// <summary>The only schema version this build understands.</summary>
+    /// <summary>The schema version of sensor documents, metric overrides and the settings.</summary>
     public const int CurrentVersion = 1;
+
+    /// <summary>
+    /// The schema version of command documents. Version 2 (T705, T706) adds the optional members <c>conditions</c> and
+    /// <c>secrets</c>; documents of version 1 are migrated forward when they are read (PLAN.md S13).
+    /// </summary>
+    public const int CommandVersion = 2;
+}
+
+/// <summary>The values of <c>conditions.session</c>: the state of the interactive session that a command needs (PLAN.md S06, T705).</summary>
+public static class SessionRequirements
+{
+    /// <summary>No requirement.</summary>
+    public const string Any = "any";
+
+    /// <summary>A user is logged in; the session may be locked.</summary>
+    public const string LoggedIn = "logged_in";
+
+    /// <summary>A user is logged in and the session is not locked.</summary>
+    public const string Unlocked = "unlocked";
+
+    /// <summary>A user is logged in and the session is locked.</summary>
+    public const string Locked = "locked";
+}
+
+/// <summary>The day names of <c>conditions.timeWindow.days</c>.</summary>
+public static class WeekdayNames
+{
+    /// <summary>The valid names, Monday first.</summary>
+    public static IReadOnlyList<string> All { get; } = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+    /// <summary>Returns the name of a day of the week.</summary>
+    /// <param name="day">The day.</param>
+    /// <returns>The three-letter lower-case name.</returns>
+    public static string Of(DayOfWeek day)
+    {
+        return day switch
+        {
+            DayOfWeek.Monday => "mon",
+            DayOfWeek.Tuesday => "tue",
+            DayOfWeek.Wednesday => "wed",
+            DayOfWeek.Thursday => "thu",
+            DayOfWeek.Friday => "fri",
+            DayOfWeek.Saturday => "sat",
+            _ => "sun",
+        };
+    }
 }
 
 /// <summary>The values of <c>origin</c> in the common document header.</summary>

@@ -5,9 +5,13 @@
        (WTSQueryUserToken, CreateProcessAsUser). It runs user-context commands with the runners of Core
        (T303). The tray icon (Windows Forms NotifyIcon, T310) lives in Tray/. -->
 
+  <!-- The target framework names a Windows version (10.0.19041, Windows 10 version 2004) so that the Windows Runtime APIs are
+       projected into .NET: the toast notifications of notify.toast (Notifications/, T702) and the system media transport
+       controls (Media/, T716) have no other way in without an extra package. A project that references this one needs the
+       same or a higher platform version: the test project of the Windows platform has it. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <AssemblyName>QoffeeAutomat.SessionHost</AssemblyName>
     <RootNamespace>QoffeeAutomat.SessionHost</RootNamespace>
     <UseWindowsForms>true</UseWindowsForms>

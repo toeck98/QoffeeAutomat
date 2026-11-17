@@ -34,6 +34,12 @@
          the Windows custom sensor types (T304, T307); same release train as the packages above. -->
     <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="10.0.15" />
     <PackageVersion Include="System.Management" Version="10.0.15" />
+    <!-- Hardware sensors (T707, ADR 0002); MPL-2.0. Must be a release that uses the PawnIO driver and not WinRing0 (0.9.5 or newer; the
+         agent refuses older ones at run time, see HardwareLibraryGuard).
+         NOT VERIFIED: the agent that wrote this had no network access, so the version number is the oldest release that ADR 0002 accepts,
+         not the current one. Look up the current stable release on nuget.org, pin it here and check its dependencies before merging
+         (PLAN.md S01 rule 9); Dependabot keeps it current afterwards. -->
+    <PackageVersion Include="LibreHardwareMonitorLib" Version="0.9.6" />
   </ItemGroup>
 
   <ItemGroup Label="Blazor">

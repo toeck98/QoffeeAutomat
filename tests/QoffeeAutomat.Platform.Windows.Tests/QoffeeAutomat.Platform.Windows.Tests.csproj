@@ -4,8 +4,10 @@
        on Linux because Directory.Build.props sets EnableWindowsTargeting; tests that need Windows skip themselves
        elsewhere, the others (ACL logic, command-line logic, power and session mapping) run on every system. -->
 
+  <!-- The platform version is the one of the SessionHost (it uses the Windows Runtime APIs, T702 and T716); a project can only
+       reference a project whose platform version is not higher than its own. -->
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <IsTestProject Condition="!$([MSBuild]::IsOSPlatform('Windows'))">false</IsTestProject>
   </PropertyGroup>
 

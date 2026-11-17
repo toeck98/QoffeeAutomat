@@ -78,6 +78,17 @@ public interface ISessionBridge
     /// <summary>Raised after <see cref="State"/> changed.</summary>
     event EventHandler<SessionStateChangedEventArgs>? StateChanged;
 
+    /// <summary>
+    /// Raised after the result of <see cref="DescribeUserMetrics"/> changed, for example because the audio devices of the session
+    /// changed and with them the options of the device metrics (T713). The metric engine describes the metrics again and the
+    /// manifest revision follows. Handlers return quickly. A bridge whose descriptors never change need not implement it.
+    /// </summary>
+    event EventHandler? UserMetricsChanged
+    {
+        add { }
+        remove { }
+    }
+
     /// <summary>Describes the metrics that come from the session (context <c>user</c>).</summary>
     /// <returns>The descriptors.</returns>
     IReadOnlyList<MetricDescriptor> DescribeUserMetrics();

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "lock_pc",
+  "name": "Lock the PC",
+  "description": "Locks the session of the logged-in user.",
+  "icon": "mdi:lock",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "user",
+  "action": { "type": "builtin", "name": "session.lock" },
+  "haControl": { "type": "button" },
+  "timeoutSeconds": 15,
+  "concurrency": "single",
+  "cooldownSeconds": 0,
+  "captureOutput": false
+}
