@@ -7,9 +7,9 @@
 # icon-translations is met as well. Rules outside this list are not targeted and are
 # not named here.
 #
-# Every rule is `done` or `exempt` with a reason. The user documentation rules are
-# exempt in this file because the documentation is the deliverable of task T604;
-# remove the exemptions there. tests_integration/test_diagnostics.py checks that this
+# Every rule is `done` or `exempt` with a reason. The documentation rules (docs-*) are
+# `done`: the user documentation of task T604 (docs/user/, published with MkDocs on
+# GitHub Pages) covers them. tests_integration/test_diagnostics.py checks that this
 # file stays valid.
 rules:
   # -- Bronze ----------------------------------------------------------------------
@@ -24,18 +24,10 @@ rules:
   dependency-transparency:
     status: exempt
     comment: There are no external Python requirements; aiohttp ships with Home Assistant.
-  docs-actions:
-    status: exempt
-    comment: The user documentation is written in task T604; the action is described in services.yaml and strings.json.
-  docs-high-level-description:
-    status: exempt
-    comment: The user documentation is written in task T604.
-  docs-installation-instructions:
-    status: exempt
-    comment: The user documentation is written in task T604.
-  docs-removal-instructions:
-    status: exempt
-    comment: The user documentation is written in task T604.
+  docs-actions: done # docs/user/commands.md (run a command from Home Assistant), services.yaml
+  docs-high-level-description: done # docs/index.md, docs/user/overview.md
+  docs-installation-instructions: done # docs/user/install-integration.md
+  docs-removal-instructions: done # docs/user/install-integration.md (Remove)
   entity-event-setup: done
   entity-unique-id: done
   has-entity-name: done
@@ -49,10 +41,8 @@ rules:
   config-entry-unloading: done
   docs-configuration-parameters:
     status: exempt
-    comment: The integration has no options; host and port are changed by the reconfiguration flow, described in the documentation of task T604.
-  docs-installation-parameters:
-    status: exempt
-    comment: The user documentation is written in task T604.
+    comment: The integration has no options; host and port are changed by the reconfiguration flow, which docs/user/pairing.md and docs/user/install-integration.md describe.
+  docs-installation-parameters: done # docs/user/pairing.md (host, port, pairing code)
   entity-unavailable: done
   integration-owner: done
   log-when-unavailable: done
@@ -65,27 +55,13 @@ rules:
   diagnostics: done
   discovery-update-info: done
   discovery: done
-  docs-data-update:
-    status: exempt
-    comment: Not targeted for the 1.0 documentation; state is pushed by the agent (task T604 describes it).
-  docs-examples:
-    status: exempt
-    comment: Examples are part of services.yaml; the full documentation is task T604.
-  docs-known-limitations:
-    status: exempt
-    comment: The user documentation is written in task T604.
-  docs-supported-devices:
-    status: exempt
-    comment: The only supported device is a PC with the QoffeeAutomat agent; documented in task T604.
-  docs-supported-functions:
-    status: exempt
-    comment: The user documentation is written in task T604.
-  docs-troubleshooting:
-    status: exempt
-    comment: The user documentation is written in task T604.
-  docs-use-cases:
-    status: exempt
-    comment: The user documentation is written in task T604.
+  docs-data-update: done # docs/user/overview.md (how data flows: the agent pushes changes)
+  docs-examples: done # docs/user/commands.md, docs/user/events.md, docs/user/example-mode-start.md
+  docs-known-limitations: done # docs/user/install-integration.md (Known limitations)
+  docs-supported-devices: done # docs/user/install-windows.md (requirements), docs/user/overview.md
+  docs-supported-functions: done # docs/user/overview.md, docs/user/reference/
+  docs-troubleshooting: done # docs/user/troubleshooting.md
+  docs-use-cases: done # docs/user/quick-start.md, docs/user/example-mode-start.md
   dynamic-devices:
     status: exempt
     comment: One config entry is one PC with exactly one device; there are no sub-devices. Entities are added dynamically from the manifest.

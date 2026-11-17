@@ -149,9 +149,13 @@ internal static class WindowsHostIntegration
         // Started through "dotnet agent.dll", the service has to start the same way.
         string[] leading = [];
         if (string.Equals(Path.GetFileNameWithoutExtension(processPath), "dotnet", StringComparison.OrdinalIgnoreCase)
-            && Assembly.GetEntryAssembly()?.Location is { Length: > 0 } entryAssembly)
+            && Assembly.GetEntryAssembly()?.GetName().Name is { Length: > 0 } entryName)
         {
-            leading = [entryAssembly];
+            string entryAssembly = Path.Combine(AppContext.BaseDirectory, $"{entryName}.dll");
+            if (File.Exists(entryAssembly))
+            {
+                leading = [entryAssembly];
+            }
         }
 
         var command = new ServiceCommand(new ScmClient(), new DataDirectoryProvisioner(new WindowsFileSystemAcl()), new WindowsEventLogSources());

@@ -1,0 +1,36 @@
+# Template of the winget default-locale manifest (PLAN.md S12, task T607). New-WingetManifest.ps1 fills in the markers that stand between two at signs.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
+
+PackageIdentifier: toeck98.QoffeeAutomat
+PackageVersion: @VERSION@
+PackageLocale: en-US
+Publisher: toeck98
+PublisherUrl: https://github.com/toeck98
+PublisherSupportUrl: https://github.com/toeck98/QoffeeAutomat/issues
+PackageName: QoffeeAutomat
+PackageUrl: https://github.com/toeck98/QoffeeAutomat
+License: MIT
+LicenseUrl: https://github.com/toeck98/QoffeeAutomat/blob/v@VERSION@/LICENSE
+Copyright: Copyright (c) 2026 toeck98
+ShortDescription: Monitor a Windows PC from Home Assistant and run your own commands on it.
+Description: |-
+  QoffeeAutomat is a Windows service that lets Home Assistant monitor a PC and run user-defined commands on it. It talks to the
+  matching Home Assistant integration over QoffeeLink, an encrypted WebSocket protocol, and serves a local web interface for
+  writing commands and sensors. Variables from Home Assistant are always passed as data, never pasted into a script. The
+  integration is installed separately through HACS.
+Moniker: qoffeeautomat
+Tags:
+- automation
+- hacs
+- home-assistant
+- monitoring
+- powershell
+- remote-control
+- smart-home
+- windows-service
+ReleaseNotesUrl: https://github.com/toeck98/QoffeeAutomat/releases/tag/v@VERSION@
+Documentations:
+- DocumentLabel: Documentation
+  DocumentUrl: https://toeck98.github.io/QoffeeAutomat/
+ManifestType: defaultLocale
+ManifestVersion: 1.10.0

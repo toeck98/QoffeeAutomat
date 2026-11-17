@@ -204,6 +204,22 @@ public sealed class AuthEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task A_burst_of_parallel_wrong_passwords_cannot_exceed_the_failure_limit()
+    {
+        await using var agent = new TestAgent(_data.Path);
+        using HttpClient client = agent.CreateApiClient();
+        await agent.SetUpAsync(client);
+
+        // Security review T606: the check "is this caller locked out" and the count of the failure are separated by the
+        // slow password hash, so parallel requests must not all pass the check before the first failure is counted.
+        HttpStatusCode[] results = await Task.WhenAll(
+            Enumerable.Range(0, 30).Select(attempt => LoginStatusAsync(client, "wrong password " + attempt)));
+
+        Assert.Equal(4, results.Count(status => status == HttpStatusCode.Unauthorized));
+        Assert.Equal(26, results.Count(status => status == HttpStatusCode.TooManyRequests));
+    }
+
+    [Fact]
     public async Task A_lockout_of_one_address_does_not_lock_out_another()
     {
         await using var agent = new TestAgent(_data.Path);

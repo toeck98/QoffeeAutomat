@@ -52,6 +52,7 @@ public sealed class AccountService : IDisposable
     private readonly SessionStore _sessions;
     private readonly AttemptLimiter _limiter;
     private readonly SemaphoreSlim _setupGate = new(1, 1);
+    private readonly SemaphoreSlim _passwordGate = new(1, 1);
 
     /// <summary>Creates the service.</summary>
     /// <param name="passwords">The password hash.</param>
@@ -150,18 +151,29 @@ public sealed class AccountService : IDisposable
         ArgumentNullException.ThrowIfNull(caller);
         ArgumentNullException.ThrowIfNull(password);
 
-        if (_limiter.GetLockout(LoginScope, caller) is { } lockout)
+        // One password check at a time (security review T606): the lockout is checked before and recorded after the
+        // slow hash, so without this gate a burst of parallel requests would all pass the check before the first
+        // failure is counted and could try far more than the allowed number of passwords.
+        await _passwordGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            return new AccountResult(AccountOutcome.LockedOut, RetryAfter: lockout);
-        }
+            if (_limiter.GetLockout(LoginScope, caller) is { } lockout)
+            {
+                return new AccountResult(AccountOutcome.LockedOut, RetryAfter: lockout);
+            }
 
-        if (!await _passwords.VerifyAsync(password, cancellationToken).ConfigureAwait(false))
+            if (!await _passwords.VerifyAsync(password, cancellationToken).ConfigureAwait(false))
+            {
+                return Failed(caller);
+            }
+
+            _limiter.Reset(LoginScope, caller);
+            return new AccountResult(AccountOutcome.Done, SessionId: _sessions.Create());
+        }
+        finally
         {
-            return Failed(caller);
+            _passwordGate.Release();
         }
-
-        _limiter.Reset(LoginScope, caller);
-        return new AccountResult(AccountOutcome.Done, SessionId: _sessions.Create());
     }
 
     /// <summary>Changes the password; all other sessions end.</summary>
@@ -182,32 +194,42 @@ public sealed class AccountService : IDisposable
         ArgumentNullException.ThrowIfNull(currentPassword);
         ArgumentNullException.ThrowIfNull(newPassword);
 
-        if (_limiter.GetLockout(LoginScope, caller) is { } lockout)
+        // The same gate as the sign-in: both check the current password against the same lockout counter.
+        await _passwordGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            return new AccountResult(AccountOutcome.LockedOut, RetryAfter: lockout);
-        }
+            if (_limiter.GetLockout(LoginScope, caller) is { } lockout)
+            {
+                return new AccountResult(AccountOutcome.LockedOut, RetryAfter: lockout);
+            }
 
-        if (!await _passwords.VerifyAsync(currentPassword, cancellationToken).ConfigureAwait(false))
+            if (!await _passwords.VerifyAsync(currentPassword, cancellationToken).ConfigureAwait(false))
+            {
+                return Failed(caller);
+            }
+
+            string? problem = _passwords.ValidatePolicy(newPassword);
+            if (problem is not null)
+            {
+                return new AccountResult(AccountOutcome.WeakPassword, Message: problem);
+            }
+
+            await _passwords.SetPasswordAsync(newPassword, cancellationToken).ConfigureAwait(false);
+            _sessions.RevokeAllExcept(currentSessionId);
+            _limiter.Reset(LoginScope, caller);
+            return new AccountResult(AccountOutcome.Done);
+        }
+        finally
         {
-            return Failed(caller);
+            _passwordGate.Release();
         }
-
-        string? problem = _passwords.ValidatePolicy(newPassword);
-        if (problem is not null)
-        {
-            return new AccountResult(AccountOutcome.WeakPassword, Message: problem);
-        }
-
-        await _passwords.SetPasswordAsync(newPassword, cancellationToken).ConfigureAwait(false);
-        _sessions.RevokeAllExcept(currentSessionId);
-        _limiter.Reset(LoginScope, caller);
-        return new AccountResult(AccountOutcome.Done);
     }
 
-    /// <summary>Releases the lock of the setup.</summary>
+    /// <summary>Releases the locks of the setup and of the password checks.</summary>
     public void Dispose()
     {
         _setupGate.Dispose();
+        _passwordGate.Dispose();
     }
 
     private AccountResult Failed(string caller)

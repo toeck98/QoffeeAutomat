@@ -47,7 +47,9 @@ known-local-folder = ["e2e_driver"]
 # (S310) and holds throw-away passwords of that stack (S105, S106).
 "tests/e2e/**" = ["S101", "S105", "S106", "S310", "S603", "S607"]
 # sync_issues.py talks to the fixed https://api.github.com endpoint through urllib.
+# scripts/docs/ writes long Markdown lines (E501) and parses C# sources with regular expressions.
 "scripts/**" = ["S101", "S310", "S603", "S607", "T201"]
+"scripts/docs/**" = ["E501", "S101", "T201"]
 
 [tool.mypy]
 python_version = "3.14"

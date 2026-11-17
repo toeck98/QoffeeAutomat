@@ -4,7 +4,7 @@ The prototype (tag `prototype-v0`, spelled "QoffeAutomat") switched display prof
 changed an entity. QoffeeAutomat keeps both features, but as ordinary commands built from templates instead of
 hard-coded modules. This guide moves an existing installation over.
 
-Reference material from the prototype is kept in [`docs/prototype/`](prototype/README.md).
+Reference material from the prototype is kept in [`docs/prototype/`](https://github.com/toeck98/QoffeeAutomat/tree/main/docs/prototype) in the repository.
 
 ## What became what
 
@@ -16,11 +16,12 @@ Reference material from the prototype is kept in [`docs/prototype/`](prototype/R
 | Passing a full file path as profile | Dropped. A profile is a name; paths are rejected (the value comes from Home Assistant). |
 | `modes.json`: `DisplayConfig`, `Programs` with `Command`/`Arguments`, `Sleep` | A command of type `sequence`: a `set_display_profile` step, one command per program, `delaySeconds` steps. |
 | Mode names such as `TV-Rennsport-Mode` | One sequence command per mode, for example `mode_example`; exposed to Home Assistant as a button. |
-| Polling a Home Assistant entity over REST | QoffeeLink: Home Assistant connects to the agent; see the pairing steps in the README. |
+| Polling a Home Assistant entity over REST | QoffeeLink: Home Assistant connects to the agent; see [Pair with Home Assistant](user/pairing.md). |
 
 ## Step by step
 
-1. **Install and pair** the new agent and the Home Assistant integration. The prototype and the new agent can stay
+1. **Install and pair** the new agent ([Install on Windows](user/install-windows.md), [First-run setup](user/first-run.md)) and the
+   Home Assistant integration ([Install the integration](user/install-integration.md), [Pairing](user/pairing.md)). The prototype and the new agent can stay
    installed side by side; stop the prototype service before you try the new commands so that both do not react
    to the same event.
 2. **Install the DisplayConfig module** for all users (PowerShell as administrator):
@@ -85,3 +86,9 @@ Reference material from the prototype is kept in [`docs/prototype/`](prototype/R
 4. Open the run history in the UI to see the result of every step.
 
 This check on a real desktop is open item O-06 of the plan.
+
+## Next steps
+
+* To start the PC in a mode from an automation (wake, wait for the session, apply the mode), see
+  [Example: start the PC in a mode](user/example-mode-start.md).
+* More on sequences, variables and the Home Assistant controls: [Commands](user/commands.md).

@@ -1,0 +1,8 @@
+# Template of the winget version manifest (PLAN.md S12, task T607). New-WingetManifest.ps1 fills in the markers that stand between two at signs.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.10.0.schema.json
+
+PackageIdentifier: toeck98.QoffeeAutomat
+PackageVersion: @VERSION@
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.10.0

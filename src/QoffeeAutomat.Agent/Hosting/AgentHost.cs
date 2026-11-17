@@ -210,6 +210,11 @@ public static class AgentHost
             {
                 ScriptsDirectory = provider.GetRequiredService<IAppPaths>().ScriptsDirectory,
 
+                // The per-run files (wrapper, inline code, parameter file with the variable values) go below the data
+                // directory, which only SYSTEM and Administrators can read (S05, S09), not into the temp directory of
+                // LocalSystem (security review T606).
+                TempRoot = Path.Combine(provider.GetRequiredService<IAppPaths>().DataDirectory, "tmp"),
+
                 // Registered by the Windows platform (T301): refuses system scripts that standard users can change.
                 ScriptGuard = provider.GetService<IScriptAccessGuard>(),
 

@@ -13,8 +13,19 @@
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
   </PropertyGroup>
 
+  <!-- A Windows runtime identifier (dotnet publish -r win-x64, T601) only makes sense for the Windows build, and a publish
+       of a multi-targeted project needs one target framework, so the plain command publishes the Windows build. The
+       packaging scripts and the publish profiles in Properties/PublishProfiles pass -f net10.0-windows as well. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != '' and $(RuntimeIdentifier.StartsWith('win-'))">
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFrameworks></TargetFrameworks>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
     <DefineConstants>$(DefineConstants);QOFFEE_WINDOWS</DefineConstants>
+    <!-- The icon of the executable (assets/brand is the single source of all icons, PLAN.md S05); the installer
+         and the Start menu shortcut take it from the executable. -->
+    <ApplicationIcon>..\..\assets\brand\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,7 +40,10 @@
     <!-- The UI is built and published with the agent: its files (the _framework folder, the icons, the MudBlazor assets
          of the component library) become static web assets of the agent, so `dotnet publish` of the agent puts the whole
          UI into wwwroot. Nothing of it is referenced from code. -->
-    <ProjectReference Include="..\QoffeeAutomat.Ui\QoffeeAutomat.Ui.csproj" />
+    <!-- The UI is built for the browser. A runtime identifier given to the agent on the command line (-r win-x64) must not
+         reach it (T601). -->
+    <ProjectReference Include="..\QoffeeAutomat.Ui\QoffeeAutomat.Ui.csproj"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile;PublishReadyToRun" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">

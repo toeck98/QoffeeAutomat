@@ -1733,7 +1733,7 @@ tasks:
     verify:
       - "dotnet publish src/QoffeeAutomat.Agent -c Release -r win-x64"
     human_verify: true
-    status: todo
+    status: done
 
   - id: T602
     title: Automate releases
@@ -1764,7 +1764,7 @@ tasks:
       - "A release is published only after all assets are attached; a run that fails before that leaves a draft."
     verify:
       - "actionlint .github/workflows/release.yml .github/workflows/release-please.yml"
-    status: todo
+    status: done
 
   - id: T603
     title: Add code signing
@@ -1817,7 +1817,7 @@ tasks:
       - "The quick start leads from download to a working Home Assistant entity without referring to source code."
     verify:
       - "mkdocs build --strict"
-    status: todo
+    status: done
 
   - id: T605
     title: Make the integration installable through HACS
