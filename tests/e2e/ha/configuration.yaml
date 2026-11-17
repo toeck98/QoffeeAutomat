@@ -1,0 +1,17 @@
+# Home Assistant configuration of the end-to-end test (PLAN.md S14, task T508).
+# default_config provides the onboarding API that the test drives; the file is named
+# configuration.yaml on purpose (D-034 only forbids config.yaml, config.yml and config.json).
+default_config:
+
+homeassistant:
+  name: E2E Home
+  unit_system: metric
+  time_zone: UTC
+  latitude: 52.0
+  longitude: 13.0
+  elevation: 0
+
+logger:
+  default: warning
+  logs:
+    custom_components.qoffeeautomat: debug

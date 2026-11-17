@@ -37,10 +37,15 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["custom_components"]
+# tests/e2e/e2e_driver.py is imported by its siblings as a top-level module.
+known-local-folder = ["e2e_driver"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests_integration/**" = ["S101"]
 "tests/scripts/**" = ["S101", "S603"]
+# The end-to-end driver runs the Docker CLI (S603, S607), opens URLs of the local stack
+# (S310) and holds throw-away passwords of that stack (S105, S106).
+"tests/e2e/**" = ["S101", "S105", "S106", "S310", "S603", "S607"]
 # sync_issues.py talks to the fixed https://api.github.com endpoint through urllib.
 "scripts/**" = ["S101", "S310", "S603", "S607", "T201"]
 

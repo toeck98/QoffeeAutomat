@@ -1511,7 +1511,7 @@ tasks:
       - "The client interoperates with the real agent in a test that starts the Linux agent binary with the simulated platform (skipped when the binary is absent)."
     verify:
       - "pytest tests_integration/test_client.py"
-    status: todo
+    status: done
 
   - id: T502
     title: Implement the config flow
@@ -1539,7 +1539,7 @@ tasks:
       - "A zeroconf announcement of a configured but disconnected agent triggers an immediate connection attempt."
     verify:
       - "pytest tests_integration/test_config_flow.py --cov=custom_components.qoffeeautomat.config_flow --cov-fail-under=100"
-    status: todo
+    status: done
 
   - id: T503
     title: Implement entry setup, device and dynamic entity management
@@ -1570,7 +1570,7 @@ tasks:
       - "Reconnecting with a new boot id signals booted exactly once; reconnecting with the same boot id does not."
     verify:
       - "pytest tests_integration/test_init.py"
-    status: todo
+    status: done
 
   - id: T504
     title: Implement the sensor and binary sensor platforms
@@ -1597,7 +1597,7 @@ tasks:
       - "Timestamp and enum metrics become correctly typed sensors."
     verify:
       - "pytest tests_integration/test_sensor.py"
-    status: todo
+    status: done
 
   - id: T505
     title: Implement the command entity platforms
@@ -1621,7 +1621,7 @@ tasks:
       - "A failing command raises a Home Assistant error containing the agent's error message."
     verify:
       - "pytest tests_integration/test_controls.py"
-    status: todo
+    status: done
 
   - id: T506
     title: Implement the run_command action and events
@@ -1647,7 +1647,7 @@ tasks:
       - "An agent event triggers both the event entity and the bus event."
     verify:
       - "pytest tests_integration/test_services.py"
-    status: todo
+    status: done
 
   - id: T507
     title: Add diagnostics, repairs, translations and brand assets
@@ -1673,7 +1673,7 @@ tasks:
       - "quality_scale.yaml marks every targeted rule as done or exempt with a reason."
     verify:
       - "pytest tests_integration"
-    status: todo
+    status: done
 
   - id: T508
     title: Add the end-to-end test with a real Home Assistant
@@ -1702,7 +1702,7 @@ tasks:
     verify:
       - "docker compose -f tests/e2e/docker-compose.yml config"
       - "pytest tests/e2e"
-    status: todo
+    status: done
 
   # ───────────────────────────── M6 Release 1.0 ─────────────────────────────
   - id: T601

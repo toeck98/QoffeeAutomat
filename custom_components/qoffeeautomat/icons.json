@@ -1,0 +1,74 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "battery_charging": { "default": "mdi:battery" },
+      "system_pending_reboot": { "default": "mdi:restart-alert" },
+      "session_ready": {
+        "default": "mdi:account-off-outline",
+        "state": { "on": "mdi:account-check-outline" }
+      },
+      "session_locked": {
+        "default": "mdi:lock-open-variant-outline",
+        "state": { "on": "mdi:lock-outline" }
+      },
+      "audio_muted": {
+        "default": "mdi:volume-high",
+        "state": { "on": "mdi:volume-off" }
+      },
+      "privacy_microphone_in_use": {
+        "default": "mdi:microphone-off",
+        "state": { "on": "mdi:microphone" }
+      },
+      "sim_toggle": {
+        "default": "mdi:toggle-switch-off-outline",
+        "state": { "on": "mdi:toggle-switch-outline" }
+      }
+    },
+    "event": {
+      "events": { "default": "mdi:bell-outline" }
+    },
+    "sensor": {
+      "cpu_usage": { "default": "mdi:cpu-64-bit" },
+      "gpu_usage": { "default": "mdi:expansion-card" },
+      "memory_used_percent": { "default": "mdi:memory" },
+      "memory_used": { "default": "mdi:memory" },
+      "memory_total": { "default": "mdi:memory" },
+      "net_ipv4": { "default": "mdi:ip-network" },
+      "battery_level": { "default": "mdi:battery" },
+      "system_uptime": { "default": "mdi:timer-outline" },
+      "system_last_boot": { "default": "mdi:restart" },
+      "system_os_version": { "default": "mdi:microsoft-windows" },
+      "session_user": { "default": "mdi:account" },
+      "session_idle_seconds": { "default": "mdi:timer-sand" },
+      "window_title": { "default": "mdi:application-outline" },
+      "window_process": { "default": "mdi:application-cog-outline" },
+      "audio_volume": { "default": "mdi:volume-high" },
+      "sim_cpu": { "default": "mdi:cpu-64-bit" },
+      "sim_counter": { "default": "mdi:counter" },
+      "sim_mode": {
+        "default": "mdi:state-machine",
+        "state": {
+          "idle": "mdi:sleep",
+          "active": "mdi:run",
+          "busy": "mdi:progress-clock"
+        }
+      },
+      "power_state": {
+        "default": "mdi:power",
+        "state": {
+          "running": "mdi:desktop-tower-monitor",
+          "sleep": "mdi:power-sleep",
+          "hibernate": "mdi:power-sleep",
+          "shutdown": "mdi:power",
+          "restart": "mdi:restart",
+          "unknown": "mdi:help-circle-outline"
+        }
+      }
+    }
+  },
+  "services": {
+    "run_command": {
+      "service": "mdi:console-line"
+    }
+  }
+}

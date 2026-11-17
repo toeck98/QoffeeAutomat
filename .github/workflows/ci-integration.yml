@@ -40,7 +40,7 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
-          PATTERN: '^(custom_components/|tests_integration/|protocol/|hacs\.json$|pyproject\.toml$|requirements-dev\.txt$|\.github/workflows/ci-integration\.yml$)|\.py$'
+          PATTERN: '^(custom_components/|tests_integration/|protocol/|assets/brand/|hacs\.json$|pyproject\.toml$|requirements-dev\.txt$|\.github/workflows/ci-integration\.yml$)|\.py$'
         run: |
           set -euo pipefail
           base=""
@@ -83,6 +83,9 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - name: Install dependencies
         run: python -m pip install -r requirements-dev.txt
+      # custom_components/qoffeeautomat/brand/ must equal assets/brand/ (open item O-05).
+      - name: Check brand images
+        run: python scripts/dev/sync_brand.py --check
       - name: Ruff lint
         run: ruff check .
       - name: Ruff format check
@@ -142,8 +145,10 @@ jobs:
         with:
           persist-credentials: false
       # Ignored HACS checks (all others run):
-      # - brands: accepts only brand images published in home-assistant/brands or shipped in
-      #   custom_components/qoffeeautomat/brand/; the folder is added by task T507 (O-05).
+      # - brands: ignored until the HACS check recognises the local brand/ folder of
+      #   custom_components/qoffeeautomat/ (added by task T507, kept equal to assets/brand/
+      #   by scripts/dev/sync_brand.py --check in the python job). Remove it from the
+      #   ignore list once the check passes without it.
       # - description, topics: need repository settings that scripts/github/setup-repo.sh
       #   applies (open item O-01, docs/maintainers/github-setup.md).
       # - license: the GitHub API reports a license only once LICENSE is on the default

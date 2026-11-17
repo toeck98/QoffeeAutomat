@@ -1,0 +1,19 @@
+# Keeps the Docker build context of tests/e2e/agent.Dockerfile small (the context is the
+# repository root). Only global.json, the Directory.* files, .editorconfig and src/ are used.
+.git
+.github
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.ha-dev
+node_modules
+**/bin
+**/obj
+tests/*
+!tests/e2e
+tests_integration
+docs
+custom_components
+protocol
+assets

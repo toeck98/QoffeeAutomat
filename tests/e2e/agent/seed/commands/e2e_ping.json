@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "e2e_ping",
+  "name": "E2E ping",
+  "description": "A button; the end-to-end test disables and enables it to see its entity vanish and return.",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "system",
+  "action": {
+    "type": "powershell",
+    "source": "inline",
+    "code": "Write-Output 'pong'",
+    "engine": "pwsh"
+  },
+  "haControl": { "type": "button" },
+  "timeoutSeconds": 30,
+  "captureOutput": true
+}
