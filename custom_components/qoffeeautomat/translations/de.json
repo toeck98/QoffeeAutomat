@@ -1,0 +1,191 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Mit einem PC verbinden",
+        "description": "Gib die Adresse des PCs ein, auf dem der QoffeeAutomat-Agent läuft.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "Hostname oder IP-Adresse des PCs.",
+          "port": "Der QoffeeLink-Port des Agents (Standard 8481)."
+        }
+      },
+      "confirm": {
+        "title": "Agent bestätigen",
+        "description": "{name} unter {host}:{port} gefunden.\n\nZertifikat-Fingerabdruck (SHA-256):\n`{fingerprint}`\n\nVergleiche ihn mit dem Fingerabdruck im Kopplungsdialog des Agents, bevor du fortfährst."
+      },
+      "pair": {
+        "title": "Mit {name} koppeln",
+        "description": "Öffne den Kopplungsdialog in der Weboberfläche des Agents und gib den sechsstelligen Code ein. Der Code ist fünf Minuten gültig.",
+        "data": {
+          "code": "Kopplungscode"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Erneut mit {name} koppeln",
+        "description": "Der Agent unter {host}:{port} akzeptiert den gespeicherten Zugang nicht mehr. Starte die Kopplung in der Weboberfläche des Agents und gib den neuen sechsstelligen Code ein.\n\nZertifikat-Fingerabdruck (SHA-256):\n`{fingerprint}`",
+        "data": {
+          "code": "Kopplungscode"
+        }
+      },
+      "reconfigure": {
+        "title": "Adresse ändern",
+        "description": "Gib die neue Adresse des PCs ein. Es muss derselbe Agent sein.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "Hostname oder IP-Adresse des PCs.",
+          "port": "Der QoffeeLink-Port des Agents (Standard 8481)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum Agent nicht möglich. Prüfe die Adresse, ob der Agent läuft und ob sich das Zertifikat geändert hat.",
+      "invalid_code": "Der Kopplungscode ist falsch.",
+      "code_expired": "Der Kopplungscode ist abgelaufen oder wurde nach zu vielen Versuchen gesperrt. Starte die Kopplung im Agent neu.",
+      "unsupported_protocol": "Agent und Integration haben keine gemeinsame QoffeeLink-Protokollversion. Aktualisiere den Agent oder die Integration.",
+      "invalid_auth": "Der Agent hat den gespeicherten Zugang abgelehnt. Authentifiziere die Integration neu.",
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten. Details stehen im Protokoll."
+    },
+    "abort": {
+      "already_configured": "Dieser Agent ist bereits eingerichtet.",
+      "already_in_progress": "Die Einrichtung dieses Agents läuft bereits.",
+      "cannot_connect": "Verbindung zum Agent nicht möglich.",
+      "invalid_discovery": "Die Erkennungsmeldung des Agents ist unvollständig.",
+      "unsupported_protocol": "Agent und Integration haben keine gemeinsame QoffeeLink-Protokollversion. Aktualisiere den Agent oder die Integration.",
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten. Details stehen im Protokoll.",
+      "wrong_agent": "Die Adresse gehört zu einem anderen Agent.",
+      "reauth_successful": "Die erneute Authentifizierung war erfolgreich.",
+      "reconfigure_successful": "Die Adresse wurde aktualisiert."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "battery_charging": { "name": "Akku lädt" },
+      "system_pending_reboot": { "name": "Neustart ausstehend" },
+      "session_ready": { "name": "Sitzung bereit" },
+      "session_locked": { "name": "Sitzung gesperrt" },
+      "audio_muted": { "name": "Audio stummgeschaltet" },
+      "privacy_microphone_in_use": { "name": "Mikrofon in Benutzung" },
+      "sim_toggle": { "name": "Simulierter Schalter" }
+    },
+    "event": {
+      "events": {
+        "name": "Ereignisse"
+      }
+    },
+    "sensor": {
+      "cpu_usage": { "name": "CPU-Auslastung" },
+      "gpu_usage": { "name": "GPU-Auslastung" },
+      "memory_used_percent": { "name": "Arbeitsspeicher-Auslastung" },
+      "memory_used": { "name": "Arbeitsspeicher belegt" },
+      "memory_total": { "name": "Arbeitsspeicher gesamt" },
+      "net_ipv4": { "name": "IPv4-Adresse" },
+      "battery_level": { "name": "Akkustand" },
+      "system_uptime": { "name": "Laufzeit" },
+      "system_last_boot": { "name": "Letzter Start" },
+      "system_os_version": { "name": "Betriebssystem" },
+      "session_user": { "name": "Angemeldeter Benutzer" },
+      "session_idle_seconds": { "name": "Leerlaufzeit" },
+      "window_title": { "name": "Titel des aktiven Fensters" },
+      "window_process": { "name": "Prozess des aktiven Fensters" },
+      "audio_volume": { "name": "Lautstärke" },
+      "sim_cpu": { "name": "Simulierte CPU-Auslastung" },
+      "sim_counter": { "name": "Simulierter Zähler" },
+      "sim_mode": {
+        "name": "Simulierter Modus",
+        "state": {
+          "idle": "Leerlauf",
+          "active": "Aktiv",
+          "busy": "Ausgelastet"
+        }
+      },
+      "power_state": {
+        "name": "Energiezustand",
+        "state": {
+          "running": "Läuft",
+          "sleep": "Energiesparmodus",
+          "hibernate": "Ruhezustand",
+          "shutdown": "Heruntergefahren",
+          "restart": "Neustart",
+          "unknown": "Unbekannt"
+        }
+      }
+    }
+  },
+  "issues": {
+    "protocol_mismatch": {
+      "title": "{name} verwendet eine inkompatible Protokollversion",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "{name} verwendet eine inkompatible Protokollversion",
+            "description": "Der QoffeeAutomat-Agent {name} unterstützt die QoffeeLink-Protokollversionen {agent_protocol}, diese Integration unterstützt {integration_protocol}. Es gibt keine gemeinsame Version.\n\nAktualisiere den Agent auf dem PC oder diese Integration und wähle dann „Absenden“, um sie neu zu laden."
+          }
+        }
+      }
+    }
+  },
+  "services": {
+    "run_command": {
+      "name": "Befehl ausführen",
+      "description": "Führt einen Befehl des Agents auf dem PC aus und gibt optional seine Ausgabe zurück.",
+      "fields": {
+        "command": {
+          "name": "Befehl",
+          "description": "Id des Befehls, wie sie in der Weboberfläche des Agents steht."
+        },
+        "variables": {
+          "name": "Variablen",
+          "description": "Werte für die Variablen des Befehls, nach Variablenname. Die Werte können aus Templates stammen."
+        },
+        "wait": {
+          "name": "Auf das Ergebnis warten",
+          "description": "Wartet, bis der Befehl beendet ist, und gibt Exit-Code und Ausgabe zurück."
+        },
+        "timeout": {
+          "name": "Zeitlimit",
+          "description": "Wie lange auf das Ergebnis gewartet wird, in Sekunden."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "command_rejected": {
+      "message": "Der Agent hat den Befehl {command} abgelehnt: {message}"
+    },
+    "command_failed": {
+      "message": "Der Befehl {command} ist fehlgeschlagen: {message}"
+    },
+    "agent_offline": {
+      "message": "Der Agent ist nicht verbunden, daher kann der Befehl {command} nicht ausgeführt werden."
+    },
+    "command_timeout": {
+      "message": "Der Agent hat beim Ausführen des Befehls {command} nicht rechtzeitig geantwortet."
+    },
+    "single_device_required": {
+      "message": "Wähle genau ein QoffeeAutomat-Gerät aus."
+    },
+    "device_not_found": {
+      "message": "Das Gerät {device_id} ist kein QoffeeAutomat-Gerät."
+    },
+    "cannot_connect": {
+      "message": "Verbindung zum Agent unter {host}:{port} nicht möglich."
+    },
+    "invalid_auth": {
+      "message": "Der Agent hat den gespeicherten Zugang abgelehnt."
+    },
+    "unsupported_protocol": {
+      "message": "Agent und Integration haben keine gemeinsame QoffeeLink-Protokollversion."
+    },
+    "manifest_unavailable": {
+      "message": "Der Agent hat sein Manifest nicht geliefert."
+    }
+  }
+}

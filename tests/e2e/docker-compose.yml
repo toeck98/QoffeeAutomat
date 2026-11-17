@@ -1,0 +1,40 @@
+# End-to-end test stack (PLAN.md S14, task T508): a real Home Assistant container with the
+# integration mounted, and the Linux agent with the simulated platform.
+#
+#   HA_VERSION          Home Assistant image tag: stable (default), beta or a version
+#   E2E_HA_PORT         host port of Home Assistant (default 18123, loopback only)
+#   E2E_AGENT_PORT      host port of the agent's HTTPS listener (default 18481, loopback only)
+#   E2E_AGENT_PASSWORD  password set in the agent (default below, for this throw-away stack only)
+#
+# Run it with `pytest tests/e2e`, which starts and stops the stack, or by hand with
+# `docker compose -f tests/e2e/docker-compose.yml up --build --wait`.
+name: qoffeeautomat-e2e
+
+services:
+  agent:
+    build:
+      context: ../..
+      dockerfile: tests/e2e/agent.Dockerfile
+    environment:
+      E2E_AGENT_PASSWORD: ${E2E_AGENT_PASSWORD:-e2e-Qoffee-Passw0rd-2026}
+    ports:
+      - "127.0.0.1:${E2E_AGENT_PORT:-18481}:8481"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready && curl -fsS http://127.0.0.1:8480/healthz"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+      start_period: 5s
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:${HA_VERSION:-stable}
+    depends_on:
+      agent:
+        condition: service_healthy
+    environment:
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${E2E_HA_PORT:-18123}:8123"
+    volumes:
+      - ./ha/configuration.yaml:/config/configuration.yaml:ro
+      - ../../custom_components/qoffeeautomat:/config/custom_components/qoffeeautomat:ro

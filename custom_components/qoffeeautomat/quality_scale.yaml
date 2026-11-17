@@ -1,0 +1,102 @@
+# Integration Quality Scale status of QoffeeAutomat (PLAN.md S10, task T507).
+#
+# Target: all Bronze and Silver rules plus the Gold rules devices, diagnostics,
+# discovery, discovery-update-info, dynamic-devices, stale-devices, entity-category,
+# entity-device-class, entity-disabled-by-default, entity-translations,
+# exception-translations, reconfiguration-flow and repair-issues. The Gold rule
+# icon-translations is met as well. Rules outside this list are not targeted and are
+# not named here.
+#
+# Every rule is `done` or `exempt` with a reason. The user documentation rules are
+# exempt in this file because the documentation is the deliverable of task T604;
+# remove the exemptions there. tests_integration/test_diagnostics.py checks that this
+# file stays valid.
+rules:
+  # -- Bronze ----------------------------------------------------------------------
+  action-setup: done
+  appropriate-polling:
+    status: exempt
+    comment: The integration does not poll; the agent pushes state over QoffeeLink.
+  brands: done
+  common-modules: done
+  config-flow-test-coverage: done
+  config-flow: done
+  dependency-transparency:
+    status: exempt
+    comment: There are no external Python requirements; aiohttp ships with Home Assistant.
+  docs-actions:
+    status: exempt
+    comment: The user documentation is written in task T604; the action is described in services.yaml and strings.json.
+  docs-high-level-description:
+    status: exempt
+    comment: The user documentation is written in task T604.
+  docs-installation-instructions:
+    status: exempt
+    comment: The user documentation is written in task T604.
+  docs-removal-instructions:
+    status: exempt
+    comment: The user documentation is written in task T604.
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+
+  # -- Silver ----------------------------------------------------------------------
+  action-exceptions: done
+  config-entry-unloading: done
+  docs-configuration-parameters:
+    status: exempt
+    comment: The integration has no options; host and port are changed by the reconfiguration flow, described in the documentation of task T604.
+  docs-installation-parameters:
+    status: exempt
+    comment: The user documentation is written in task T604.
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage: done
+
+  # -- Gold ------------------------------------------------------------------------
+  devices: done
+  diagnostics: done
+  discovery-update-info: done
+  discovery: done
+  docs-data-update:
+    status: exempt
+    comment: Not targeted for the 1.0 documentation; state is pushed by the agent (task T604 describes it).
+  docs-examples:
+    status: exempt
+    comment: Examples are part of services.yaml; the full documentation is task T604.
+  docs-known-limitations:
+    status: exempt
+    comment: The user documentation is written in task T604.
+  docs-supported-devices:
+    status: exempt
+    comment: The only supported device is a PC with the QoffeeAutomat agent; documented in task T604.
+  docs-supported-functions:
+    status: exempt
+    comment: The user documentation is written in task T604.
+  docs-troubleshooting:
+    status: exempt
+    comment: The user documentation is written in task T604.
+  docs-use-cases:
+    status: exempt
+    comment: The user documentation is written in task T604.
+  dynamic-devices:
+    status: exempt
+    comment: One config entry is one PC with exactly one device; there are no sub-devices. Entities are added dynamically from the manifest.
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  exception-translations: done
+  icon-translations: done
+  reconfiguration-flow: done
+  repair-issues: done
+  stale-devices:
+    status: exempt
+    comment: There is one device per config entry; it is removed with the entry. Stale entities of vanished metrics and commands are removed from the entity registry.

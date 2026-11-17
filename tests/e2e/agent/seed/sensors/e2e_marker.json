@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "e2e_marker",
+  "name": "E2E marker",
+  "description": "A custom sensor that reports a constant; the end-to-end test looks for its entity.",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "sensor",
+  "valueType": "number",
+  "stateClass": "measurement",
+  "precision": 0,
+  "intervalSeconds": 2,
+  "source": {
+    "type": "powershell",
+    "source": "inline",
+    "code": "Write-Output 42",
+    "engine": "pwsh"
+  }
+}

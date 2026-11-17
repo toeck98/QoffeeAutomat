@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "e2e_echo",
+  "name": "E2E echo",
+  "description": "Greets by name; used by the end-to-end test to check variables and the response.",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "system",
+  "action": {
+    "type": "powershell",
+    "source": "inline",
+    "code": "param([string]$Name, [int]$Count) Write-Output \"Hello $Name x$Count\"",
+    "engine": "pwsh"
+  },
+  "parameters": [
+    { "name": "Name", "type": "string", "required": true },
+    { "name": "Count", "type": "int", "default": 1 }
+  ],
+  "timeoutSeconds": 30,
+  "captureOutput": true
+}

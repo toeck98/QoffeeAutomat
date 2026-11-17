@@ -1,0 +1,76 @@
+# Actions of the QoffeeAutomat integration (names and descriptions: strings.json).
+#
+# Examples for automations. Variable values are sent to the agent as values and
+# validated there; they are never pasted into a script, so templates are safe to use.
+#
+# Run a command with a variable that comes from a template and use the response:
+#
+#   actions:
+#     - action: qoffeeautomat.run_command
+#       target:
+#         device_id: "{{ device_id('sensor.gaming_pc_power_state') }}"
+#       data:
+#         command: set_display_profile
+#         variables:
+#           Profile: "{{ states('input_select.display_profile') }}"
+#           UpdateAdapterIds: false
+#       response_variable: result
+#     - condition: template
+#       value_template: "{{ result.exit_code == 0 }}"
+#     - action: notify.mobile_app_phone
+#       data:
+#         message: "{{ result.stdout }}"
+#
+# Start a long command without waiting for it (the response only has the run id):
+#
+#   actions:
+#     - action: qoffeeautomat.run_command
+#       target:
+#         device_id: abcdef0123456789abcdef0123456789
+#       data:
+#         command: backup_documents
+#         wait: false
+#
+# React when the PC was started (event entity or bus event):
+#
+#   triggers:
+#     - trigger: event
+#       event_type: qoffeeautomat_event
+#       event_data:
+#         type: booted
+#   actions:
+#     - action: qoffeeautomat.run_command
+#       target:
+#         device_id: "{{ trigger.event.data.device_id }}"
+#       data:
+#         command: set_volume
+#         variables:
+#           Level: 20
+
+run_command:
+  target:
+    device:
+      integration: qoffeeautomat
+  fields:
+    command:
+      required: true
+      example: set_display_profile
+      selector:
+        text:
+    variables:
+      example: '{"Profile": "TV-Mode"}'
+      selector:
+        object:
+    wait:
+      default: true
+      selector:
+        boolean:
+    timeout:
+      default: 60
+      selector:
+        number:
+          min: 1
+          max: 86400
+          step: 1
+          unit_of_measurement: s
+          mode: box
