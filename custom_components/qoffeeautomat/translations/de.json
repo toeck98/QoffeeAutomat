@@ -137,6 +137,10 @@
       "name": "Befehl ausführen",
       "description": "Führt einen Befehl des Agents auf dem PC aus und gibt optional seine Ausgabe zurück.",
       "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Der PC, auf dem der Befehl ausgeführt werden soll."
+        },
         "command": {
           "name": "Befehl",
           "description": "Id des Befehls, wie sie in der Weboberfläche des Agents steht."

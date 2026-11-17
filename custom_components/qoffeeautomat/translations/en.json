@@ -137,6 +137,10 @@
       "name": "Run command",
       "description": "Runs a command of the agent on the PC and optionally returns its output.",
       "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The PC on which the command should run."
+        },
         "command": {
           "name": "Command",
           "description": "Id of the command, as shown in the agent's web interface."

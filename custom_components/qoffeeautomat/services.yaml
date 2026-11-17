@@ -48,10 +48,12 @@
 #           Level: 20
 
 run_command:
-  target:
-    device:
-      integration: qoffeeautomat
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: qoffeeautomat
     command:
       required: true
       example: set_display_profile
