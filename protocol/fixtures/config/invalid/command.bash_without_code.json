@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 2,
+  "id": "bash_without_code",
+  "name": "Bash without code",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "system",
+  "action": { "type": "bash", "source": "inline" }
+}

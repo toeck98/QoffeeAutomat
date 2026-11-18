@@ -102,6 +102,20 @@
         { "if": { "properties": { "source": { "const": "file" } }, "required": ["source"] }, "then": { "required": ["script"] } }
       ]
     },
+    "bash_source": {
+      "description": "Bash script (Linux, T803): inline in the document or a file in the scripts directory. Values reach the script as QA_VAR_<NAME> environment variables and as positional arguments in the order of the parameters, never as script text.",
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "source": { "enum": ["inline", "file"] },
+        "code": { "type": "string", "minLength": 1 },
+        "script": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        { "if": { "properties": { "source": { "const": "inline" } }, "required": ["source"] }, "then": { "required": ["code"] } },
+        { "if": { "properties": { "source": { "const": "file" } }, "required": ["source"] }, "then": { "required": ["script"] } }
+      ]
+    },
     "sequence_step": {
       "description": "A step of a sequence: run a command or wait.",
       "type": "object",

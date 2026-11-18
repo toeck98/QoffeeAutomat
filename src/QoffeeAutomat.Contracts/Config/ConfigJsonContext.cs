@@ -24,6 +24,7 @@ namespace QoffeeAutomat.Contracts.Config;
 [JsonSerializable(typeof(ModeDefinition))]
 [JsonSerializable(typeof(CommandAction))]
 [JsonSerializable(typeof(PowerShellAction))]
+[JsonSerializable(typeof(BashAction))]
 [JsonSerializable(typeof(ProcessAction))]
 [JsonSerializable(typeof(BuiltinAction))]
 [JsonSerializable(typeof(SequenceAction))]

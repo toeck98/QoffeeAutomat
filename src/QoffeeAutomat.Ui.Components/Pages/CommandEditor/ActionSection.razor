@@ -15,6 +15,7 @@
       <option value="@Draft.ActionType">@Draft.ActionType</option>
     }
     <option value="@ActionTypes.PowerShell">@L["Commands.Action.PowerShell"]</option>
+    <option value="@ActionTypes.Bash">@L["Commands.Action.Bash"]</option>
     <option value="@ActionTypes.Process">@L["Commands.Action.Process"]</option>
     <option value="@ActionTypes.Builtin">@L["Commands.Action.Builtin"]</option>
     <option value="@ActionTypes.Sequence">@L["Commands.Action.Sequence"]</option>
@@ -26,7 +27,72 @@
     <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-2" data-testid="action-unknown">@L.Format("Editor.Action.Unknown", Draft.ActionType)</MudAlert>
   }
 
-  @if (Draft.ActionType == ActionTypes.PowerShell)
+  @if (!ActionSupported)
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-2" data-testid="action-unsupported">@L.Format("Editor.Action.Unsupported", Draft.ActionType)</MudAlert>
+  }
+
+  @if (Draft.ActionType == ActionTypes.Bash)
+  {
+    <MudGrid Spacing="2" Class="mt-1">
+      <MudItem xs="12" md="6">
+        <SelectBox Label="@L["Editor.Bash.Source"]"
+                   @bind-Value="Draft.BashSource"
+                   @bind-Value:after="NotifyAsync"
+                   Error="@Errors.Has("/action/source")"
+                   TestId="field-bash-source">
+          <option value="@BashSources.Inline">@L["Editor.Ps.Source.Inline"]</option>
+          <option value="@BashSources.File">@L["Editor.Ps.Source.File"]</option>
+        </SelectBox>
+        <FieldError Errors="Errors" Path="/action/source" />
+      </MudItem>
+      @if (Draft.BashSource == BashSources.File)
+      {
+        <MudItem xs="12">
+          <div data-testid="field-bash-script">
+            <MudTextField T="string"
+                          @bind-Value="Draft.BashScript"
+                          @bind-Value:after="NotifyAsync"
+                          Immediate="true"
+                          Label="@L["Editor.Bash.Script"]"
+                          HelperText="@L["Editor.Bash.Script.Help"]"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Error="@Errors.Has("/action/script")"
+                          spellcheck="false" />
+          </div>
+          <FieldError Errors="Errors" Path="/action/script" />
+          @if (Scripts.Count > 0)
+          {
+            <div class="qa-chip-row" data-testid="bash-script-choices">
+              @foreach (ScriptSummary script in Scripts)
+              {
+                <MudChip @key="script.Name"
+                         T="string"
+                         Size="Size.Small"
+                         Variant="@(script.Name == Draft.BashScript ? Variant.Filled : Variant.Outlined)"
+                         OnClick="@(() => PickBashScriptAsync(script.Name))"
+                         data-testid="@($"bash-script-{script.Name}")">@script.Name</MudChip>
+              }
+            </div>
+          }
+        </MudItem>
+      }
+      else
+      {
+        <MudItem xs="12">
+          <MudText Typo="Typo.subtitle2">@L["Editor.Bash.Code"]</MudText>
+          <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1" data-testid="bash-code-help">@L["Editor.Bash.Code.Help"]</MudText>
+          <CodeEditor Value="@Draft.BashCode"
+                      ValueChanged="OnBashCodeChangedAsync"
+                      Language="shell"
+                      Label="@L["Editor.Bash.Code"]" />
+          <FieldError Errors="Errors" Path="/action/code" />
+        </MudItem>
+      }
+    </MudGrid>
+  }
+  else if (Draft.ActionType == ActionTypes.PowerShell)
   {
     <MudGrid Spacing="2" Class="mt-1">
       <MudItem xs="12" md="6">
@@ -224,6 +290,12 @@
   [Parameter]
   public EventCallback OnChanged { get; set; }
 
+  /// <summary>The operating system of the agent (<c>windows</c>, <c>linux</c>); null while it is not known, which flags nothing.</summary>
+  [Parameter]
+  public string? PlatformOs { get; set; }
+
+  private bool ActionSupported => PlatformActionSupport.IsActionTypeSupported(PlatformOs, Draft.ActionType);
+
   private bool HasNamedParameters => Draft.Parameters.Exists(row => !string.IsNullOrWhiteSpace(row.Name));
 
   private Task NotifyAsync() => OnChanged.InvokeAsync();
@@ -245,6 +317,18 @@
   private Task PickScriptAsync(string name)
   {
     Draft.PowerShellScript = name;
+    return NotifyAsync();
+  }
+
+  private Task OnBashCodeChangedAsync(string code)
+  {
+    Draft.BashCode = code;
+    return NotifyAsync();
+  }
+
+  private Task PickBashScriptAsync(string name)
+  {
+    Draft.BashScript = name;
     return NotifyAsync();
   }
 

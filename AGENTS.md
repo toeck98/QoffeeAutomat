@@ -24,6 +24,7 @@ QoffeeLink). Use exactly this spelling everywhere (see PLAN.md, Naming).
 | `src/QoffeeAutomat.Core` | Config store, engines, platform interfaces. References Contracts only. |
 | `src/QoffeeAutomat.Agent` | ASP.NET Core host, Kestrel, management API, QoffeeLink server. |
 | `src/QoffeeAutomat.Platform.Windows` | Windows providers (`net10.0-windows`). |
+| `src/QoffeeAutomat.Platform.Linux` | Linux providers (`net10.0`): metrics from `/proc`, `/sys` and logind, systemd service and power events (T802); later bash, session helper (M8). |
 | `src/QoffeeAutomat.Platform.Simulated` | Deterministic providers for tests, CI and Linux. |
 | `src/QoffeeAutomat.SessionHost` | Per-user-session helper (`net10.0-windows`). |
 | `src/QoffeeAutomat.Ui`, `src/QoffeeAutomat.Ui.Components` | Blazor shell and Razor class library. |

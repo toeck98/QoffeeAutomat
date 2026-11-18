@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "id": "backup_folder",
+  "name": "Back up a folder",
+  "description": "Copies a folder; the values arrive as $1, $2 and as QA_VAR_SOURCE, QA_VAR_TARGET, never inside the script text.",
+  "icon": "mdi:folder-sync",
+  "enabled": true,
+  "exposeToHa": false,
+  "runAs": "system",
+  "action": {
+    "type": "bash",
+    "source": "inline",
+    "code": "set -eu\nrsync -a -- \"$1\" \"$2\"\necho \"copied $QA_VAR_SOURCE\""
+  },
+  "parameters": [
+    { "name": "Source", "type": "string", "required": true, "maxLength": 512 },
+    { "name": "Target", "type": "string", "required": true, "maxLength": 512 }
+  ],
+  "haControl": { "type": "none" },
+  "timeoutSeconds": 300,
+  "captureOutput": true
+}

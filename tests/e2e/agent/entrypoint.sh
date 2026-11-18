@@ -19,8 +19,9 @@ if [ ! -e "$DATA_DIR/config/settings.json" ]; then
   cp -r /seed/. "$DATA_DIR/config/"
 fi
 
+# E2E_AGENT_PLATFORM=linux runs the real Linux platform (T804); the default is the simulated platform.
 dotnet /app/QoffeeAutomat.Agent.dll \
-  --platform simulated --data-dir "$DATA_DIR" --ui-port 8480 --link-port 8481 &
+  --platform "${E2E_AGENT_PLATFORM:-simulated}" --data-dir "$DATA_DIR" --ui-port 8480 --link-port 8481 &
 agent_pid=$!
 trap 'kill -TERM "$agent_pid" 2>/dev/null || true' TERM INT
 

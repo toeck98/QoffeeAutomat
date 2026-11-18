@@ -1,0 +1,31 @@
+# QoffeeAutomat session helper: a systemd USER service that runs inside your desktop session, so that Home Assistant
+# can run commands as you (runAs: user), change the volume, show notifications, control the media player and read
+# the idle time. It talks to the agent (the system service qoffeeautomat) over a Unix domain socket in your runtime
+# directory (/run/user/<uid>/qoffeeautomat/session.sock, mode 0600); only root and you can open it.
+#
+# Enable it for every user of the computer:   sudo systemctl --global enable qoffeeautomat-session.service
+# or only for yourself:                       systemctl --user enable --now qoffeeautomat-session.service
+# Put your own settings in a drop-in:         systemctl --user edit qoffeeautomat-session
+
+[Unit]
+Description=QoffeeAutomat session helper (runs commands of Home Assistant in your desktop session)
+Documentation=https://github.com/toeck98/QoffeeAutomat
+After=graphical-session.target
+PartOf=graphical-session.target
+ConditionUser=!root
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/qoffeeautomat/qoffeeautomat session-host
+Restart=on-failure
+RestartSec=3
+# Exit status 2: no runtime directory (not a user session). Exit status 3: another helper of this user already listens.
+# Neither is cured by starting again.
+RestartPreventExitStatus=2 3
+# Programs that the helper starts for you (app.launch, url.open) are your programs: they keep running when the helper restarts.
+KillMode=process
+UMask=0077
+Environment=DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
+
+[Install]
+WantedBy=graphical-session.target

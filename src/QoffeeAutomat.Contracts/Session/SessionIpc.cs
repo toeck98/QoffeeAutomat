@@ -17,6 +17,16 @@ public static class SessionIpc
 
     /// <summary>The file name of the agent executable.</summary>
     public const string AgentFileName = "QoffeeAutomat.Agent.exe";
+
+    /// <summary>
+    /// The directory below <c>$XDG_RUNTIME_DIR</c> (<c>/run/user/&lt;uid&gt;</c>) that holds the Unix domain socket of the Linux session helper
+    /// (T803). On Linux the helper is the server: it creates the directory with mode 0700 and the socket with mode 0600 in the runtime
+    /// directory of its own user, and the agent, which runs as root, connects to it.
+    /// </summary>
+    public const string UnixSocketDirectory = "qoffeeautomat";
+
+    /// <summary>The file name of the Unix domain socket of the Linux session helper, inside <see cref="UnixSocketDirectory"/>.</summary>
+    public const string UnixSocketFile = "session.sock";
 }
 
 /// <summary>The values of <c>hello.role</c>.</summary>
@@ -40,6 +50,9 @@ public static class SessionRunKinds
 
     /// <summary>A built-in action of the SessionHost.</summary>
     public const string Builtin = "builtin";
+
+    /// <summary>A bash script, run by the bash runner of Core inside the session (Linux, T803).</summary>
+    public const string Bash = "bash";
 }
 
 /// <summary>The values of <c>run_output.stream</c>.</summary>

@@ -26,6 +26,7 @@ public partial class CommandEditorPage
     private IReadOnlyList<ScriptSummary> _scripts = [];
     private IReadOnlyList<string> _secretNames = [];
     private SessionStatus? _session;
+    private string? _platformOs;
     private string _baseline = string.Empty;
     private string? _loadedId;
     private string? _notice;
@@ -195,7 +196,23 @@ public partial class CommandEditorPage
             _commandIds.Clear();
             _commandIds.AddRange(list.Commands.Select(command => command.Id).OrderBy(id => id, StringComparer.Ordinal));
         });
-        await Lookup(async () => _session = (await Api.GetStatusAsync()).Session);
+        await Lookup(async () =>
+        {
+            AgentStatus status = await Api.GetStatusAsync();
+            _session = status.Session;
+            _platformOs = status.Platform.Os;
+        });
+
+        // A new command on Linux starts as a bash script (PowerShell is Windows-only there); a draft that the user has begun is left alone.
+        if (_draft.IsNew && !_dirty && _draft.ActionType == ActionTypes.PowerShell
+            && !PlatformActionSupport.IsActionTypeSupported(_platformOs, ActionTypes.PowerShell))
+        {
+            _draft.ActionType = ActionTypes.Bash;
+            Rebuild();
+            _baseline = Snapshot();
+            _dirty = false;
+        }
+
         await Lookup(async () => _secretNames = [.. (await Api.GetSecretsAsync()).Secrets.Select(secret => secret.Name)]);
     }
 

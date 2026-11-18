@@ -24,7 +24,7 @@ the PC; the PC pushes changed values, so nothing is polled.
 |--------------|------|
 | get a first sensor in Home Assistant quickly | [Quick start](user/quick-start.md) |
 | understand how the parts fit together | [Overview and architecture](user/overview.md) |
-| install the agent | [Install on Windows](user/install-windows.md), then [First-run setup](user/first-run.md) |
+| install the agent | [Install on Windows](user/install-windows.md) or [Install on Linux](user/install-linux.md), then [First-run setup](user/first-run.md) |
 | connect Home Assistant | [Install the integration (HACS)](user/install-integration.md), then [Pair with Home Assistant](user/pairing.md) |
 | make Home Assistant run something on the PC | [Commands](user/commands.md) |
 | report my own values to Home Assistant | [Sensors](user/sensors.md) |

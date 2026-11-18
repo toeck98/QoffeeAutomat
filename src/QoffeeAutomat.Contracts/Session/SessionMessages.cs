@@ -157,6 +157,23 @@ public sealed record SessionPowerShellSpec(
     string? Code = null,
     string? Script = null);
 
+/// <summary>
+/// A bash script to run in the session (PLAN.md D-012, T803). The values travel as environment variables and as positional arguments;
+/// they are never part of the script text or of the command line of the shell. A script that lies in the scripts directory of the
+/// agent is sent as inline code, because the directory belongs to root and the helper runs as the user.
+/// </summary>
+/// <param name="Source">The source: <c>inline</c> or <c>file</c>.</param>
+/// <param name="Arguments">The positional arguments <c>$1</c>, <c>$2</c> and so on, one entry per argument.</param>
+/// <param name="EnvironmentVariables">Extra environment variables (<c>QA_*</c>, <c>QA_VAR_*</c>).</param>
+/// <param name="Code">The script when the source is inline.</param>
+/// <param name="Script">The file name in the scripts directory when the source is a file.</param>
+public sealed record SessionBashSpec(
+    string Source,
+    IReadOnlyList<string> Arguments,
+    IReadOnlyDictionary<string, string> EnvironmentVariables,
+    string? Code = null,
+    string? Script = null);
+
 /// <summary>A built-in action of the SessionHost.</summary>
 /// <param name="Name">The action name, for example <c>audio.set_volume</c>.</param>
 /// <param name="Variables">The validated variables.</param>
@@ -170,6 +187,7 @@ public sealed record SessionBuiltinSpec(string Name, IReadOnlyDictionary<string,
 /// <param name="Process">The process, for kind <c>process</c>.</param>
 /// <param name="PowerShell">The script, for kind <c>powershell</c>.</param>
 /// <param name="Builtin">The action, for kind <c>builtin</c>.</param>
+/// <param name="Bash">The script, for kind <c>bash</c> (T803; an addition to protocol version 1, which a peer without it ignores).</param>
 public sealed record SessionRunMessage(
     string RunId,
     string Kind,
@@ -177,7 +195,8 @@ public sealed record SessionRunMessage(
     bool CaptureOutput = true,
     SessionProcessSpec? Process = null,
     SessionPowerShellSpec? PowerShell = null,
-    SessionBuiltinSpec? Builtin = null) : SessionMessage;
+    SessionBuiltinSpec? Builtin = null,
+    SessionBashSpec? Bash = null) : SessionMessage;
 
 /// <summary>SessionHost to agent: output of a running command, as it arrives.</summary>
 /// <param name="RunId">The run.</param>

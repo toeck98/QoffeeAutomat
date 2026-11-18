@@ -21,12 +21,16 @@
       "type": "object",
       "required": ["type"],
       "properties": {
-        "type": { "enum": ["powershell", "process", "builtin", "sequence"] }
+        "type": { "enum": ["powershell", "bash", "process", "builtin", "sequence"] }
       },
       "allOf": [
         {
           "if": { "properties": { "type": { "const": "powershell" } }, "required": ["type"] },
           "then": { "$ref": "common.schema.json#/$defs/powershell_source" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "bash" } }, "required": ["type"] },
+          "then": { "$ref": "common.schema.json#/$defs/bash_source" }
         },
         {
           "if": { "properties": { "type": { "const": "process" } }, "required": ["type"] },
@@ -93,7 +97,7 @@
       }
     },
     "secrets": {
-      "description": "Schema version 2 (T706). Names of the secrets that the run receives as the environment variables QA_SECRET_<NAME> (upper case). Only for powershell and process actions.",
+      "description": "Schema version 2 (T706). Names of the secrets that the run receives as the environment variables QA_SECRET_<NAME> (upper case). Only for powershell, bash and process actions.",
       "type": "array",
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$" }

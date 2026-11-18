@@ -1,0 +1,37 @@
+#!/bin/sh
+# QoffeeAutomat .deb: after unpack. Creates the data directories (0700, root), enables the session helper for all
+# users on the first installation, and enables and (re)starts the system service when systemd is running.
+set -e
+
+case "$1" in
+  configure)
+    for dir in /etc/qoffeeautomat /var/lib/qoffeeautomat /var/log/qoffeeautomat /var/lib/qoffeeautomat/secrets; do
+      install -d -m 0700 -o root -g root "$dir"
+    done
+    # Files of an earlier run keep their owner; make sure nothing is accessible to others (files 0600).
+    find /etc/qoffeeautomat /var/lib/qoffeeautomat /var/log/qoffeeautomat -type f -exec chmod 0600 {} +
+
+    if [ -d /run/systemd/system ]; then
+      # $2 is the previously configured version: empty on a fresh installation. A later disable by the administrator
+      # survives upgrades.
+      if [ -z "$2" ]; then
+        systemctl --global enable qoffeeautomat-session.service > /dev/null 2>&1 || true
+      fi
+      systemctl daemon-reload
+      systemctl enable qoffeeautomat.service > /dev/null 2>&1 || true
+      if ! systemctl restart qoffeeautomat.service; then
+        echo "qoffeeautomat: the service did not start; see: journalctl -u qoffeeautomat" >&2
+        exit 1
+      fi
+    else
+      echo "qoffeeautomat: systemd is not running; the service is not enabled or started." >&2
+    fi
+    ;;
+  abort-upgrade | abort-remove | abort-deconfigure) ;;
+  *)
+    echo "postinst called with unknown argument '$1'" >&2
+    exit 1
+    ;;
+esac
+
+exit 0

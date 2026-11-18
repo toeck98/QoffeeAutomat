@@ -33,6 +33,10 @@ internal sealed class TestAgent : WebApplicationFactory<Program>
     {
         // Prevent WebApplication.CreateBuilder from allocating Linux inotify FileSystemWatchers on every test host.
         Environment.SetEnvironmentVariable("DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE", "false");
+
+        // The entry point starts the host with an empty command line, which on Linux would select the real Linux platform (T802); the
+        // tests run on the simulated one (PLAN.md D-021).
+        Environment.SetEnvironmentVariable("QOFFEE_PLATFORM", "simulated");
     }
 
     /// <param name="dataDirectory">The temporary data directory.</param>

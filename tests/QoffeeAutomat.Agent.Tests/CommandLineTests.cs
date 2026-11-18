@@ -56,14 +56,23 @@ public sealed class CommandLineTests
     }
 
     [Fact]
-    public async Task Service_verb_is_unavailable_in_the_build_without_the_windows_platform()
+    public async Task Service_verb_goes_to_the_systemd_integration_on_Linux_and_is_unavailable_elsewhere()
     {
-        // This test project uses the net10.0 build of the agent; the service verb lives in the net10.0-windows build
-        // and is tested in QoffeeAutomat.Platform.Windows.Tests (T301).
-        (int code, _, string error) = await RunMainAsync("service", "install");
+        // This test project uses the net10.0 build of the agent. On Linux it contains the systemd verbs (T802, tested in
+        // QoffeeAutomat.Platform.Linux.Tests); an unknown action proves that the verb arrived there without touching systemd. The Windows
+        // service verb lives in the net10.0-windows build and is tested in QoffeeAutomat.Platform.Windows.Tests (T301).
+        (int code, _, string error) = await RunMainAsync("service", "bogus");
 
-        Assert.Equal(ExitCodes.Unavailable, code);
-        Assert.Contains("service", error, StringComparison.OrdinalIgnoreCase);
+        if (OperatingSystem.IsLinux())
+        {
+            Assert.Equal(ExitCodes.Usage, code);
+            Assert.Contains("Unknown service action", error, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Equal(ExitCodes.Unavailable, code);
+            Assert.Contains("service", error, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     [Fact]

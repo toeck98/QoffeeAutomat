@@ -155,9 +155,12 @@ public sealed class TemplateInstantiator
                 return null;
             }
 
-            CommandAction action = template.Action is PowerShellAction { Source: PowerShellSources.File, Script: { } scriptName } powerShell
-                ? powerShell with { Script = scripts[scriptName] }
-                : template.Action;
+            CommandAction action = template.Action switch
+            {
+                PowerShellAction { Source: PowerShellSources.File, Script: { } scriptName } powerShell => powerShell with { Script = scripts[scriptName] },
+                BashAction { Source: BashSources.File, Script: { } bashScriptName } bash => bash with { Script = scripts[bashScriptName] },
+                _ => template.Action,
+            };
 
             for (int attempt = 0; attempt < MaxAttempts; attempt++)
             {

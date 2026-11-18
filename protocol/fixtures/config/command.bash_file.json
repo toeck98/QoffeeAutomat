@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "id": "rotate_logs",
+  "name": "Rotate logs",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "system",
+  "action": { "type": "bash", "source": "file", "script": "rotate_logs.sh" },
+  "haControl": { "type": "button" },
+  "timeoutSeconds": 120,
+  "captureOutput": true
+}

@@ -97,6 +97,15 @@ public sealed class CommandDraft
     /// <summary>One of <see cref="PowerShellEngines"/>.</summary>
     public string PowerShellEngine { get; set; } = PowerShellEngines.Auto;
 
+    /// <summary>One of <see cref="BashSources"/>.</summary>
+    public string BashSource { get; set; } = BashSources.Inline;
+
+    /// <summary>The inline bash script.</summary>
+    public string BashCode { get; set; } = string.Empty;
+
+    /// <summary>The name of the bash script file.</summary>
+    public string BashScript { get; set; } = string.Empty;
+
     /// <summary>The executable of a process action.</summary>
     public string ProcessFile { get; set; } = string.Empty;
 
@@ -169,11 +178,11 @@ public sealed class CommandDraft
     /// <summary>Where the stored command came from.</summary>
     public string? Origin { get; set; }
 
-    /// <summary>True when the action is one of the four types that the editor has a form for.</summary>
-    public bool HasKnownAction => ActionType is ActionTypes.PowerShell or ActionTypes.Process or ActionTypes.Builtin or ActionTypes.Sequence;
+    /// <summary>True when the action is one of the five types that the editor has a form for.</summary>
+    public bool HasKnownAction => ActionType is ActionTypes.PowerShell or ActionTypes.Bash or ActionTypes.Process or ActionTypes.Builtin or ActionTypes.Sequence;
 
-    /// <summary>True when the action can use secrets: only PowerShell and process actions get the environment variables (the validator's rule).</summary>
-    public bool SupportsSecrets => ActionType is ActionTypes.PowerShell or ActionTypes.Process;
+    /// <summary>True when the action can use secrets: only PowerShell, bash and process actions get the environment variables (the validator's rule).</summary>
+    public bool SupportsSecrets => ActionType is ActionTypes.PowerShell or ActionTypes.Bash or ActionTypes.Process;
 
     /// <summary>Creates the draft of a stored command.</summary>
     /// <param name="command">The command.</param>
@@ -331,6 +340,12 @@ public sealed class CommandDraft
     {
         switch (ActionType)
         {
+            case ActionTypes.Bash:
+                bool bashInline = BashSource == BashSources.Inline;
+                return new BashAction(
+                    BashSource,
+                    bashInline ? BashCode : null,
+                    bashInline ? null : ParameterDraft.Blank(BashScript));
             case ActionTypes.Process:
                 return new ProcessAction(
                     ProcessFile.Trim(),
@@ -407,6 +422,11 @@ public sealed class CommandDraft
                 PowerShellCode = powerShell.Code ?? string.Empty;
                 PowerShellScript = powerShell.Script ?? string.Empty;
                 PowerShellEngine = powerShell.Engine ?? PowerShellEngines.Auto;
+                break;
+            case BashAction bash:
+                BashSource = bash.Source ?? BashSources.Inline;
+                BashCode = bash.Code ?? string.Empty;
+                BashScript = bash.Script ?? string.Empty;
                 break;
             case ProcessAction process:
                 ProcessFile = process.File ?? string.Empty;

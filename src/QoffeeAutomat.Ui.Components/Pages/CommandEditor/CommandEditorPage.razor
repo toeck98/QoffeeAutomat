@@ -58,7 +58,7 @@ else if (_loadError is null && !_notFound)
   <MudGrid Spacing="3">
     <MudItem xs="12" lg="7">
       <GeneralSection Draft="_draft" Errors="_errors" Session="_session" OnChanged="OnChangedAsync" />
-      <ActionSection Draft="_draft" Errors="_errors" Scripts="_scripts" CommandIds="CommandChoices" OnChanged="OnChangedAsync" />
+      <ActionSection Draft="_draft" Errors="_errors" Scripts="_scripts" CommandIds="CommandChoices" PlatformOs="_platformOs" OnChanged="OnChangedAsync" />
       <SecretsSection Draft="_draft" Errors="_errors" Stored="_secretNames" OnChanged="OnChangedAsync" />
       <ParameterSection Draft="_draft" Errors="_errors" OnChanged="OnChangedAsync" />
       <ConditionsSection Draft="_draft" Errors="_errors" OnChanged="OnChangedAsync" />
