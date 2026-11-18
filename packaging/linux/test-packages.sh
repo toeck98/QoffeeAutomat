@@ -58,8 +58,7 @@ fail() {
 }
 
 wait_healthy() {
-  local i
-  for i in $(seq 1 60); do
+  for _ in $(seq 1 60); do
     if in_box "curl -fsS http://127.0.0.1:8480/healthz > /dev/null"; then
       echo "/healthz answered"
       return 0

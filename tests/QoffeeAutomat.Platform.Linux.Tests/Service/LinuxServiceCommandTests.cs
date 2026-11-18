@@ -62,7 +62,7 @@ public sealed class LinuxServiceCommandTests : IDisposable
         }
     }
 
-    [Fact]
+    [LinuxHostFact]
     public async Task Install_passes_the_options_to_the_unit_and_the_data_directory_to_the_provisioner()
     {
         int code = await RunAsync("install", "--data-dir", "/srv/qoffee", "--ui-port=9000", "--link-port", "9001", "--no-start");
@@ -269,7 +269,7 @@ public sealed class LinuxServiceCommandTests : IDisposable
         Assert.Empty(_systemctl.Calls);
     }
 
-    [Fact]
+    [LinuxHostFact]
     public async Task The_global_data_directory_is_used_when_the_action_has_none()
     {
         var command = CreateCommand();

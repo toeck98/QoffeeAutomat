@@ -6,7 +6,7 @@ namespace QoffeeAutomat.Platform.Linux.Tests.Service;
 [Trait("Category", "Service")]
 public sealed class SystemdUnitFileTests
 {
-    [Fact]
+    [LinuxHostFact]
     public void The_unit_that_the_package_ships_is_what_the_installer_writes_for_the_packaged_layout()
     {
         string shipped = File.ReadAllText(RepositoryFiles.Find("packaging/linux/qoffeeautomat.service")).ReplaceLineEndings("\n");
@@ -14,7 +14,7 @@ public sealed class SystemdUnitFileTests
         Assert.Equal(shipped, SystemdUnitFile.Render(SystemdUnitOptions.Packaged));
     }
 
-    [Fact]
+    [LinuxHostFact]
     public void The_unit_is_a_notify_service_with_a_watchdog_that_starts_at_boot()
     {
         string unit = SystemdUnitFile.Render(SystemdUnitOptions.Packaged);
@@ -57,7 +57,7 @@ public sealed class SystemdUnitFileTests
         Assert.DoesNotContain("LogsDirectory", unit, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [LinuxHostFact]
     public void Started_through_the_dotnet_host_the_assembly_is_an_argument_and_decides_the_working_directory()
     {
         var options = new SystemdUnitOptions("/usr/bin/dotnet", ["/opt/qoffee/QoffeeAutomat.Agent.dll"]);

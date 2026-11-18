@@ -45,7 +45,7 @@ public sealed class LinuxDataDirectoryTests
         Assert.Equal(5, files.Chowned.Count);
     }
 
-    [Fact]
+    [LinuxHostFact]
     public void Provision_repairs_a_directory_that_exists_with_wider_permissions_and_secret_files_that_are_readable()
     {
         LinuxDataDirectories layout = TestLayouts.System();
@@ -74,7 +74,7 @@ public sealed class LinuxDataDirectoryTests
         Assert.Contains("owner", exception.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [LinuxHostFact]
     public void The_root_of_the_file_system_is_never_re_protected()
     {
         var provisioner = new LinuxDataDirectoryProvisioner(new FakeUnixFileSystem());
@@ -112,7 +112,7 @@ public sealed class LinuxDataDirectoryTests
         Assert.Contains("0755", problem.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [LinuxHostFact]
     public void Verify_reports_a_secret_file_that_is_readable_by_others()
     {
         LinuxDataDirectories layout = TestLayouts.System();
