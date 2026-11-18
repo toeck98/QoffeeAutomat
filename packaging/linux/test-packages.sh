@@ -99,8 +99,9 @@ case "$state" in running | degraded) ;; *) fail "systemd did not start (state '$
 end_step
 
 step "Install the .deb"
-docker cp "$DEB" "$CONTAINER:/tmp/qoffeeautomat.deb"
-in_box "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --yes /tmp/qoffeeautomat.deb"
+in_box "mkdir -p /opt/pkg"
+docker cp "$DEB" "$CONTAINER:/opt/pkg/qoffeeautomat.deb"
+in_box "chmod 0644 /opt/pkg/qoffeeautomat.deb && apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --yes /opt/pkg/qoffeeautomat.deb"
 in_box "systemctl is-active --quiet qoffeeautomat" || fail "the service is not active after the installation"
 in_box "systemctl is-enabled --quiet qoffeeautomat" || fail "the service is not enabled"
 wait_healthy
@@ -118,7 +119,7 @@ in_box "apt-get remove --yes qoffeeautomat"
 in_box "systemctl is-active --quiet qoffeeautomat" && fail "the service still runs after the removal"
 [ -z "$(in_box 'ls /usr/lib/qoffeeautomat 2> /dev/null || true')" ] || fail "program files remain after the removal"
 in_box "test -d /var/lib/qoffeeautomat" || fail "the data was deleted by remove (only purge may do that)"
-in_box "DEBIAN_FRONTEND=noninteractive apt-get install --yes /tmp/qoffeeautomat.deb"
+in_box "DEBIAN_FRONTEND=noninteractive apt-get install --yes /opt/pkg/qoffeeautomat.deb"
 wait_healthy
 in_box "apt-get purge --yes qoffeeautomat"
 in_box "test ! -e /etc/qoffeeautomat && test ! -e /var/lib/qoffeeautomat && test ! -e /var/log/qoffeeautomat" || fail "purge left data behind"
@@ -127,8 +128,8 @@ end_step
 
 if [ -n "$TARBALL" ]; then
   step "Install the tarball"
-  docker cp "$TARBALL" "$CONTAINER:/tmp/qoffeeautomat.tar.gz"
-  in_box "mkdir /tmp/tarball && tar -xzf /tmp/qoffeeautomat.tar.gz -C /tmp/tarball && cd /tmp/tarball/* && ./install.sh"
+  docker cp "$TARBALL" "$CONTAINER:/opt/pkg/qoffeeautomat.tar.gz"
+  in_box "mkdir -p /opt/pkg/tarball && tar -xzf /opt/pkg/qoffeeautomat.tar.gz -C /opt/pkg/tarball && cd /opt/pkg/tarball/* && ./install.sh"
   in_box "systemctl is-active --quiet qoffeeautomat" || fail "the service is not active after install.sh"
   wait_healthy
   in_box "/usr/local/bin/qoffeeautomat version"
