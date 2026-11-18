@@ -8,6 +8,8 @@ name: release
 #   1. checks the tag and the versions (tag, Directory.Build.props, manifest.json),
 #   2. builds the Windows installers and portable zips (x64, arm64) and, when the signing
 #      secrets exist, signs the executables and the installers with SignPath (Authenticode),
+#      The Linux tarballs and .deb packages (x64, arm64) are built on Ubuntu (T804); they are not signed,
+#      the checksums and the attestations (step 4) protect them.
 #   3. builds the integration zip for HACS (contents of custom_components/qoffeeautomat at the
 #      archive root),
 #   4. writes SHA256SUMS.txt and the SPDX SBOM, creates a build provenance attestation for every
@@ -346,6 +348,62 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  linux:
+    name: linux (${{ matrix.arch }})
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [x64, arm64]
+    env:
+      ARCH: ${{ matrix.arch }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      # No dependency cache: this workflow produces the released binaries.
+      - name: Set up .NET (version from global.json)
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Publish and stage
+        run: bash packaging/linux/publish.sh --arch "$ARCH" --version "$VERSION"
+      - name: Build the tarball and the .deb
+        run: |
+          set -euo pipefail
+          bash packaging/linux/build-tarball.sh --arch "$ARCH" --version "$VERSION"
+          bash packaging/linux/build-deb.sh --arch "$ARCH" --version "$VERSION"
+      - name: Check the packages
+        run: |
+          set -euo pipefail
+          deb_arch="amd64"
+          if [ "$ARCH" = "arm64" ]; then deb_arch="arm64"; fi
+          deb_version="$(printf '%s' "$VERSION" | sed 's/-/~/')"
+          tarball="artifacts/packaging/QoffeeAutomat-$VERSION-linux-$ARCH.tar.gz"
+          deb="artifacts/packaging/qoffeeautomat_${deb_version}_${deb_arch}.deb"
+          for file in "$tarball" "$deb"; do
+            [ -s "$file" ] || { echo "::error::$file was not built."; exit 1; }
+          done
+          tar -tzf "$tarball" | grep -q "/app/qoffeeautomat$"
+          [ "$(dpkg-deb --field "$deb" Version)" = "$deb_version" ]
+          [ "$(dpkg-deb --field "$deb" Architecture)" = "$deb_arch" ]
+      - name: Upload the Linux assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-linux-${{ matrix.arch }}
+          path: |
+            artifacts/packaging/QoffeeAutomat-*-linux-${{ matrix.arch }}.tar.gz
+            artifacts/packaging/qoffeeautomat_*_*.deb
+          if-no-files-found: error
+          retention-days: 7
+
   integration:
     name: integration zip
     needs: prepare
@@ -389,7 +447,7 @@ jobs:
 
   publish:
     name: attest, attach and publish
-    needs: [prepare, windows, integration]
+    needs: [prepare, windows, linux, integration]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -414,11 +472,16 @@ jobs:
       - name: Check that every asset is there
         run: |
           set -euo pipefail
+          deb_version="$(printf '%s' "$VERSION" | sed 's/-/~/')"
           expected=(
             "QoffeeAutomat-Setup-$VERSION-x64.exe"
             "QoffeeAutomat-Setup-$VERSION-arm64.exe"
             "QoffeeAutomat-$VERSION-win-x64.zip"
             "QoffeeAutomat-$VERSION-win-arm64.zip"
+            "QoffeeAutomat-$VERSION-linux-x64.tar.gz"
+            "QoffeeAutomat-$VERSION-linux-arm64.tar.gz"
+            "qoffeeautomat_${deb_version}_amd64.deb"
+            "qoffeeautomat_${deb_version}_arm64.deb"
             "qoffeeautomat.zip"
           )
           for name in "${expected[@]}"; do

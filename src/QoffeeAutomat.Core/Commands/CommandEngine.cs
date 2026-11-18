@@ -657,6 +657,12 @@ public sealed class CommandEngine : IAsyncDisposable
             return await RunSequenceAsync(run, sequence, cancellationToken);
         }
 
+        if (_options.PlatformSupport is { } support && support.Check(run.Command) is { Count: > 0 } unsupported)
+        {
+            // Flagged, not deleted: the document stays as it is (PLAN.md S17).
+            return ExecutionResult.Failure(ErrorCodes.Internal, unsupported[0].Message);
+        }
+
         if (!_handlers.TryGetValue(action.Type, out IActionHandler? handler))
         {
             return ExecutionResult.Failure(ErrorCodes.Internal, $"The '{action.Type}' action is not available in this version of the agent.");

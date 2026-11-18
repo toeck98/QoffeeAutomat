@@ -9,7 +9,10 @@ HA_VERSION=beta pytest tests/e2e      # another Home Assistant image tag (defaul
 docker compose -f tests/e2e/docker-compose.yml config   # validate the compose file only
 ```
 
-Environment variables: `HA_VERSION`, `E2E_HA_PORT` (18123), `E2E_AGENT_PORT` (18481),
+`E2E_AGENT_PLATFORM=linux pytest tests/e2e` runs the same test with the real Linux platform instead of
+the simulated one (the agent reads `/proc` and `/sys` inside its container). The workflow runs both variants.
+
+Environment variables: `HA_VERSION`, `E2E_AGENT_PLATFORM` (`simulated` or `linux`), `E2E_HA_PORT` (18123), `E2E_AGENT_PORT` (18481),
 `E2E_AGENT_PASSWORD`, `E2E_SKIP_COMPOSE=1` (use a running stack), `E2E_KEEP_STACK=1` (do not
 stop the stack afterwards). The test is skipped when `docker` is not installed.
 

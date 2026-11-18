@@ -30,6 +30,7 @@ public sealed class CommandActionConverter : JsonConverter<CommandAction>
         CommandAction action = type switch
         {
             ActionTypes.PowerShell => Parse(root, context.PowerShellAction),
+            ActionTypes.Bash => Parse(root, context.BashAction),
             ActionTypes.Process => Parse(root, context.ProcessAction),
             ActionTypes.Builtin => Parse(root, context.BuiltinAction),
             ActionTypes.Sequence => Parse(root, context.SequenceAction),
@@ -51,6 +52,9 @@ public sealed class CommandActionConverter : JsonConverter<CommandAction>
         {
             case PowerShellAction powerShell:
                 JsonSerializer.Serialize(writer, powerShell, context.PowerShellAction);
+                break;
+            case BashAction bash:
+                JsonSerializer.Serialize(writer, bash, context.BashAction);
                 break;
             case ProcessAction process:
                 JsonSerializer.Serialize(writer, process, context.ProcessAction);

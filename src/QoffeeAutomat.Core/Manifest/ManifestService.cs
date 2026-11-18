@@ -65,6 +65,7 @@ public sealed class ManifestService : IManifestSource, IDisposable
     private readonly Func<IReadOnlyList<string>?>? _features;
     private readonly IConfigStore? _config;
     private readonly bool _includeSystemCommands;
+    private readonly CommandPlatformSupport? _platformSupport;
     private readonly CancellationTokenSource _stop = new();
     private Snapshot _snapshot;
     private ConfigSubscription? _subscription;
@@ -87,13 +88,18 @@ public sealed class ManifestService : IManifestSource, IDisposable
     /// commands. The agent host sets it; the maintenance switch needs the metric <c>agent.paused</c>
     /// (<see cref="AgentMetricProvider"/>) as its state.
     /// </param>
+    /// <param name="platformSupport">
+    /// What the platform can run (T803); a stored command that it cannot run is flagged as unsupported and is not announced, because Home
+    /// Assistant would offer an entity that can only fail. Null announces every enabled and exposed command.
+    /// </param>
     public ManifestService(
         CommandRegistry commands,
         MetricEngine metrics,
         Func<AgentInfo> agent,
         Func<IReadOnlyList<string>?>? features = null,
         IConfigStore? config = null,
-        bool includeSystemCommands = false)
+        bool includeSystemCommands = false,
+        CommandPlatformSupport? platformSupport = null)
     {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(metrics);
@@ -105,6 +111,7 @@ public sealed class ManifestService : IManifestSource, IDisposable
         _features = features;
         _config = config;
         _includeSystemCommands = includeSystemCommands;
+        _platformSupport = platformSupport;
         _snapshot = BuildSnapshot();
     }
 
@@ -257,7 +264,8 @@ public sealed class ManifestService : IManifestSource, IDisposable
     {
         // The system commands (the maintenance mode switch, T705; the commands behind the features notify and media, T702 and
         // T716) are announced like stored commands; those of a feature only when the agent announces the feature.
-        IEnumerable<CommandDocument> announced = _includeSystemCommands ? [.. commands, .. SystemCommands.Announced(features)] : commands;
+        IEnumerable<CommandDocument> supported = _platformSupport is { } support ? commands.Where(support.IsSupported) : commands;
+        IEnumerable<CommandDocument> announced = _includeSystemCommands ? [.. supported, .. SystemCommands.Announced(features)] : supported;
         LinkManifest manifest = ManifestBuilder.Build(agent, catalog, announced, EventCatalog.Types, features);
         return new Snapshot(agent, features, commands, catalog, manifest);
     }

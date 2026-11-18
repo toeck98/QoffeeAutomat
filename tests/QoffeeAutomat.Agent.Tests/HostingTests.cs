@@ -140,6 +140,12 @@ public sealed class HostingTests : IDisposable
     {
         private readonly string _dataDirectory;
 
+        static AgentFactory()
+        {
+            // The entry point starts the host with an empty command line; the tests run on the simulated platform, not the real Linux one (T802).
+            Environment.SetEnvironmentVariable("QOFFEE_PLATFORM", "simulated");
+        }
+
         public AgentFactory(string dataDirectory) => _dataDirectory = dataDirectory;
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)

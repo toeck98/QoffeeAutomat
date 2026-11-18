@@ -9,7 +9,7 @@ public enum PlatformKind
     /// <summary>Deterministic fake providers; runs everywhere (PLAN.md D-021).</summary>
     Simulated,
 
-    /// <summary>Real Linux providers (milestone M8).</summary>
+    /// <summary>Real Linux providers and the systemd integration (milestone M8, T801, T802).</summary>
     Linux,
 }
 
@@ -33,11 +33,26 @@ public static class PlatformSelector
 {
     /// <summary>
     /// The platforms that this build implements: the simulated one everywhere, Windows in the <c>net10.0-windows</c>
-    /// build of the agent (T301, see <see cref="WindowsHostIntegration"/>), Linux in milestone M8.
+    /// build of the agent (T301, see <see cref="WindowsHostIntegration"/>), Linux in the <c>net10.0</c> build (T802, see
+    /// <see cref="LinuxHostIntegration"/>).
     /// </summary>
-    public static IReadOnlySet<PlatformKind> Implemented { get; } = WindowsHostIntegration.IsAvailable
-        ? new HashSet<PlatformKind> { PlatformKind.Simulated, PlatformKind.Windows }
-        : new HashSet<PlatformKind> { PlatformKind.Simulated };
+    public static IReadOnlySet<PlatformKind> Implemented { get; } = CreateImplemented();
+
+    private static HashSet<PlatformKind> CreateImplemented()
+    {
+        var implemented = new HashSet<PlatformKind> { PlatformKind.Simulated };
+        if (WindowsHostIntegration.IsAvailable)
+        {
+            implemented.Add(PlatformKind.Windows);
+        }
+
+        if (LinuxHostIntegration.IsAvailable)
+        {
+            implemented.Add(PlatformKind.Linux);
+        }
+
+        return implemented;
+    }
 
     /// <summary>The host operating system of the running process.</summary>
     /// <returns>The operating system family.</returns>

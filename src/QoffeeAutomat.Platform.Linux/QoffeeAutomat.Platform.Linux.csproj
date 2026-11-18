@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Linux metric providers and systemd integration, later also bash actions and the user session helper (PLAN.md S04, S17).
+       Plain net10.0: it builds and its tests run on every operating system, because the providers read /proc, /sys and
+       logind, and the systemd integration talks to systemctl, systemd-inhibit, busctl and the notification socket, through
+       seams that the tests replace with synthetic fixtures. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
+    <ProjectReference Include="..\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Host lifetime, hosted services, logging and dependency injection abstractions (T802). The agent runs on this shared
+         framework anyway, so no package is added; the systemd integration itself is plain managed code (sd_notify is a datagram on a
+         Unix domain socket), so there is no native libsystemd and nothing that trimming or publishing has to special-case. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

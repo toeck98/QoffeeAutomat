@@ -997,9 +997,9 @@ public static class DocumentValidator
             return;
         }
 
-        if (document.Action is not (PowerShellAction or ProcessAction))
+        if (document.Action is not (PowerShellAction or BashAction or ProcessAction))
         {
-            Add(errors, "/secrets", ValidationCodes.NotApplicable, "Secrets can only be used by powershell and process actions.");
+            Add(errors, "/secrets", ValidationCodes.NotApplicable, "Secrets can only be used by powershell, bash and process actions.");
             return;
         }
 
@@ -1033,6 +1033,9 @@ public static class DocumentValidator
             case PowerShellAction powerShell:
                 CheckPowerShell(powerShell.Source, powerShell.Code, powerShell.Script, powerShell.Engine, "/action", errors);
                 break;
+            case BashAction bash:
+                CheckBash(bash, "/action", errors);
+                break;
             case ProcessAction process:
                 CheckProcess(process, document.Parameters, errors);
                 break;
@@ -1051,8 +1054,38 @@ public static class DocumentValidator
                 CheckSequence(document, sequence, lookup, errors);
                 break;
             default:
-                Add(errors, "/action/type", ValidationCodes.Unsupported, "The action type must be powershell, process, builtin or sequence.");
+                Add(errors, "/action/type", ValidationCodes.Unsupported, "The action type must be powershell, bash, process, builtin or sequence.");
                 break;
+        }
+    }
+
+    private static void CheckBash(BashAction bash, string path, List<ValidationError> errors)
+    {
+        if (string.Equals(bash.Source, BashSources.Inline, StringComparison.Ordinal))
+        {
+            if (string.IsNullOrWhiteSpace(bash.Code))
+            {
+                Add(errors, JsonPointer.Member(path, "code"), ValidationCodes.Required, "Inline bash needs a script.");
+            }
+        }
+        else if (string.Equals(bash.Source, BashSources.File, StringComparison.Ordinal))
+        {
+            if (string.IsNullOrWhiteSpace(bash.Script))
+            {
+                Add(errors, JsonPointer.Member(path, "script"), ValidationCodes.Required, "A bash file source needs a script name.");
+            }
+            else if (!ScriptNamePattern.IsMatch(bash.Script) || bash.Script.Contains("..", StringComparison.Ordinal))
+            {
+                Add(errors, JsonPointer.Member(path, "script"), ValidationCodes.Invalid, "The script must be a plain file name in the scripts directory.");
+            }
+        }
+        else if (string.IsNullOrEmpty(bash.Source))
+        {
+            Add(errors, JsonPointer.Member(path, "source"), ValidationCodes.Required, "source is required.");
+        }
+        else
+        {
+            Add(errors, JsonPointer.Member(path, "source"), ValidationCodes.Invalid, "source must be inline or file.");
         }
     }
 

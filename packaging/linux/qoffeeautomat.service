@@ -1,0 +1,30 @@
+# QoffeeAutomat agent. 'qoffeeautomat service install' and package upgrades replace this file,
+# so put your own settings in a drop-in: systemctl edit qoffeeautomat
+
+[Unit]
+Description=QoffeeAutomat agent (lets Home Assistant monitor and control this computer)
+Documentation=https://github.com/toeck98/QoffeeAutomat
+After=network-online.target systemd-logind.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/lib/qoffeeautomat/qoffeeautomat run
+WorkingDirectory=/usr/lib/qoffeeautomat
+Restart=on-failure
+RestartSec=5
+WatchdogSec=60
+TimeoutStartSec=90
+TimeoutStopSec=45
+UMask=0077
+ConfigurationDirectory=qoffeeautomat
+ConfigurationDirectoryMode=0700
+StateDirectory=qoffeeautomat
+StateDirectoryMode=0700
+LogsDirectory=qoffeeautomat
+LogsDirectoryMode=0700
+Environment=DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
+
+[Install]
+WantedBy=multi-user.target

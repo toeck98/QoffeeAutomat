@@ -98,6 +98,9 @@ public static class ActionTypes
     /// <summary>PowerShell code or script file.</summary>
     public const string PowerShell = "powershell";
 
+    /// <summary>A bash script, inline or a file in the scripts directory (Linux, PLAN.md S17, T803).</summary>
+    public const string Bash = "bash";
+
     /// <summary>An executable started without a shell.</summary>
     public const string Process = "process";
 
@@ -116,6 +119,63 @@ public static class PowerShellSources
 
     /// <summary>The code is a file in the scripts directory.</summary>
     public const string File = "file";
+}
+
+/// <summary>The values of <c>source</c> of bash code (T803).</summary>
+public static class BashSources
+{
+    /// <summary>The script is stored in the document.</summary>
+    public const string Inline = "inline";
+
+    /// <summary>The script is a file in the scripts directory.</summary>
+    public const string File = "file";
+}
+
+/// <summary>
+/// Which action types an operating system can run (PLAN.md S17, T803). The rule is shared by the agent, which refuses to run or
+/// save such a command, and the editor, which flags it: a command document with an action type that the platform lacks is kept
+/// as it is, never deleted or rewritten, so that it works again on a platform that supports it.
+/// </summary>
+public static class PlatformActionSupport
+{
+    /// <summary>The value of <c>os.name</c> on Windows.</summary>
+    public const string WindowsOs = "windows";
+
+    /// <summary>The value of <c>os.name</c> on Linux.</summary>
+    public const string LinuxOs = "linux";
+
+    /// <summary>Tells whether an operating system can run an action type.</summary>
+    /// <param name="os">The operating system family: <c>windows</c>, <c>linux</c> or <c>simulated</c>; anything else supports every type.</param>
+    /// <param name="actionType">The <c>action.type</c>.</param>
+    /// <returns>
+    /// False for <c>powershell</c> on Linux (the display profiles, the registry and the other scripts of Windows do not exist there)
+    /// and for <c>bash</c> on Windows; true otherwise, including every type on the simulated platform.
+    /// </returns>
+    public static bool IsActionTypeSupported(string? os, string? actionType)
+    {
+        if (string.Equals(os, LinuxOs, StringComparison.OrdinalIgnoreCase))
+        {
+            return !string.Equals(actionType, ActionTypes.PowerShell, StringComparison.Ordinal);
+        }
+
+        if (string.Equals(os, WindowsOs, StringComparison.OrdinalIgnoreCase))
+        {
+            return !string.Equals(actionType, ActionTypes.Bash, StringComparison.Ordinal);
+        }
+
+        return true;
+    }
+
+    /// <summary>The explanation that goes with an unsupported action type.</summary>
+    /// <param name="os">The operating system family.</param>
+    /// <param name="actionType">The <c>action.type</c>.</param>
+    /// <returns>A sentence that says what the platform lacks and what to use instead.</returns>
+    public static string Explain(string? os, string? actionType)
+    {
+        return string.Equals(os, LinuxOs, StringComparison.OrdinalIgnoreCase)
+            ? $"The '{actionType}' action is available on Windows only and is not supported on Linux; use a bash or process action instead. The command is kept."
+            : $"The '{actionType}' action is available on Linux only and is not supported on Windows; use a powershell or process action instead. The command is kept.";
+    }
 }
 
 /// <summary>The values of <c>engine</c> of PowerShell code.</summary>

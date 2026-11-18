@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests of the Linux platform (T801). They run on every operating system with synthetic /proc and /sys fixtures; the tests
+       that read the real machine skip themselves when the operating system is not Linux (ubuntu-latest in CI runs them). -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Platform.Linux\QoffeeAutomat.Platform.Linux.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Windows metric ids, compiled into this assembly: the catalog test compares them with the Linux ids (T801). The file is
+         plain C# without Windows APIs, and this project (net10.0) cannot reference the net10.0-windows project itself. -->
+    <Compile Include="..\..\src\QoffeeAutomat.Platform.Windows\Metrics\System\SystemMetricIds.cs" Link="Metrics\WindowsSystemMetricIds.cs" />
+
+    <!-- The catalog of the Windows built-in actions (T803): the Linux actions must have the same names and parameters, so that a
+         command document keeps its meaning when it moves between the platforms. Plain C# over Contracts and Core, like the file above. -->
+    <Compile Include="..\..\src\QoffeeAutomat.Platform.Windows\Actions\WindowsActionCatalog.cs" Link="Actions\WindowsActionCatalog.cs" />
+  </ItemGroup>
+
+</Project>

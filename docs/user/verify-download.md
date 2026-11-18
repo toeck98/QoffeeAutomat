@@ -11,6 +11,8 @@ Replace `<version>` with the version you downloaded, for example `1.0.0`.
 |------|---------|
 | `QoffeeAutomat-Setup-<version>-x64.exe`, `QoffeeAutomat-Setup-<version>-arm64.exe` | Installer for 64-bit Intel/AMD or ARM64 Windows. |
 | `QoffeeAutomat-<version>-win-x64.zip`, `QoffeeAutomat-<version>-win-arm64.zip` | Portable version without installer. |
+| `qoffeeautomat_<version>_amd64.deb`, `qoffeeautomat_<version>_arm64.deb` | Debian/Ubuntu package ([Install on Linux](install-linux.md)). |
+| `QoffeeAutomat-<version>-linux-x64.tar.gz`, `QoffeeAutomat-<version>-linux-arm64.tar.gz` | Linux tarball with install script. |
 | `qoffeeautomat.zip` | The Home Assistant integration; HACS downloads it for you. |
 | `SHA256SUMS.txt` | SHA-256 checksum of every other file. |
 | `sbom.spdx.json` | Software bill of materials (SPDX). |

@@ -186,6 +186,12 @@ public sealed class CommandEngineOptions
     /// <summary>How long <see cref="CommandEngine.DisposeAsync"/> waits for cancelled runs to end.</summary>
     public TimeSpan ShutdownTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>
+    /// What this platform can run (PLAN.md S17, T803); null supports everything. A command that the platform cannot run is refused when
+    /// it starts, with a message that says so, and stays in the configuration.
+    /// </summary>
+    public CommandPlatformSupport? PlatformSupport { get; init; }
+
     internal void Validate()
     {
         ArgumentOutOfRangeException.ThrowIfNegative(QueueLimit);

@@ -1,0 +1,22 @@
+#!/bin/sh
+# QoffeeAutomat .deb: before removal. Stops the service (and disables it unless this is an upgrade).
+set -e
+
+case "$1" in
+  remove | deconfigure)
+    if [ -d /run/systemd/system ]; then
+      systemctl disable --now qoffeeautomat.service > /dev/null 2>&1 || true
+    fi
+    ;;
+  upgrade | failed-upgrade)
+    if [ -d /run/systemd/system ]; then
+      systemctl stop qoffeeautomat.service > /dev/null 2>&1 || true
+    fi
+    ;;
+  *)
+    echo "prerm called with unknown argument '$1'" >&2
+    exit 1
+    ;;
+esac
+
+exit 0

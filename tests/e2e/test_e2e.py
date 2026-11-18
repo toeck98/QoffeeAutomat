@@ -4,6 +4,7 @@ The tests share one stack and run in file order: pairing first, restart last.
 They see the stack only from outside (REST APIs of both containers and Docker CLI).
 """
 
+import os
 from typing import Any
 
 import pytest
@@ -20,6 +21,22 @@ from e2e_driver import (
 
 ENTITY_TIMEOUT = 120
 RECONNECT_TIMEOUT = 180
+
+# E2E_AGENT_PLATFORM=linux runs the agent with the real Linux platform (T804):
+# simulated metrics are absent, "CPU usage" / "Memory used" take their place,
+# and a real value need not change within a minute.
+REAL_PLATFORM = os.environ.get("E2E_AGENT_PLATFORM", "simulated") == "linux"
+VALUE_ENTITY = "CPU usage" if REAL_PLATFORM else "Simulated counter"
+PLATFORM_ENTITIES = (
+    ("CPU usage", "Memory used")
+    if REAL_PLATFORM
+    else (
+        "Simulated counter",
+        "Simulated CPU usage",
+        "Simulated mode",
+        "Simulated toggle",
+    )
+)
 
 
 def _wait_for_entity(ha: HomeAssistant, name: str) -> dict[str, Any]:
@@ -39,11 +56,12 @@ def _wait_for_no_entity(ha: HomeAssistant, name: str) -> None:
 
 
 def _counter_values(ha: HomeAssistant, *, count: int, timeout: float) -> list[str]:
-    """Return ``count`` different values of the simulated counter as they arrive."""
+    """Return ``count`` distinct values as they arrive (1 on the real platform)."""
     seen: list[str] = []
+    count = 1 if REAL_PLATFORM else count
 
     def collect() -> list[str] | None:
-        entity = ha.find_entity("Simulated counter")
+        entity = ha.find_entity(VALUE_ENTITY)
         if (
             entity is not None
             and entity["state"] not in ("unavailable", "unknown")
@@ -79,10 +97,7 @@ def test_entities_are_created_from_the_manifest(
     for name in (
         "Connectivity",
         "Power state",
-        "Simulated counter",
-        "Simulated CPU usage",
-        "Simulated mode",
-        "Simulated toggle",
+        *PLATFORM_ENTITIES,
         "E2E marker",
         "E2E ping",
     ):
@@ -112,7 +127,7 @@ def test_values_update(ha: HomeAssistant, paired: PairedAgent) -> None:
 
 def test_run_command_with_variables(ha: HomeAssistant, paired: PairedAgent) -> None:
     """The action passes variables to the PowerShell command and returns its output."""
-    entity = _wait_for_entity(ha, "Simulated counter")
+    entity = _wait_for_entity(ha, VALUE_ENTITY)
     device_id = ha.render(f"{{{{ device_id('{entity['entity_id']}') }}}}").strip()
     assert device_id
 

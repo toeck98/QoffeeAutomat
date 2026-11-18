@@ -4,6 +4,7 @@
 #   HA_VERSION          Home Assistant image tag: stable (default), beta or a version
 #   E2E_HA_PORT         host port of Home Assistant (default 18123, loopback only)
 #   E2E_AGENT_PORT      host port of the agent's HTTPS listener (default 18481, loopback only)
+#   E2E_AGENT_PLATFORM  platform of the agent: simulated (default) or linux (the real Linux platform, T804)
 #   E2E_AGENT_PASSWORD  password set in the agent (default below, for this throw-away stack only)
 #
 # Run it with `pytest tests/e2e`, which starts and stops the stack, or by hand with
@@ -17,6 +18,7 @@ services:
       dockerfile: tests/e2e/agent.Dockerfile
     environment:
       E2E_AGENT_PASSWORD: ${E2E_AGENT_PASSWORD:-e2e-Qoffee-Passw0rd-2026}
+      E2E_AGENT_PLATFORM: ${E2E_AGENT_PLATFORM:-simulated}
     ports:
       - "127.0.0.1:${E2E_AGENT_PORT:-18481}:8481"
     healthcheck:

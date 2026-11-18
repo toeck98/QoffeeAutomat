@@ -300,11 +300,92 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  linux-package:
+    # Linux packaging (PLAN.md S13, T804): publishes the agent for the architecture and builds the tarball and the .deb.
+    # The scripts are checked with shellcheck. The packages are tested in the job linux-package-test.
+    name: linux package (${{ matrix.arch }})
+    needs: changes
+    if: needs.changes.outputs.dotnet == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    env:
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET (version from global.json) with NuGet cache
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            Directory.Packages.props
+            global.json
+      - name: Check the scripts with shellcheck
+        run: shellcheck packaging/linux/*.sh packaging/linux/deb/postinst packaging/linux/deb/prerm packaging/linux/deb/postrm
+      - name: Publish and stage
+        run: bash packaging/linux/publish.sh --arch ${{ matrix.arch }}
+      - name: Build the tarball and the .deb
+        run: |
+          set -euo pipefail
+          bash packaging/linux/build-tarball.sh --arch ${{ matrix.arch }}
+          bash packaging/linux/build-deb.sh --arch ${{ matrix.arch }}
+      - name: Upload the packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-package-${{ matrix.arch }}
+          path: |
+            artifacts/packaging/QoffeeAutomat-*-linux-*.tar.gz
+            artifacts/packaging/qoffeeautomat_*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+  linux-package-test:
+    # Installs the x64 packages in a container that runs systemd (Ubuntu LTS and Debian stable): the .deb with apt,
+    # the service starts and answers /healthz, remove and purge, then the tarball with install.sh and uninstall.sh
+    # (packaging/linux/test-packages.sh). The arm64 packages are built but cannot run on the x64 runner.
+    name: linux package test (${{ matrix.image }})
+    needs: [changes, linux-package]
+    if: needs.changes.outputs.dotnet == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu:latest is the newest LTS release, debian:stable the current Debian release.
+        image: ["ubuntu:latest", "debian:stable"]
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download the packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: linux-package-x64
+          path: packages
+      - name: Test the packages in a systemd container
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          bash packaging/linux/test-packages.sh --image "$IMAGE" \
+            --deb "$(ls packages/qoffeeautomat_*_amd64.deb)" \
+            --tarball "$(ls packages/QoffeeAutomat-*-linux-x64.tar.gz)"
+
   result:
     name: dotnet ci passed
     # Require this job in the branch ruleset: it is green when the build passed or was
     # skipped because no relevant file changed, and red when anything failed.
-    needs: [changes, build, ui-e2e, benchmark, installer]
+    needs: [changes, build, ui-e2e, benchmark, installer, linux-package, linux-package-test]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

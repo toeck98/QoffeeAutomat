@@ -11,7 +11,7 @@ public enum AgentVerb
     /// <summary>Prints the version and exits.</summary>
     Version,
 
-    /// <summary>Installs, removes and controls the Windows service (the Windows build only, PLAN.md T301).</summary>
+    /// <summary>Installs, removes and controls the Windows service (the Windows build, PLAN.md T301) or the systemd service (the Linux build, T802).</summary>
     Service,
 
     /// <summary>Sends a custom event to the running agent: <c>emit &lt;name&gt; [--data &lt;json&gt;]</c> (PLAN.md T217).</summary>
@@ -22,6 +22,13 @@ public enum AgentVerb
 
     /// <summary>Sets or reads the value of a sensor of type <c>state</c> in the running agent: <c>state set &lt;id&gt; &lt;value&gt;</c> and <c>state get &lt;id&gt;</c> (PLAN.md T714).</summary>
     State,
+
+    /// <summary>
+    /// Runs the session helper of the logged-in user: the process that the systemd user unit <c>qoffeeautomat-session.service</c> starts. It
+    /// serves the agent on a Unix domain socket for commands in the user's context and for the metrics of the desktop (the Linux build,
+    /// PLAN.md S17, T803).
+    /// </summary>
+    SessionHost,
 }
 
 /// <summary>What the verb <c>state</c> does.</summary>
@@ -79,14 +86,14 @@ public static class CommandLine
 {
     /// <summary>The usage text.</summary>
     public const string Usage = """
-        Usage: qoffeeautomat [run|version|service|emit|state|reset-password] [options]
+        Usage: qoffeeautomat [run|version|service|emit|state|reset-password|session-host] [options]
 
         Verbs:
           run                  Run the agent (default).
           version              Print the version and exit.
           service <install|uninstall|start|stop|status>
-                               Install or control the Windows service (Windows build only);
-                               'service --help' lists the options.
+                               Install or control the Windows service (Windows build) or the systemd
+                               service (Linux build); 'service --help' lists the options.
           emit <name> [--data <json>]
                                Send a custom event to the running agent, for example from a script
                                that the agent started. <json> must be an object.
@@ -97,10 +104,12 @@ public static class CommandLine
           state get <id>       Print the value of a sensor of type 'state'.
           reset-password      Write a new setup token file so that a new password can be set in the
                                UI. Needs a local administrator (Windows) or root (Linux).
+          session-host         Run the session helper of the logged-in user (Linux build). It is started by
+                               the systemd user unit qoffeeautomat-session.service, not by hand.
 
         Options:
           --data-dir <path>    Keep all files below this directory (env QOFFEEAUTOMAT_DATA_DIR).
-          --platform <name>    auto (default), simulated, windows or linux.
+          --platform <name>    auto (default), simulated, windows or linux (env QOFFEE_PLATFORM).
           --ui-port <port>     Port of the loopback UI and API listener (default from settings, 8480).
           --link-port <port>   Port of the QoffeeLink listener (default from settings, 8481).
           --help               Show this text.
@@ -344,6 +353,9 @@ public static class CommandLine
                 return true;
             case "reset-password":
                 verb = AgentVerb.ResetPassword;
+                return true;
+            case "session-host":
+                verb = AgentVerb.SessionHost;
                 return true;
             default:
                 verb = AgentVerb.Run;

@@ -77,6 +77,7 @@ else
           <MudSelect T="string" @bind-Value="_actionFilter" Label="@L["Commands.Filter.Action"]" Variant="Variant.Outlined" Margin="Margin.Dense">
             <MudSelectItem T="string" Value="@CommandFilter.All">@L["Commands.Filter.Any"]</MudSelectItem>
             <MudSelectItem T="string" Value="@ActionTypes.PowerShell">@L["Commands.Action.PowerShell"]</MudSelectItem>
+            <MudSelectItem T="string" Value="@ActionTypes.Bash">@L["Commands.Action.Bash"]</MudSelectItem>
             <MudSelectItem T="string" Value="@ActionTypes.Process">@L["Commands.Action.Process"]</MudSelectItem>
             <MudSelectItem T="string" Value="@ActionTypes.Builtin">@L["Commands.Action.Builtin"]</MudSelectItem>
             <MudSelectItem T="string" Value="@ActionTypes.Sequence">@L["Commands.Action.Sequence"]</MudSelectItem>
@@ -160,6 +161,10 @@ else
               </td>
               <td data-testid="@($"action-{command.Id}")" data-value="@command.Action.Type">
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">@ActionText(command)</MudChip>
+                @if (IsUnsupported(command))
+                {
+                  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" title="@L["Commands.Unsupported.Help"]" data-testid="@($"unsupported-{command.Id}")">@L["Commands.Unsupported"]</MudChip>
+                }
               </td>
               <td data-testid="@($"runas-{command.Id}")" data-value="@command.RunAs">
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@RunAsColor(command)">@RunAsText(command)</MudChip>

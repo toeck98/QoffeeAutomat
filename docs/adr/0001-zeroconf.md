@@ -126,3 +126,22 @@ Manual (task has `human_verify: true`, to be done by the owner on a real network
   blocks multicast sockets of services): add the native `DnsServiceRegister` implementation for Windows as
   another `IServiceAdvertiser`.
 * The Linux platform (M8): use the Avahi implementation if `avahi-daemon` runs, otherwise this responder.
+  (T802 chose the responder alone, see below.)
+
+## Linux (T802)
+
+The Linux agent advertises with the responder of this ADR (option E), not with Avahi. The reasons:
+
+* Avahi's `org.freedesktop.Avahi.Server` is a D-Bus API, and the agent has no D-Bus client (D-048: the systemd integration is
+  plain managed code, so the published files run on every distribution without native or extra packages). A back end that
+  works only where `avahi-daemon` runs would need a second path anyway for the many servers and containers that do not run it.
+* The responder shares UDP port 5353 politely. It sets `SO_REUSEADDR`, as `avahi-daemon` and `systemd-resolved` (with
+  `MulticastDNS=yes`) do, so all of them receive the multicast packets, and each answers for its own records. Nothing has to
+  be stopped or configured. The announcement is per interface, IPv4 only, with the limits listed above.
+* It runs inside the service, so the announcement follows the same events as on Windows: the listener is up (`READY=1` is sent
+  at the same time), a resume (the logind signal `PrepareForSleep(false)` reaches `ZeroconfService` through
+  `IPowerEvents`), a network change and a rename; and the goodbye is sent when the agent stops, before `bye` closes the links.
+
+The `IServiceAdvertiser` seam is unchanged, so an Avahi back end can be added for desktops where a second responder on port 5353
+is unwanted. Manual check on Linux: `avahi-browse -rt _qoffeeautomat._tcp` from another computer while the service runs,
+and `ss -lunp | grep 5353` shows the agent next to `avahi-daemon`.

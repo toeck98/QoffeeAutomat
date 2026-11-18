@@ -33,6 +33,7 @@ public partial class CommandsPage
     private string? _notice;
     private bool _loading = true;
     private string? _search;
+    private string? _platformOs;
     private SwitchFilter _enabledFilter;
     private SwitchFilter _exposeFilter;
     private string _actionFilter = CommandFilter.All;
@@ -101,11 +102,15 @@ public partial class CommandsPage
     private string ActionText(CommandDocument command) => command.Action.Type switch
     {
         ActionTypes.PowerShell => L["Commands.Action.PowerShell"],
+        ActionTypes.Bash => L["Commands.Action.Bash"],
         ActionTypes.Process => L["Commands.Action.Process"],
         ActionTypes.Builtin => L["Commands.Action.Builtin"],
         ActionTypes.Sequence => L["Commands.Action.Sequence"],
         _ => command.Action.Type,
     };
+
+    /// <summary>True when the command uses an action type that the operating system of the agent cannot run; the document is kept and flagged.</summary>
+    private bool IsUnsupported(CommandDocument command) => !PlatformActionSupport.IsActionTypeSupported(_platformOs, command.Action.Type);
 
     private string RunAsText(CommandDocument command) => command.RunAs switch
     {
@@ -187,7 +192,21 @@ public partial class CommandsPage
             return;
         }
 
+        await LoadPlatformAsync();
         await LoadRunsAsync();
+    }
+
+    /// <summary>Reads the operating system of the agent, to flag the commands that it cannot run (T803). Without it nothing is flagged.</summary>
+    private async Task LoadPlatformAsync()
+    {
+        try
+        {
+            _platformOs = (await Api.GetStatusAsync()).Platform.Os;
+        }
+        catch (ApiException)
+        {
+            // The flags are missing; the list is still usable.
+        }
     }
 
     private async Task LoadRunsAsync()

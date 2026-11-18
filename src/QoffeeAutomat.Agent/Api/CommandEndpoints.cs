@@ -1,6 +1,7 @@
 using QoffeeAutomat.Agent.Api.OpenApi;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
+using QoffeeAutomat.Core.Commands;
 using QoffeeAutomat.Core.Config;
 using QoffeeAutomat.Core.Validation;
 
@@ -78,7 +79,7 @@ public static class CommandEndpoints
         return ApiResults.Json(command, ApiDocumentJsonContext.Default.CommandDocument);
     }
 
-    private static async Task<IResult> CreateCommandAsync(HttpContext context, IConfigStore config, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateCommandAsync(HttpContext context, IConfigStore config, CommandPlatformSupport support, CancellationToken cancellationToken)
     {
         (CommandDocument? command, IResult? failure) = await ApiResults.ReadBodyAsync(
             context.Request, ApiDocumentJsonContext.Default.CommandDocument, MaxBodyBytes, cancellationToken).ConfigureAwait(false);
@@ -87,12 +88,20 @@ public static class CommandEndpoints
             return failure!;
         }
 
+        // A new command that this platform cannot run is refused with the reason (PLAN.md S17, T803); documents that are already
+        // stored (restored, copied from another PC, pushed by a hub) are never touched.
+        IReadOnlyList<ValidationError> unsupported = support.Check(command);
+        if (unsupported.Count > 0)
+        {
+            return ApiResults.ValidationFailed(unsupported);
+        }
+
         // Revision zero means "must not exist yet": a second create of the same id is a conflict, not an overwrite.
         SaveResult<CommandDocument> saved = await config.Local.SaveAsync(command, 0, cancellationToken).ConfigureAwait(false);
         return ApiDocuments.SaveOutcome(saved, ApiDocumentJsonContext.Default.CommandDocument, context, created: true, "/api/v1/commands/" + command.Id);
     }
 
-    private static async Task<IResult> ValidateCommandAsync(HttpContext context, IConfigStore config, CancellationToken cancellationToken)
+    private static async Task<IResult> ValidateCommandAsync(HttpContext context, IConfigStore config, CommandPlatformSupport support, CancellationToken cancellationToken)
     {
         // The body is read by hand so that a draft with missing members is reported with JSON pointers instead of 400.
         (CommandDocument? draft, IResult? failure) = await ApiResults.ReadBodyAsync(
@@ -102,11 +111,15 @@ public static class CommandEndpoints
             return failure!;
         }
 
-        ValidationResult result = DocumentValidator.ValidateCommand(ApiDocuments.Normalize(draft), ApiDocuments.CommandLookup(config));
-        return ApiResults.Json(ApiDocuments.Report(result), ApiJsonContext.Default.ValidationReport);
+        CommandDocument normalized = ApiDocuments.Normalize(draft);
+        ValidationResult result = DocumentValidator.ValidateCommand(normalized, ApiDocuments.CommandLookup(config));
+
+        // The report also says what this platform cannot run (T803), so the editor can flag a command before it is saved.
+        ValidationResult combined = new([.. result.Errors, .. support.Check(normalized)]);
+        return ApiResults.Json(ApiDocuments.Report(combined), ApiJsonContext.Default.ValidationReport);
     }
 
-    private static async Task<IResult> ReplaceCommandAsync(string id, HttpContext context, IConfigStore config, CancellationToken cancellationToken)
+    private static async Task<IResult> ReplaceCommandAsync(string id, HttpContext context, IConfigStore config, CommandPlatformSupport support, CancellationToken cancellationToken)
     {
         IResult? header = ApiETag.ReadRevision(context.Request, out int? expected);
         if (header is not null)
@@ -126,16 +139,25 @@ public static class CommandEndpoints
             return ApiResults.ValidationFailed([new ValidationError("/id", "mismatch", "The id of the document must be the id in the URL.")]);
         }
 
-        if (config.Local.GetDocument<CommandDocument>(id) is null)
+        CommandDocument? stored = config.Local.GetDocument<CommandDocument>(id);
+        if (stored is null)
         {
             return UnknownCommand();
+        }
+
+        // Turning a supported command into one that this platform cannot run is refused; a command that is already flagged can still be
+        // edited (its description, its parameters), so that nothing the user wrote is locked away.
+        IReadOnlyList<ValidationError> unsupported = support.Check(command);
+        if (unsupported.Count > 0 && support.IsSupported(stored))
+        {
+            return ApiResults.ValidationFailed(unsupported);
         }
 
         SaveResult<CommandDocument> saved = await config.Local.SaveAsync(command, expected, cancellationToken).ConfigureAwait(false);
         return ApiDocuments.SaveOutcome(saved, ApiDocumentJsonContext.Default.CommandDocument, context, created: false, "/api/v1/commands/" + id);
     }
 
-    private static async Task<IResult> PatchCommandAsync(string id, HttpContext context, IConfigStore config, CancellationToken cancellationToken)
+    private static async Task<IResult> PatchCommandAsync(string id, HttpContext context, IConfigStore config, CommandPlatformSupport support, CancellationToken cancellationToken)
     {
         IResult? header = ApiETag.ReadRevision(context.Request, out int? expected);
         if (header is not null)
@@ -159,6 +181,12 @@ public static class CommandEndpoints
         if (existing is null)
         {
             return UnknownCommand();
+        }
+
+        // Switching a command on that this platform cannot run only produces failing runs; switching it off is always possible.
+        if (patch.Enabled == true && support.Check(existing) is { Count: > 0 } unsupported)
+        {
+            return ApiResults.ValidationFailed(unsupported);
         }
 
         CommandDocument changed = existing with

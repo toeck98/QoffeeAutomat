@@ -20,6 +20,7 @@ using QoffeeAutomat.Core.Commands;
 using QoffeeAutomat.Core.Config;
 using QoffeeAutomat.Core.Events;
 using QoffeeAutomat.Core.Execution;
+using QoffeeAutomat.Core.Execution.Bash;
 using QoffeeAutomat.Core.Execution.PowerShell;
 using QoffeeAutomat.Core.History;
 using QoffeeAutomat.Core.Manifest;
@@ -71,7 +72,10 @@ public static class AgentHost
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        PlatformSelection platform = PlatformSelector.Select(options.Platform, PlatformSelector.CurrentOs());
+        // --platform wins over QOFFEE_PLATFORM, which keeps the simulated platform selectable for tests and the end-to-end stack (D-021).
+        PlatformSelection platform = PlatformSelector.Select(
+            options.Platform ?? Environment.GetEnvironmentVariable(LinuxHostIntegration.PlatformEnvironmentVariable),
+            PlatformSelector.CurrentOs());
         if (!platform.IsValid)
         {
             throw new AgentStartupException(platform.Error!);
@@ -81,10 +85,13 @@ public static class AgentHost
         // log files that the first logger creates.
         WindowsHostIntegration.PrepareDirectories(options, platform);
 
+        // Linux (T802): the same for /etc/qoffeeautomat, /var/lib/qoffeeautomat and /var/log/qoffeeautomat, with modes 0700 and 0600.
+        LinuxHostIntegration.PrepareDirectories(options, platform);
+
         // Options the agent does not know (--environment, --contentRoot and so on) belong to ASP.NET Core.
         string[] hostArguments = options.PassThrough is null ? [] : [.. options.PassThrough];
-        WebApplicationBuilder builder = WindowsHostIntegration.CreateBuilder(hostArguments);
-        ConfigureLogging(builder.Logging);
+        WebApplicationBuilder builder = LinuxHostIntegration.CreateBuilder(hostArguments, platform) ?? WindowsHostIntegration.CreateBuilder(hostArguments);
+        ConfigureLogging(builder.Logging, journald: LinuxHostIntegration.IsSystemdService(platform));
         WindowsHostIntegration.ConfigureLogging(builder.Logging, platform);
         ConfigureServices(builder.Services, options, platform);
         configureServices?.Invoke(builder.Services);
@@ -121,9 +128,20 @@ public static class AgentHost
         return app;
     }
 
-    private static void ConfigureLogging(ILoggingBuilder logging)
+    private static void ConfigureLogging(ILoggingBuilder logging, bool journald)
     {
         logging.ClearProviders();
+        if (journald)
+        {
+            // Under systemd the journal adds the time and the unit, and reads the priority from the prefix "<N>" of a line (T802).
+            logging.AddSystemdConsole(console =>
+            {
+                console.IncludeScopes = false;
+                console.TimestampFormat = null;
+            });
+            return;
+        }
+
         logging.AddSimpleConsole(console =>
         {
             console.SingleLine = true;
@@ -149,6 +167,7 @@ public static class AgentHost
         services.AddAgentSecurity();
         AddSimulatedPlatform(services);
         WindowsHostIntegration.ConfigureServices(services, platform);
+        LinuxHostIntegration.ConfigureServices(services, platform);
 
         // The update check and the built-in action agent.update (T704). After the platform: the action wraps its built-in actions.
         services.AddAgentUpdates(platform);
@@ -162,6 +181,7 @@ public static class AgentHost
 
         services.AddHostedService<ConfigLoadService>();
         WindowsHostIntegration.ConfigureServicesAfterConfigLoad(services, platform);
+        LinuxHostIntegration.ConfigureServicesAfterConfigLoad(services, platform);
         services.AddHostedService<EngineStartService>();
         services.AddHostedService<LocalChannelService>();
         services.AddHostedService<AgentLifecycleService>();
@@ -245,6 +265,28 @@ public static class AgentHost
             },
             provider.GetRequiredService<TimeProvider>()));
         services.AddSingleton<IActionHandler>(provider => new PowerShellActionHandler(provider.GetRequiredService<PowerShellRunner>()));
+
+        // The action type bash (T803, PLAN.md S17): values only as environment variables and positional arguments, never in the script.
+        // The handler is registered everywhere; CommandPlatformSupport flags the platforms that cannot run it (Windows).
+        services.AddSingleton<IBashLocator, BashLocator>();
+        services.AddSingleton(provider => new BashRunner(
+            provider.GetRequiredService<IBashLocator>(),
+            new BashOptions
+            {
+                ScriptsDirectory = provider.GetRequiredService<IAppPaths>().ScriptsDirectory,
+                TempRoot = Path.Combine(provider.GetRequiredService<IAppPaths>().DataDirectory, "tmp"),
+
+                // Registered by the Linux platform: refuses system scripts that other users can change (S09 item 5).
+                ScriptGuard = provider.GetService<IScriptAccessGuard>(),
+
+                // Registered by the Linux platform: bash of runAs user runs inside the session helper of the user.
+                UserSession = provider.GetService<IUserContextBash>(),
+            },
+            provider.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IActionHandler>(provider => new BashActionHandler(provider.GetRequiredService<BashRunner>()));
+
+        // What the platform can run (T803); the Linux platform registers its own before this line.
+        services.TryAddSingleton(CommandPlatformSupport.Unrestricted);
         services.AddSingleton<IActionHandler>(provider => new BuiltinActionHandler(
             provider.GetRequiredService<IBuiltinActionProvider>(),
             provider.GetRequiredService<ISessionBridge>()));
@@ -263,6 +305,7 @@ public static class AgentHost
                     AgentName = () => config.Effective.GetDocument<AgentSettingsDocument>(ConfigIds.Settings)?.Name ?? Environment.MachineName,
                     LocalChannel = provider.GetRequiredService<LocalChannel>(),
                     RunOutput = provider.GetRequiredService<RunOutputHub>(),
+                    PlatformSupport = provider.GetRequiredService<CommandPlatformSupport>(),
                 },
                 provider.GetRequiredService<IAgentPause>(),
                 provider.GetRequiredService<ISessionBridge>(),
@@ -337,7 +380,8 @@ public static class AgentHost
             // announces media (T716); the simulated platform has neither, so it announces nothing.
             features: () => AgentFeatures.FromActions(provider.GetRequiredService<IBuiltinActionProvider>()),
             config: provider.GetRequiredService<IConfigStore>(),
-            includeSystemCommands: true));
+            includeSystemCommands: true,
+            platformSupport: provider.GetRequiredService<CommandPlatformSupport>()));
         services.AddSingleton<IManifestSource>(provider => provider.GetRequiredService<ManifestService>());
     }
 

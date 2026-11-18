@@ -152,6 +152,9 @@
   <data name="Commands.Column.Actions" xml:space="preserve"><value>Aktionen</value></data>
 
   <data name="Commands.Action.PowerShell" xml:space="preserve"><value>PowerShell</value></data>
+  <data name="Commands.Action.Bash" xml:space="preserve"><value>Bash</value></data>
+  <data name="Commands.Unsupported" xml:space="preserve"><value>Auf diesem Computer nicht unterstützt</value></data>
+  <data name="Commands.Unsupported.Help" xml:space="preserve"><value>Dieser Befehl verwendet eine Aktion, die dieses Betriebssystem nicht ausführen kann. Er bleibt unverändert erhalten und wird Home Assistant nicht angeboten.</value></data>
   <data name="Commands.Action.Process" xml:space="preserve"><value>Programm</value></data>
   <data name="Commands.Action.Builtin" xml:space="preserve"><value>Eingebaut</value></data>
   <data name="Commands.Action.Sequence" xml:space="preserve"><value>Ablauf</value></data>
@@ -288,6 +291,12 @@
   <data name="Editor.Ps.ParamBlock.Help" xml:space="preserve"><value>Fügt einen param()-Block für die Parameter unten ein oder aktualisiert den im Code vorhandenen.</value></data>
   <data name="Editor.Ps.Script" xml:space="preserve"><value>Skriptdatei</value></data>
   <data name="Editor.Ps.Script.Help" xml:space="preserve"><value>Der Name einer Datei im Skriptordner des Agenten. Das Skript deklariert einen param()-Block für die Parameter.</value></data>
+  <data name="Editor.Action.Unsupported" xml:space="preserve"><value>Der Aktionstyp "{0}" wird auf diesem Computer nicht unterstützt. Der Befehl bleibt erhalten, kann hier aber nicht laufen und wird Home Assistant nicht angeboten.</value></data>
+  <data name="Editor.Bash.Source" xml:space="preserve"><value>Skript</value></data>
+  <data name="Editor.Bash.Code" xml:space="preserve"><value>Bash-Skript</value></data>
+  <data name="Editor.Bash.Code.Help" xml:space="preserve"><value>Die Werte kommen als $1, $2 ... in der Reihenfolge der Parameter und als Umgebungsvariablen QA_VAR_NAME an. Sie werden nie in den Skripttext eingesetzt.</value></data>
+  <data name="Editor.Bash.Script" xml:space="preserve"><value>Skriptdatei</value></data>
+  <data name="Editor.Bash.Script.Help" xml:space="preserve"><value>Der Name einer Datei im Skriptordner des Agenten. Das Skript liest seine Werte aus $1, $2 ... oder aus QA_VAR_NAME.</value></data>
   <data name="Editor.Process.File" xml:space="preserve"><value>Programm</value></data>
   <data name="Editor.Process.Args" xml:space="preserve"><value>Argumente</value></data>
   <data name="Editor.Process.Args.Help" xml:space="preserve"><value>Ein Argument pro Zeile. Einen Parameter schreiben Sie als {{Name}}; sein Wert ersetzt ihn und wird nie in mehrere Argumente zerlegt.</value></data>
@@ -834,7 +843,7 @@
   <data name="Editor.Secrets.None" xml:space="preserve"><value>Es sind noch keine Geheimnisse gespeichert.</value></data>
   <data name="Editor.Secrets.Missing" xml:space="preserve"><value>nicht gespeichert</value></data>
   <data name="Editor.Secrets.Manage" xml:space="preserve"><value>Geheimnisse verwalten</value></data>
-  <data name="Editor.Secrets.NotAvailable" xml:space="preserve"><value>Nur PowerShell- und Prozess-Aktionen können Geheimnisse verwenden.</value></data>
+  <data name="Editor.Secrets.NotAvailable" xml:space="preserve"><value>Nur PowerShell-, Bash- und Prozess-Aktionen können Geheimnisse verwenden.</value></data>
   <data name="Nav.Modes" xml:space="preserve"><value>Modi</value></data>
   <data name="Modes.Title" xml:space="preserve"><value>Modi</value></data>
   <data name="Modes.Intro" xml:space="preserve"><value>Eine Modusgruppe ist eine Menge von Modi des PCs, zum Beispiel Normal, Lernen oder TV-Gaming. Pro Gruppe ist genau ein Modus aktiv; beim Wechsel laufen zuerst die Ausstiegsschritte des alten und dann die Einstiegsschritte des neuen Modus.</value></data>

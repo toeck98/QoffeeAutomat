@@ -285,6 +285,10 @@ public static class WindowsPlatformServices
         services.RemoveAll<IAuthenticodeVerifier>();
         services.AddSingleton<IAuthenticodeVerifier, WinTrustAuthenticodeVerifier>();
 
+        // Linux-only action types (bash, T803) are flagged as unsupported, and the command documents are kept.
+        services.RemoveAll<CommandPlatformSupport>();
+        services.AddSingleton(new CommandPlatformSupport(QoffeeAutomat.Contracts.Config.PlatformActionSupport.WindowsOs));
+
         services.RemoveAll<IScriptAccessGuard>();
         services.AddSingleton<IScriptAccessGuard>(provider => new SystemScriptAclGuard(
             provider.GetRequiredService<IFileSystemAcl>(),

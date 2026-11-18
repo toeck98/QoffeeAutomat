@@ -111,6 +111,23 @@ public sealed record PowerShellAction(
     public override string Type => ActionTypes.PowerShell;
 }
 
+/// <summary>
+/// Runs a bash script (PLAN.md S06, S17, T803). Variables reach the script as environment variables (<c>QA_VAR_&lt;NAME&gt;</c>) and
+/// as positional arguments in the order of the command's parameters; they are never spliced into the script text or a command line (D-012).
+/// </summary>
+/// <param name="Source">Inline code or a script file, see <see cref="BashSources"/>.</param>
+/// <param name="Code">The script when the source is inline.</param>
+/// <param name="Script">The file name in the scripts directory when the source is a file.</param>
+public sealed record BashAction(
+    string Source,
+    string? Code = null,
+    string? Script = null) : CommandAction
+{
+    /// <inheritdoc />
+    [JsonPropertyOrder(-1)]
+    public override string Type => ActionTypes.Bash;
+}
+
 /// <summary>Starts an executable without a shell.</summary>
 /// <param name="File">The executable.</param>
 /// <param name="Args">Arguments; <c>{{Name}}</c> placeholders are replaced by variable values.</param>

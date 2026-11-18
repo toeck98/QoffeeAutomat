@@ -81,6 +81,7 @@ nav:
       - Quick start: user/quick-start.md
       - Overview and architecture: user/overview.md
       - Install on Windows: user/install-windows.md
+      - Install on Linux: user/install-linux.md
       - First-run setup: user/first-run.md
       - Pair with Home Assistant: user/pairing.md
       - Install the integration (HACS): user/install-integration.md

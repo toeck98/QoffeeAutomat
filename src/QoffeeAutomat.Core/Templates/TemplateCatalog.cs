@@ -170,7 +170,12 @@ public sealed class TemplateCatalog
                 continue;
             }
 
-            string? scriptName = document.Action is PowerShellAction { Source: PowerShellSources.File } action ? action.Script : null;
+            string? scriptName = document.Action switch
+            {
+                PowerShellAction { Source: PowerShellSources.File } action => action.Script,
+                BashAction { Source: BashSources.File } bashAction => bashAction.Script,
+                _ => null,
+            };
             IReadOnlyDictionary<string, string>? scripts = await ReadScriptsAsync(scriptsDirectory, scriptName, path, problems, cancellationToken).ConfigureAwait(false);
             if (scripts is null)
             {

@@ -152,6 +152,9 @@
   <data name="Commands.Column.Actions" xml:space="preserve"><value>Actions</value></data>
 
   <data name="Commands.Action.PowerShell" xml:space="preserve"><value>PowerShell</value></data>
+  <data name="Commands.Action.Bash" xml:space="preserve"><value>Bash</value></data>
+  <data name="Commands.Unsupported" xml:space="preserve"><value>Not supported on this computer</value></data>
+  <data name="Commands.Unsupported.Help" xml:space="preserve"><value>This command uses an action that this operating system cannot run. It is kept as it is and is not offered to Home Assistant.</value></data>
   <data name="Commands.Action.Process" xml:space="preserve"><value>Program</value></data>
   <data name="Commands.Action.Builtin" xml:space="preserve"><value>Built-in</value></data>
   <data name="Commands.Action.Sequence" xml:space="preserve"><value>Sequence</value></data>
@@ -288,6 +291,12 @@
   <data name="Editor.Ps.ParamBlock.Help" xml:space="preserve"><value>Inserts a param() block for the parameters below, or updates the one that is in the code.</value></data>
   <data name="Editor.Ps.Script" xml:space="preserve"><value>Script file</value></data>
   <data name="Editor.Ps.Script.Help" xml:space="preserve"><value>The name of a file in the scripts folder of the agent. The script declares a param() block for the parameters.</value></data>
+  <data name="Editor.Action.Unsupported" xml:space="preserve"><value>The action type "{0}" is not supported on this computer. The command is kept, but it cannot run here and is not offered to Home Assistant.</value></data>
+  <data name="Editor.Bash.Source" xml:space="preserve"><value>Script</value></data>
+  <data name="Editor.Bash.Code" xml:space="preserve"><value>Bash script</value></data>
+  <data name="Editor.Bash.Code.Help" xml:space="preserve"><value>The values arrive as $1, $2 ... in the order of the parameters and as the environment variables QA_VAR_NAME. They are never inserted into the script text.</value></data>
+  <data name="Editor.Bash.Script" xml:space="preserve"><value>Script file</value></data>
+  <data name="Editor.Bash.Script.Help" xml:space="preserve"><value>The name of a file in the scripts folder of the agent. The script reads its values from $1, $2 ... or from QA_VAR_NAME.</value></data>
   <data name="Editor.Process.File" xml:space="preserve"><value>Program</value></data>
   <data name="Editor.Process.Args" xml:space="preserve"><value>Arguments</value></data>
   <data name="Editor.Process.Args.Help" xml:space="preserve"><value>One argument per line. Write a parameter as {{Name}}; its value replaces it and is never split into several arguments.</value></data>
@@ -834,7 +843,7 @@
   <data name="Editor.Secrets.None" xml:space="preserve"><value>No secrets are stored yet.</value></data>
   <data name="Editor.Secrets.Missing" xml:space="preserve"><value>not stored</value></data>
   <data name="Editor.Secrets.Manage" xml:space="preserve"><value>Manage secrets</value></data>
-  <data name="Editor.Secrets.NotAvailable" xml:space="preserve"><value>Only PowerShell and process actions can use secrets.</value></data>
+  <data name="Editor.Secrets.NotAvailable" xml:space="preserve"><value>Only PowerShell, bash and process actions can use secrets.</value></data>
   <data name="Nav.Modes" xml:space="preserve"><value>Modes</value></data>
   <data name="Modes.Title" xml:space="preserve"><value>Modes</value></data>
   <data name="Modes.Intro" xml:space="preserve"><value>A mode group is a set of modes of the PC, for example Normal, Study or TV gaming. Only one mode of a group is active; switching runs the exit steps of the old mode and then the enter steps of the new one.</value></data>

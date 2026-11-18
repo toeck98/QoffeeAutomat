@@ -41,13 +41,17 @@ public sealed class Program
                 WriteLine("QoffeeAutomat " + AgentVersion.Current);
                 return ExitCodes.Success;
             case AgentVerb.Service:
-                return await WindowsHostIntegration.RunServiceVerbAsync(options, Console.Out, Console.Error).ConfigureAwait(false);
+                return OperatingSystem.IsLinux()
+                    ? await LinuxHostIntegration.RunServiceVerbAsync(options, Console.Out, Console.Error).ConfigureAwait(false)
+                    : await WindowsHostIntegration.RunServiceVerbAsync(options, Console.Out, Console.Error).ConfigureAwait(false);
             case AgentVerb.Emit:
                 return await EmitCommand.RunAsync(options, Console.Out, Console.Error, Environment.GetEnvironmentVariable).ConfigureAwait(false);
             case AgentVerb.State:
                 return await StateCommand.RunAsync(options, Console.Out, Console.Error, Environment.GetEnvironmentVariable).ConfigureAwait(false);
             case AgentVerb.ResetPassword:
                 return await ResetPasswordCommand.RunAsync(options, Console.Out, Console.Error, ResetPasswordCommand.IsPrivileged).ConfigureAwait(false);
+            case AgentVerb.SessionHost:
+                return await LinuxHostIntegration.RunSessionHostAsync(Console.Out, Console.Error).ConfigureAwait(false);
             default:
                 return await RunAsync(options).ConfigureAwait(false);
         }

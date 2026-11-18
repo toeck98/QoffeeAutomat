@@ -16,6 +16,7 @@ namespace QoffeeAutomat.Contracts.Session;
 [JsonSerializable(typeof(SessionMessage))]
 [JsonSerializable(typeof(SessionHelloMessage))]
 [JsonSerializable(typeof(SessionRunMessage))]
+[JsonSerializable(typeof(SessionBashSpec))]
 [JsonSerializable(typeof(SessionRunOutputMessage))]
 [JsonSerializable(typeof(SessionRunResultMessage))]
 [JsonSerializable(typeof(SessionCancelMessage))]
