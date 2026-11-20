@@ -1,14 +1,20 @@
 {
   "domain": "qoffeeautomat",
   "name": "QoffeeAutomat",
-  "after_dependencies": ["http"],
-  "codeowners": ["@toeck98"],
+  "after_dependencies": [
+    "http"
+  ],
+  "codeowners": [
+    "@toeck98"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/toeck98/QoffeeAutomat",
   "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/toeck98/QoffeeAutomat/issues",
   "requirements": [],
-  "version": "0.1.0",
-  "zeroconf": ["_qoffeeautomat._tcp.local."]
+  "version": "0.2.0",
+  "zeroconf": [
+    "_qoffeeautomat._tcp.local."
+  ]
 }

@@ -35,7 +35,7 @@
 
   <!-- Version and package metadata. release-please updates Version (PLAN.md S13). -->
   <PropertyGroup>
-    <Version>0.1.0</Version> <!-- x-release-please-version -->
+    <Version>0.2.0</Version> <!-- x-release-please-version -->
     <Authors>toeck98</Authors>
     <Company>toeck98</Company>
     <Product>QoffeeAutomat</Product>
