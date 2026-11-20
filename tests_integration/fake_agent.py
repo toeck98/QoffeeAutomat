@@ -109,6 +109,9 @@ class FakeAgent:
         self.pairing_code = pairing_code
         # HTTP status the pairing endpoint answers instead of the normal flow.
         self.pair_status: int | None = None
+        # HTTP status the link endpoint answers instead of the upgrade (403 is what an
+        # agent says while the policy of its hub denies direct links, S20).
+        self.link_status: int | None = None
         # When true the agent never answers requests (to test timeouts).
         self.silent = False
         # Protocol range announced in ``hello``.
@@ -258,6 +261,8 @@ class FakeAgent:
         return web.json_response({"token": self.token, "agent": agent})
 
     async def _link(self, request: web.Request) -> web.StreamResponse:
+        if self.link_status is not None:
+            return web.json_response({"code": "refused"}, status=self.link_status)
         if request.headers.get("Authorization") != f"Bearer {self.token}":
             self.rejected_connections += 1
             return web.json_response({"code": "unauthorized"}, status=401)

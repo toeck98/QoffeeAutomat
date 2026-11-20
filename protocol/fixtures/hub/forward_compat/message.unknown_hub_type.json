@@ -1,0 +1,4 @@
+{
+  "t": "some_future_hub_message",
+  "payload": { "anything": [1, 2, 3] }
+}

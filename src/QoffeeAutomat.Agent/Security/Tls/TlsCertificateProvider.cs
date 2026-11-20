@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using QoffeeAutomat.Agent.Hosting;
 using QoffeeAutomat.Core.Secrets;
+using QoffeeAutomat.Core.Security;
 
 namespace QoffeeAutomat.Agent.Security.Tls;
 

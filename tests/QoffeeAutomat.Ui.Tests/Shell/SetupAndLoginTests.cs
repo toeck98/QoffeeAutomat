@@ -258,6 +258,8 @@ public sealed class SetupAndLoginTests : BunitContext, IAsyncLifetime
 
         public Task<AgentStatus> GetStatusAsync(CancellationToken cancellationToken = default) => _inner.GetStatusAsync(cancellationToken);
 
+        public Task<HubConfigState> GetHubConfigAsync(CancellationToken cancellationToken = default) => _inner.GetHubConfigAsync(cancellationToken);
+
         public Task<HotkeyStatusResponse> GetHotkeyStatusAsync(CancellationToken cancellationToken = default) => _inner.GetHotkeyStatusAsync(cancellationToken);
 
         public Task<HardwareSensorStatus> GetHardwareSensorStatusAsync(CancellationToken cancellationToken = default) => _inner.GetHardwareSensorStatusAsync(cancellationToken);

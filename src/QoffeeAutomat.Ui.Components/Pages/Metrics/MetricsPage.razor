@@ -2,12 +2,13 @@
 @using QoffeeAutomat.Contracts.Config
 @using QoffeeAutomat.Ui.Components.Pages.Dashboard
 @inherits LocalizedComponentBase
+@inject IAppLinks Links
 
 @* The metric catalog (PLAN.md T405): the metrics by provider with their current value, the switches for sampling and for
    Home Assistant, which save at once (and spring back when the agent refuses), and the interval and the deadband. *@
 <div class="qa-card-header">
   <MudText Typo="Typo.h4" GutterBottom="true">@L["Metrics.Title"]</MudText>
-  <MudButton Variant="Variant.Text" Href="/sensors" StartIcon="@Icons.Material.Filled.Sensors" data-testid="metrics-to-sensors">@L["Metrics.ToSensors"]</MudButton>
+  <MudButton Variant="Variant.Text" Href="@Links.Resolve("/sensors")" StartIcon="@Icons.Material.Filled.Sensors" data-testid="metrics-to-sensors">@L["Metrics.ToSensors"]</MudButton>
 </div>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Metrics.Intro"]</MudText>
 

@@ -1,0 +1,14 @@
+@page "/library/sensor/new"
+@page "/library/sensor/{SensorId}"
+@using QoffeeAutomat.Ui.Components.Pages.Sensors
+
+@* The sensor editor of the component library, for a sensor of the hub library (PLAN.md S20, D-033, T916). *@
+<LibraryEditorFrame>
+  <SensorEditorPage Id="@SensorId" />
+</LibraryEditorFrame>
+
+@code {
+  /// <summary>The id of the sensor; <c>null</c> on the page of a new sensor.</summary>
+  [Parameter]
+  public string? SensorId { get; set; }
+}

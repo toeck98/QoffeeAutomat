@@ -13,6 +13,7 @@
       "pull-request-title-pattern": "chore: release ${version}",
       "extra-files": [
         "Directory.Build.props",
+        "packaging/hub/ha-app/config.yaml",
         {
           "type": "json",
           "path": "custom_components/qoffeeautomat/manifest.json",

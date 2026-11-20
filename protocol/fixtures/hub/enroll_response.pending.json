@@ -1,0 +1,5 @@
+{
+  "state": "pending",
+  "hub": { "id": "6f1d3a2e-9c47-4b58-8e21-7d0a5c3b9f14", "name": "QoffeeAutomat Hub" },
+  "retry_after": 30
+}

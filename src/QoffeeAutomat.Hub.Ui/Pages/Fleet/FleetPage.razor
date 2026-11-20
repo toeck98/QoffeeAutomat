@@ -1,0 +1,245 @@
+@page "/agents"
+@inherits HubComponentBase
+@inject HubUiOptions Options
+
+@* The fleet overview (PLAN.md S20, T915): every agent with its state, version, tags and the generation of the configuration that it applied compared
+   with the one the hub wants it to have, with filters. The list is read again while the page is open. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@H["Fleet.Title"]</MudText>
+  <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="ReloadAsync" data-testid="fleet-refresh">@H["Fleet.Refresh"]</MudButton>
+</div>
+
+<HubErrorDisplay Error="Error" OnRetry="ReloadAsync" Class="mb-4" />
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_rows.Count == 0)
+{
+  if (Error is null)
+  {
+    <MudPaper Class="pa-4 qa-card" Elevation="1">
+      <MudText Color="Color.Secondary" data-testid="fleet-none">@H["Fleet.None"]</MudText>
+      @if (Can(HubRoleNames.Admin))
+      {
+        <MudButton Variant="Variant.Text" Href="enrollment" Class="mt-2" data-testid="fleet-enroll">@H["Fleet.Enroll"]</MudButton>
+      }
+    </MudPaper>
+  }
+}
+else
+{
+  if (PendingCount > 0 && Can(HubRoleNames.Admin))
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3" data-testid="fleet-pending-hint">
+      @H.Format("Fleet.Pending.Hint", PendingCount)
+      <MudButton Size="Size.Small" Variant="Variant.Text" Href="enrollment" Class="ml-2">@H["Fleet.Pending.Review"]</MudButton>
+    </MudAlert>
+  }
+
+  <MudPaper Class="pa-3 mb-3 qa-card" Elevation="1" data-testid="fleet-filters">
+    <MudGrid Spacing="2" Class="align-center">
+      <MudItem xs="12" md="5">
+        <div data-testid="fleet-search">
+          <MudTextField T="string" @bind-Value="_search" Immediate="true" Clearable="true" Label="@H["Fleet.Search"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="6" md="3">
+        <SelectBox Label="@H["Fleet.State"]" Value="@_state" ValueChanged="@(value => _state = value)" TestId="fleet-state">
+          <option value="" selected="@(_state.Length == 0)">@H["Fleet.State.All"]</option>
+          @foreach (string state in FleetFilter.States)
+          {
+            <option value="@state" selected="@(state == _state)">@H["Fleet.State." + state]</option>
+          }
+        </SelectBox>
+      </MudItem>
+      <MudItem xs="6" md="3">
+        <SelectBox Label="@H["Fleet.Tag"]" Value="@_tag" ValueChanged="@(value => _tag = value)" TestId="fleet-tag">
+          <option value="" selected="@(_tag.Length == 0)">@H["Fleet.Tag.All"]</option>
+          @foreach (string tag in FleetFilter.Tags(_rows))
+          {
+            <option value="@tag" selected="@(tag == _tag)">@tag</option>
+          }
+        </SelectBox>
+      </MudItem>
+    </MudGrid>
+  </MudPaper>
+
+  <MudText Typo="Typo.caption" Class="mb-1" data-testid="fleet-count">@H.Format("Fleet.Count", Visible.Count, _rows.Count)</MudText>
+  <MudPaper Class="qa-card mb-2" Elevation="1">
+    <MudSimpleTable Dense="true" Hover="true" data-testid="fleet-table">
+      <thead>
+        <tr>
+          <th>@H["Fleet.Column.Name"]</th>
+          <th>@H["Fleet.Column.State"]</th>
+          <th>@H["Fleet.Column.System"]</th>
+          <th>@H["Fleet.Column.Version"]</th>
+          <th>@H["Fleet.Column.Tags"]</th>
+          <th>@H["Fleet.Column.Generation"]</th>
+          <th>@H["Fleet.Column.LastSeen"]</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (FleetRow row in Visible)
+        {
+          <tr @key="row.Agent.Id" data-testid="@($"agent-{row.Agent.Id}")" data-state="@row.StateKey">
+            <td>
+              @if (row.Agent.Status == "enrolled")
+              {
+                <MudLink Href="@AgentHref(row)" data-testid="@($"agent-open-{row.Agent.Id}")">@row.Agent.Name</MudLink>
+              }
+              else
+              {
+                @row.Agent.Name
+              }
+              <MudText Typo="Typo.caption" Color="Color.Secondary">@row.Agent.Hostname</MudText>
+            </td>
+            <td>
+              <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@StateColor(row.StateKey)">@H["Fleet.State." + row.StateKey]</MudChip>
+            </td>
+            <td>@row.Agent.Os @row.Agent.Arch</td>
+            <td>@row.Agent.Version</td>
+            <td>
+              <span class="qh-tags">
+                @foreach (string tag in row.Agent.Tags)
+                {
+                  <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@tag</MudChip>
+                }
+              </span>
+            </td>
+            <td data-testid="@($"agent-generation-{row.Agent.Id}")">
+              @if (row.Config is { } config)
+              {
+                <span>@config.AppliedGeneration / @config.DesiredGeneration</span>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@RolloutColor(config.State)" data-rollout="@config.State">@H["Rollout.State." + config.State]</MudChip>
+              }
+              else
+              {
+                <span>@L["Common.Unavailable"]</span>
+              }
+            </td>
+            <td>@Time(row.Agent.LastSeenAt)</td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  </MudPaper>
+  if (Visible.Count == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="fleet-no-match">@H["Fleet.NoMatch"]</MudText>
+  }
+}
+
+@code {
+  private readonly CancellationTokenSource _stop = new();
+  private IReadOnlyList<FleetRow> _rows = [];
+  private bool _loading = true;
+  private string? _search;
+  private string _state = FleetFilter.All;
+  private string _tag = FleetFilter.All;
+
+  private IReadOnlyList<FleetRow> Visible => FleetFilter.Apply(_rows, _search, _state, _tag);
+
+  private int PendingCount => _rows.Count(row => row.Agent.Status == "pending");
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+    _ = RefreshLoopAsync(_stop.Token);
+  }
+
+  protected override ValueTask OnDisposeAsync()
+  {
+    _stop.Cancel();
+    _stop.Dispose();
+    return base.OnDisposeAsync();
+  }
+
+  private static string AgentHref(FleetRow row) => "agents/" + Uri.EscapeDataString(row.Agent.Id);
+
+  private static Color StateColor(string state) => state switch
+  {
+    FleetFilter.Online => Color.Success,
+    "pending" => Color.Warning,
+    "approved" => Color.Info,
+    "rejected" => Color.Error,
+    _ => Color.Default,
+  };
+
+  private static Color RolloutColor(string state) => state switch
+  {
+    "up_to_date" => Color.Success,
+    "failed" => Color.Error,
+    "pending" => Color.Warning,
+    _ => Color.Default,
+  };
+
+  private async Task ReloadAsync()
+  {
+    _loading = _rows.Count == 0;
+    await LoadAsync();
+  }
+
+  private async Task RefreshLoopAsync(CancellationToken stop)
+  {
+    using var timer = new PeriodicTimer(Options.RefreshInterval);
+    try
+    {
+      while (await timer.WaitForNextTickAsync(stop))
+      {
+        await InvokeAsync(async () =>
+        {
+          if (!IsDisposed)
+          {
+            await LoadAsync();
+            StateHasChanged();
+          }
+        });
+      }
+    }
+    catch (OperationCanceledException)
+    {
+      // The page was left.
+    }
+  }
+
+  private async Task LoadAsync()
+  {
+    try
+    {
+      // The list of the registry is what the page is about; presence and generation are added when the hub can tell.
+      Task<AgentList> agents = Api.GetAgentsAsync();
+      Task<InventoryList?> inventory = OptionalAsync(Api.GetInventoryAsync());
+      Task<RolloutOverview?> rollouts = OptionalAsync(Api.GetRolloutsAsync());
+      AgentList list = await agents;
+      _rows = FleetFilter.Build(list, await inventory, await rollouts);
+      Error = null;
+    }
+    catch (ApiException exception) when (exception.IsUnauthorized)
+    {
+      HubSession.MarkSignedOut();
+    }
+    catch (ApiException exception)
+    {
+      Error = exception;
+    }
+    finally
+    {
+      _loading = false;
+    }
+  }
+
+  private static async Task<T?> OptionalAsync<T>(Task<T> task)
+    where T : class
+  {
+    try
+    {
+      return await task;
+    }
+    catch (ApiException)
+    {
+      return null;
+    }
+  }
+}

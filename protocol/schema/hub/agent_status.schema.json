@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/agent_status.schema.json",
+  "title": "agent_status",
+  "description": "Hub to client, fleet link (PLAN.md S20). An agent went online or offline. power_state is the reason of the last bye of the agent, or unknown.",
+  "type": "object",
+  "required": ["t", "a", "online", "power_state"],
+  "properties": {
+    "t": { "const": "agent_status" },
+    "a": { "$ref": "defs.schema.json#/$defs/agent_id" },
+    "online": { "type": "boolean" },
+    "power_state": { "$ref": "defs.schema.json#/$defs/power_state" }
+  }
+}

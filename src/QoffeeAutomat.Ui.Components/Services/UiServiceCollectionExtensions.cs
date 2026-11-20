@@ -26,6 +26,7 @@ public static class UiServiceCollectionExtensions
         services.TryAddScoped<Localizer>();
         services.TryAddScoped<SessionState>();
         services.TryAddScoped<IBrowserInterop, JsBrowserInterop>();
+        services.TryAddScoped<IAppLinks, RootAppLinks>();
         services.TryAddSingleton<DashboardOptions>();
         services.TryAddSingleton<CommandEditorOptions>();
         services.TryAddSingleton<LinkOptions>();

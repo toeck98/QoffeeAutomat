@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/enroll_request.schema.json",
+  "title": "enroll request",
+  "description": "Body of POST /hub/v1/enroll (HTTPS, no bearer token; PLAN.md S20). The agent pins the fingerprint of the enrollment string when it has one. A request that is repeated for an agent that is pending approval does not consume another use of the token.",
+  "type": "object",
+  "required": ["token", "agent"],
+  "properties": {
+    "token": { "$ref": "defs.schema.json#/$defs/enrollment_token" },
+    "agent": { "$ref": "../defs.schema.json#/$defs/agent_info" }
+  }
+}

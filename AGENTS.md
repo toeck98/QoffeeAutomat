@@ -19,6 +19,7 @@ QoffeeLink). Use exactly this spelling everywhere (see PLAN.md, Naming).
 
 | Path | Content |
 |------|---------|
+| `packaging/hub/` | Hub container image (`Dockerfile`), Compose example, Home Assistant app (`ha-app/`, with the only allowed `config.yaml`, D-034); `repository.yaml` at the root (T918). |
 | `docs/plan/` | `PLAN.md` (specification), `tasks.yaml` (tasks). Read these first. |
 | `src/QoffeeAutomat.Contracts` | Protocol messages, DTOs, config document models. BCL only. |
 | `src/QoffeeAutomat.Core` | Config store, engines, platform interfaces. References Contracts only. |
@@ -105,7 +106,9 @@ Also useful: `pytest tests/scripts` (tests of the plan tooling and the documenta
   I/O in the event loop. `client.py` of the integration has no Home Assistant imports.
 - JSON on disk and in the API uses camelCase; QoffeeLink frames use snake_case.
 - Do not add a file named `config.yaml`, `config.yml` or `config.json` anywhere outside
-  hidden folders (D-034).
+  hidden folders (D-034). The one exception is the Home Assistant app definition
+  `packaging/hub/ha-app/config.yaml`; `python scripts/dev/check_config_files.py` (CI job
+  `no stray config files`) enforces this.
 - Commit messages and pull request titles use Conventional Commits.
 
 ## Windows-only code

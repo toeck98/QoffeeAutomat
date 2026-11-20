@@ -8,19 +8,28 @@ agent's metric subscription equal to the metric entities that are enabled and ro
 
 import asyncio
 import logging
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.debounce import Debouncer
 
 from .client import LinkClient, QoffeeLinkError
-from .const import FIRST_CONNECT_TIMEOUT_SECONDS, SUBSCRIBE_DEBOUNCE_SECONDS
+from .const import (
+    CONF_BROADCAST,
+    CONF_MACS,
+    DEFAULT_BROADCAST,
+    FIRST_CONNECT_TIMEOUT_SECONDS,
+    SUBSCRIBE_DEBOUNCE_SECONDS,
+)
 from .manifest_manager import ManifestManager
 from .protocol import Bye, Hello, MetricValue, State
+
+if TYPE_CHECKING:
+    from .fleet import FleetManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -310,9 +319,31 @@ class SubscriptionManager:
         self._debouncer.async_shutdown()
 
 
+class Discardable(Protocol):
+    """An entity that can leave Home Assistant and keep its registry entry."""
+
+    async def async_discard(self) -> None:
+        """Remove the entity from Home Assistant."""
+
+
+def _no_macs() -> list[str]:
+    return []
+
+
+def _default_broadcast() -> str:
+    return DEFAULT_BROADCAST
+
+
 @dataclass(slots=True)
 class QoffeeAutomatRuntimeData:
-    """What a loaded config entry shares with its platforms."""
+    """Everything the entities of one PC need, whichever route reaches the PC.
+
+    A PC with a config entry of its own (direct or reverse link) has one of these as
+    ``entry.runtime_data``; on the hub route (S20) the hub entry keeps one per PC in its
+    :class:`FleetRuntimeData`. The entity code only reads this object and so cannot tell
+    the routes apart: ``client`` is a :class:`QoffeeLinkClient` on one route and an
+    :class:`AgentLink` on the other, with the same interface.
+    """
 
     client: LinkClient
     manifest_manager: ManifestManager
@@ -322,8 +353,59 @@ class QoffeeAutomatRuntimeData:
     # ``(platform, translation key)`` pairs that the integration translates; other
     # keys of the manifest fall back to the manifest name.
     translation_keys: frozenset[tuple[str, str]]
+    # The name Home Assistant shows for the PC in messages.
+    name: str = ""
+    # The MAC addresses to wake the PC with and the broadcast address of the magic
+    # packets (T703); read at the moment of use, so a change needs no reload.
+    macs: Callable[[], list[str]] = _no_macs
+    broadcast: Callable[[], str] = _default_broadcast
+    # The entities of the PC that are added to Home Assistant now; a change of the route
+    # takes them out again (the registry entries stay).
+    entities: set[Discardable] = field(default_factory=set)
     # Calls of ``run_command`` that wake or wait for the PC take turns (T712).
     call_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
+    async def async_discard_entities(self) -> None:
+        """Take all entities of the PC out of Home Assistant, keeping their entries."""
+        for entity in tuple(self.entities):
+            await entity.async_discard()
 
-type QoffeeAutomatConfigEntry = ConfigEntry[QoffeeAutomatRuntimeData]
+
+# Registers a function that is called when the PC is not served by the entry any more
+# (the entry is unloaded, or on the hub route the PC left or changed its route).
+type OnUnload = Callable[[Callable[[], None]], None]
+# What a platform does for one PC: add its entities and follow the manifest.
+type AgentSetup = Callable[[QoffeeAutomatRuntimeData, OnUnload], Awaitable[None]]
+
+
+@dataclass(slots=True)
+class FleetRuntimeData:
+    """What a loaded config entry of a hub shares with its platforms (S20)."""
+
+    fleet: FleetManager
+
+
+type QoffeeAutomatConfigEntry = ConfigEntry[QoffeeAutomatRuntimeData | FleetRuntimeData]
+
+
+def entry_macs(entry: ConfigEntry) -> list[str]:
+    """Return the MAC addresses that the entry of a directly reached PC keeps."""
+    return list(entry.data.get(CONF_MACS, ()))
+
+
+def entry_broadcast(entry: ConfigEntry) -> str:
+    """Return the broadcast address of the Wake-on-LAN option of an entry."""
+    return str(entry.options.get(CONF_BROADCAST, DEFAULT_BROADCAST))
+
+
+def agent_runtime_of(entry: QoffeeAutomatConfigEntry) -> QoffeeAutomatRuntimeData:
+    """Return the runtime data of a PC that has an entry of its own.
+
+    The runtime data of a PC on the hub route are found through the hub manager
+    (``FleetRuntimeData.fleet.runtime_of``).
+    """
+    data = entry.runtime_data
+    if isinstance(data, FleetRuntimeData):
+        msg = "the entry of a hub has no single PC"
+        raise TypeError(msg)
+    return data

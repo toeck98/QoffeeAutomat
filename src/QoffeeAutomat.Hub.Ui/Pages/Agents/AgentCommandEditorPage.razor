@@ -1,0 +1,19 @@
+@page "/agents/{AgentId}/commands/new"
+@page "/agents/{AgentId}/commands/{CommandId}"
+@using QoffeeAutomat.Ui.Components.Pages.CommandEditor
+
+@* The command editor of the component library, for a command of the agent. Changing the documents of an agent needs an administrator (the agent
+   narrows the tunnel to that role); the commands that the hub distributed are read-only, which the editor shows by itself. *@
+<AgentPageFrame AgentId="@AgentId" Tab="commands" MinRole="@HubRoleNames.Admin">
+  <CommandEditorPage Id="@CommandId" />
+</AgentPageFrame>
+
+@code {
+  /// <summary>The id of the agent.</summary>
+  [Parameter]
+  public string AgentId { get; set; } = string.Empty;
+
+  /// <summary>The id of the command; <c>null</c> on the page of a new command.</summary>
+  [Parameter]
+  public string? CommandId { get; set; }
+}

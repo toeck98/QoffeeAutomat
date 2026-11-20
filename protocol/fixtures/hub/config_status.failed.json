@@ -1,0 +1,14 @@
+{
+  "t": "config_status",
+  "generation": 8,
+  "state": "failed",
+  "results": [
+    { "kind": "command", "id": "set_display_profile", "state": "applied" },
+    {
+      "kind": "command",
+      "id": "broken_command",
+      "state": "invalid",
+      "errors": ["action.script: the script 'missing.ps1' does not exist", "timeoutSeconds: must be at least 1"]
+    }
+  ]
+}

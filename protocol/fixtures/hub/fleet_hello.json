@@ -1,0 +1,6 @@
+{
+  "t": "hello",
+  "protocol": { "min": 1, "max": 1 },
+  "hub": { "id": "6f1d3a2e-9c47-4b58-8e21-7d0a5c3b9f14", "name": "QoffeeAutomat Hub", "version": "1.0.0" },
+  "features": ["fleet"]
+}

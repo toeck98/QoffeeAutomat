@@ -1,4 +1,5 @@
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Core.Templates;
 
@@ -27,6 +28,7 @@ public static class TemplateEndpoints
             .Returns<TemplateDetail>()
             .Fails(StatusCodes.Status404NotFound);
         api.MapPost("/templates/{id}/instantiate", InstantiateTemplateAsync)
+            .GuardsLocalConfig(LocalConfigArea.Collection)
             .Describe(Tag, "instantiateTemplate", "Adds a template as a new command, sensor or mode group with a unique id and copied scripts.")
             .Returns<TemplateInstantiation>(StatusCodes.Status201Created)
             .Fails(StatusCodes.Status404NotFound, ApiResults.UnprocessableContent);

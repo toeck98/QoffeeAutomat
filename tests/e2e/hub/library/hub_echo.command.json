@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "hub_echo",
+  "name": "Hub echo",
+  "description": "Published by the hub; greets by name and prints the hub variable GREETING (end-to-end test).",
+  "enabled": true,
+  "exposeToHa": true,
+  "runAs": "system",
+  "action": {
+    "type": "powershell",
+    "source": "inline",
+    "code": "param([string]$Name, [int]$Count) Write-Output \"$($env:QA_HUBVAR_GREETING) $Name x$Count\"",
+    "engine": "pwsh"
+  },
+  "parameters": [
+    { "name": "Name", "type": "string", "required": true },
+    { "name": "Count", "type": "int", "default": 1 }
+  ],
+  "timeoutSeconds": 30,
+  "captureOutput": true
+}

@@ -1,0 +1,9 @@
+{
+  "t": "result",
+  "id": 21,
+  "ok": true,
+  "data": {
+    "status": 200,
+    "body": [ { "id": "set_display_profile", "name": "Set display profile", "enabled": true } ]
+  }
+}

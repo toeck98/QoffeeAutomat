@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/result_get_agents.schema.json",
+  "title": "result of get_agents",
+  "description": "A result frame (S07) whose data has the shape of the answer to get_agents: agents (PLAN.md S20).",
+  "allOf": [
+    { "$ref": "../result.schema.json" },
+    {
+      "if": { "properties": { "ok": { "const": true } }, "required": ["ok"] },
+      "then": { "properties": { "data": { "$ref": "defs.schema.json#/$defs/get_agents_result_data" } } }
+    }
+  ]
+}

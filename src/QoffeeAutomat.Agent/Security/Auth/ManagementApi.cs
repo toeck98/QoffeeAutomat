@@ -2,6 +2,7 @@ using QoffeeAutomat.Agent.Api;
 using QoffeeAutomat.Agent.Api.OpenApi;
 using QoffeeAutomat.Agent.Api.Prometheus;
 using QoffeeAutomat.Agent.Api.Runtime;
+using QoffeeAutomat.Agent.Hub;
 using QoffeeAutomat.Agent.Link.Pairing;
 
 namespace QoffeeAutomat.Agent.Security.Auth;
@@ -52,6 +53,7 @@ public static class ManagementApi
         PairingEndpoints.MapManagement(api);
         ConfigurationEndpoints.Map(api);
         RuntimeEndpoints.Map(api);
+        HubEndpoints.Map(api);
         PrometheusEndpoints.Map(api);
         OpenApiEndpoint.Map(routes);
     }

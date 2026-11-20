@@ -1,0 +1,13 @@
+@page "/agents/{AgentId}/dashboard"
+@using QoffeeAutomat.Ui.Components.Pages.Dashboard
+
+@* The dashboard of the component library, for the agent, through the tunnel. *@
+<AgentPageFrame AgentId="@AgentId" Tab="dashboard" MinRole="@HubRoleNames.Viewer">
+  <DashboardPage />
+</AgentPageFrame>
+
+@code {
+  /// <summary>The id of the agent.</summary>
+  [Parameter]
+  public string AgentId { get; set; } = string.Empty;
+}

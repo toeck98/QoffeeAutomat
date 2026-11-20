@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/result_hub_error.schema.json",
+  "title": "failed result with a hub error code",
+  "description": "A failed result frame (S07) whose error code is one that the hub adds: unknown_agent, agent_offline or forbidden (PLAN.md S20). revoked belongs to the HTTP response of the agent link, not to a frame, but the code is part of the same list. Receivers must still tolerate unknown codes; this schema is only used for the fixtures.",
+  "allOf": [
+    { "$ref": "../result.schema.json" },
+    {
+      "type": "object",
+      "required": ["ok", "error"],
+      "properties": {
+        "ok": { "const": false },
+        "error": {
+          "type": "object",
+          "required": ["code"],
+          "properties": { "code": { "$ref": "defs.schema.json#/$defs/hub_error_code" } }
+        }
+      }
+    }
+  ]
+}

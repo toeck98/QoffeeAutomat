@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/fleet_hello.schema.json",
+  "title": "fleet hello",
+  "description": "Hub to client. First frame of the fleet link (PLAN.md S20): the S07 hello with hub {id, name, version} in place of agent. features must contain fleet; the manifest members of the agent hello (manifest_rev, boot_id) do not exist because there is one manifest per agent.",
+  "type": "object",
+  "required": ["t", "protocol", "hub", "features"],
+  "properties": {
+    "t": { "const": "hello" },
+    "protocol": {
+      "description": "Range of protocol versions the hub supports.",
+      "type": "object",
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "$ref": "../defs.schema.json#/$defs/protocol_version" },
+        "max": { "$ref": "../defs.schema.json#/$defs/protocol_version" }
+      }
+    },
+    "hub": { "$ref": "defs.schema.json#/$defs/hub_info" },
+    "features": { "$ref": "../defs.schema.json#/$defs/feature_list" }
+  }
+}

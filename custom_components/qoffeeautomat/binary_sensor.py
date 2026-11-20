@@ -8,10 +8,15 @@ from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .entity import QoffeeAutomatEntity, QoffeeAutomatMetricEntity, parse_known
+from .entity import (
+    QoffeeAutomatEntity,
+    QoffeeAutomatMetricEntity,
+    async_setup_agents,
+    parse_known,
+)
 from .manifest_manager import ManifestDiff
 from .protocol import MetricDescriptor, MetricValue
-from .runtime import QoffeeAutomatConfigEntry, QoffeeAutomatRuntimeData
+from .runtime import OnUnload, QoffeeAutomatConfigEntry, QoffeeAutomatRuntimeData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,26 +40,31 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the connectivity sensor and the binary sensors of the manifest."""
-    runtime = entry.runtime_data
-    async_add_entities([QoffeeAutomatConnectivitySensor(runtime)])
-    entities: dict[str, QoffeeAutomatBinarySensor] = {}
 
-    async def apply(diff: ManifestDiff) -> None:
-        for removed in diff.removed_metrics:
-            if removed.kind != "binary_sensor":
-                continue
-            if entity := entities.pop(removed.id, None):
-                await entity.async_discard()
-        created: list[QoffeeAutomatBinarySensor] = []
-        for added in diff.added_metrics:
-            if added.kind != "binary_sensor" or added.id in entities:
-                continue
-            entities[added.id] = sensor = QoffeeAutomatBinarySensor(runtime, added)
-            created.append(sensor)
-        if created:
-            async_add_entities(created)
+    async def setup_agent(
+        runtime: QoffeeAutomatRuntimeData, on_unload: OnUnload
+    ) -> None:
+        async_add_entities([QoffeeAutomatConnectivitySensor(runtime)])
+        entities: dict[str, QoffeeAutomatBinarySensor] = {}
 
-    entry.async_on_unload(await runtime.manifest_manager.async_add_listener(apply))
+        async def apply(diff: ManifestDiff) -> None:
+            for removed in diff.removed_metrics:
+                if removed.kind != "binary_sensor":
+                    continue
+                if entity := entities.pop(removed.id, None):
+                    await entity.async_discard()
+            created: list[QoffeeAutomatBinarySensor] = []
+            for added in diff.added_metrics:
+                if added.kind != "binary_sensor" or added.id in entities:
+                    continue
+                entities[added.id] = sensor = QoffeeAutomatBinarySensor(runtime, added)
+                created.append(sensor)
+            if created:
+                async_add_entities(created)
+
+        on_unload(await runtime.manifest_manager.async_add_listener(apply))
+
+    await async_setup_agents(entry, setup_agent)
 
 
 class QoffeeAutomatBinarySensor(QoffeeAutomatMetricEntity, BinarySensorEntity):

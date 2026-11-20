@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/mgmt_request.schema.json",
+  "title": "mgmt_request",
+  "description": "Hub to agent (request), feature mgmt_tunnel (PLAN.md S20). One call of the agent's management API on behalf of a hub user. The result data has the shape mgmt_request_result_data in defs.schema.json (status, body).",
+  "type": "object",
+  "required": ["t", "id", "method", "path", "principal"],
+  "properties": {
+    "t": { "const": "mgmt_request" },
+    "id": { "$ref": "defs.schema.json#/$defs/request_id" },
+    "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+    "path": { "$ref": "defs.schema.json#/$defs/api_path" },
+    "query": {
+      "description": "Decoded query parameters, name to value.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "body": { "description": "The request body as a JSON value; absent when the request has none." },
+    "principal": { "$ref": "defs.schema.json#/$defs/principal" }
+  }
+}

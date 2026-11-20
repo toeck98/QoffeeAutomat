@@ -1,0 +1,9 @@
+{
+  "t": "config_status",
+  "generation": 7,
+  "state": "applied",
+  "results": [
+    { "kind": "command", "id": "set_display_profile", "state": "skipped_unsupported", "errors": ["action type 'powershell' is not supported on linux"] },
+    { "kind": "variables", "id": "site", "state": "applied" }
+  ]
+}

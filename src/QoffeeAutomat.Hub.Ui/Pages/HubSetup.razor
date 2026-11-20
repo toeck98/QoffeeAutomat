@@ -1,0 +1,96 @@
+@page "/setup"
+@layout HubAuthLayout
+@inherits HubComponentBase
+
+@* First-run setup of the hub: the one-time setup token from the data directory creates the first administrator. *@
+<MudText Typo="Typo.h5" GutterBottom="true">@H["Setup.Title"]</MudText>
+<MudText Class="mb-4">@H["Setup.Intro"]</MudText>
+
+<HubErrorDisplay Error="Error" Class="mb-4" />
+
+<form @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+  <MudTextField T="string" @bind-Value="_token" Label="@H["Setup.Token"]" Immediate="true" AutoFocus="true" Class="mb-2" data-testid="setup-token" />
+  <MudTextField T="string" @bind-Value="_username" Label="@H["Setup.Username"]" Immediate="true" Class="mb-2" data-testid="setup-username" />
+  <MudTextField T="string" @bind-Value="_password" Label="@H["Setup.Password"]" InputType="InputType.Password" Immediate="true" Class="mb-2" data-testid="setup-password" />
+  <MudTextField T="string" @bind-Value="_confirm" Label="@H["Setup.PasswordConfirm"]" InputType="InputType.Password" Immediate="true" Class="mb-2" data-testid="setup-confirm" />
+  @if (_validation is not null)
+  {
+    <MudText Color="Color.Error" Typo="Typo.caption" data-testid="validation-message">@_validation</MudText>
+  }
+  <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="_busy" Class="mt-4" data-testid="setup-submit">
+    @H["Setup.Submit"]
+  </MudButton>
+</form>
+
+<MudLink Href="login" Class="d-block mt-4">@H["Setup.HaveAccount"]</MudLink>
+
+@code {
+  private string? _token;
+  private string? _username;
+  private string? _password;
+  private string? _confirm;
+  private string? _validation;
+  private bool _busy;
+
+  protected override async Task OnInitializedAsync()
+  {
+    try
+    {
+      SignInStatus status = await HubSession.RefreshAsync();
+      if (status == SignInStatus.SignedIn)
+      {
+        Navigation.NavigateTo(HubReturnTarget.Home, replace: true);
+      }
+      else if (status == SignInStatus.SignedOut)
+      {
+        // The hub has an account already: setup is over.
+        Navigation.NavigateTo("login", replace: true);
+      }
+    }
+    catch (ApiException exception)
+    {
+      Error = exception;
+    }
+  }
+
+  private async Task SubmitAsync()
+  {
+    if (_busy)
+    {
+      return;
+    }
+
+    Error = null;
+    _validation = null;
+    if (string.IsNullOrWhiteSpace(_token) || string.IsNullOrWhiteSpace(_username) || string.IsNullOrEmpty(_password))
+    {
+      _validation = H["Setup.Required"];
+      return;
+    }
+
+    if (!string.Equals(_password, _confirm, StringComparison.Ordinal))
+    {
+      _validation = H["Setup.Mismatch"];
+      return;
+    }
+
+    _busy = true;
+    try
+    {
+      await HubSession.SetUpAsync(_token.Trim(), _username.Trim(), _password);
+      _password = null;
+      _confirm = null;
+      Navigation.NavigateTo(HubReturnTarget.Home, replace: true);
+    }
+    catch (ApiException exception)
+    {
+      Error = exception;
+      _password = null;
+      _confirm = null;
+    }
+    finally
+    {
+      _busy = false;
+    }
+  }
+}

@@ -1,0 +1,194 @@
+@page "/users"
+@inherits HubComponentBase
+
+@* The accounts of the hub (PLAN.md S20 "Hub security" item 1, T915): create, change the role, disable, set a password, delete. Administrators only;
+   the roles are admin (everything), operator (view and run commands) and viewer (view). *@
+<MudText Typo="Typo.h4" GutterBottom="true">@H["Users.Title"]</MudText>
+
+<RoleGate Role="@HubRoleNames.Admin">
+  <HubErrorDisplay Error="Error" Class="mb-4" />
+  @if (_notice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="users-notice">@_notice</MudAlert>
+  }
+
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="user-form">
+    <MudText Typo="Typo.h6" Class="mb-2">@H["Users.Create"]</MudText>
+    <MudGrid Spacing="2">
+      <MudItem xs="12" md="4">
+        <MudTextField T="string" @bind-Value="_username" Immediate="true" Label="@H["Users.Username"]" HelperText="@H["Users.UsernameHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="12" md="4">
+        <MudTextField T="string" @bind-Value="_password" Immediate="true" Label="@H["Users.Password"]" HelperText="@H["Users.PasswordHelp"]" InputType="InputType.Password" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="12" md="4">
+        <SelectBox Label="@H["Users.Role"]" Value="@_role" ValueChanged="@(value => _role = value)" TestId="user-new-role">
+          @foreach (string role in HubRoleNames.All)
+          {
+            <option value="@role" selected="@(role == _role)">@H["Role." + role]</option>
+          }
+        </SelectBox>
+      </MudItem>
+    </MudGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled="Busy" OnClick="CreateAsync" data-testid="user-create">@H["Users.CreateButton"]</MudButton>
+  </MudPaper>
+
+  <MudPaper Class="qa-card mb-2" Elevation="1" data-testid="user-list">
+    @if (_users.Count == 0)
+    {
+      <MudText Color="Color.Secondary" Class="pa-4" data-testid="users-none">@H["Users.None"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Hover="true">
+        <thead>
+          <tr>
+            <th>@H["Users.Username"]</th>
+            <th>@H["Users.Role"]</th>
+            <th>@H["Fleet.Column.State"]</th>
+            <th>@H["Users.LastLogin"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (UserInfo user in _users)
+          {
+            <tr @key="user.Id" data-testid="@($"user-{user.Id}")" data-disabled="@(user.Disabled ? "true" : "false")">
+              <td>@user.Username</td>
+              <td>
+                <SelectBox Value="@user.Role" ValueChanged="@(value => ChangeRoleAsync(user.Id, value))" TestId="@($"user-role-{user.Id}")">
+                  @foreach (string role in HubRoleNames.All)
+                  {
+                    <option value="@role" selected="@(role == user.Role)">@H["Role." + role]</option>
+                  }
+                </SelectBox>
+              </td>
+              <td>@(user.Disabled ? H["Users.Disabled"] : H["Users.Enabled"])</td>
+              <td>@Time(user.LastLoginAt)</td>
+              <td class="qa-row-actions">
+                @if (_deleting == user.Id)
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" Disabled="Busy" OnClick="@(() => DeleteAsync(user.Id))" data-testid="@($"user-delete-confirm-{user.Id}")">@H["Common.Confirm"]</MudButton>
+                  <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _deleting = null)">@H["Common.Cancel"]</MudButton>
+                }
+                else
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="Busy" OnClick="@(() => ToggleDisabledAsync(user))" data-testid="@($"user-toggle-{user.Id}")">@(user.Disabled ? H["Users.Enable"] : H["Users.Disable"])</MudButton>
+                  <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => OpenPassword(user.Id))" data-testid="@($"user-password-{user.Id}")">@H["Users.SetPassword"]</MudButton>
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => _deleting = user.Id)" data-testid="@($"user-delete-{user.Id}")">@H["Users.Delete"]</MudButton>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+  </MudPaper>
+
+  @if (_passwordFor is not null)
+  {
+    <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="password-form">
+      <MudText Typo="Typo.h6" Class="mb-2">@H.Format("Users.SetPasswordFor", UserName(_passwordFor))</MudText>
+      <MudTextField T="string" @bind-Value="_newPassword" Immediate="true" Label="@H["Users.NewPassword"]" HelperText="@H["Users.PasswordHelp"]" InputType="InputType.Password" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2 mr-2" Disabled="Busy" OnClick="SetPasswordAsync" data-testid="password-save">@H["Users.SetPasswordSave"]</MudButton>
+      <MudButton Variant="Variant.Text" Class="mt-2" OnClick="@(() => _passwordFor = null)">@H["Common.Cancel"]</MudButton>
+    </MudPaper>
+  }
+</RoleGate>
+
+@code {
+  private IReadOnlyList<UserInfo> _users = [];
+  private string? _notice;
+  private string? _deleting;
+  private string? _passwordFor;
+  private string? _newPassword;
+  private string? _username;
+  private string? _password;
+  private string _role = HubRoleNames.Viewer;
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (Can(HubRoleNames.Admin))
+    {
+      await LoadAsync();
+    }
+  }
+
+  private string UserName(string id) => _users.FirstOrDefault(user => user.Id == id)?.Username ?? id;
+
+  private async Task LoadAsync()
+  {
+    UserList? list = null;
+    if (await TryAsync(async () => list = await Api.GetUsersAsync()) && list is not null)
+    {
+      _users = list.Users;
+    }
+  }
+
+  private async Task CreateAsync()
+  {
+    _notice = null;
+    var request = new CreateUserRequest(_username?.Trim() ?? string.Empty, _password ?? string.Empty, _role);
+    if (await TryAsync(() => Api.CreateUserAsync(request)))
+    {
+      _username = null;
+      _password = null;
+      _notice = H["Users.Created"];
+      await LoadAsync();
+    }
+  }
+
+  private async Task ChangeRoleAsync(string id, string role)
+  {
+    _notice = null;
+    if (await TryAsync(() => Api.UpdateUserAsync(id, new UpdateUserRequest(Role: role))))
+    {
+      _notice = H["Users.Updated"];
+    }
+
+    await LoadAsync();
+  }
+
+  private async Task ToggleDisabledAsync(UserInfo user)
+  {
+    _notice = null;
+    if (await TryAsync(() => Api.UpdateUserAsync(user.Id, new UpdateUserRequest(Disabled: !user.Disabled))))
+    {
+      _notice = H["Users.Updated"];
+      await LoadAsync();
+    }
+  }
+
+  private void OpenPassword(string id)
+  {
+    _passwordFor = id;
+    _newPassword = null;
+  }
+
+  private async Task SetPasswordAsync()
+  {
+    if (_passwordFor is not { } id)
+    {
+      return;
+    }
+
+    _notice = null;
+    if (await TryAsync(() => Api.SetUserPasswordAsync(id, new SetPasswordRequest(_newPassword ?? string.Empty))))
+    {
+      _passwordFor = null;
+      _newPassword = null;
+      _notice = H["Users.PasswordSet"];
+    }
+  }
+
+  private async Task DeleteAsync(string id)
+  {
+    _notice = null;
+    _deleting = null;
+    if (await TryAsync(() => Api.DeleteUserAsync(id)))
+    {
+      _notice = H["Users.Deleted"];
+      await LoadAsync();
+    }
+  }
+}

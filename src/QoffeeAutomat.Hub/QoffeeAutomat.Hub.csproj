@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- The central hub (PLAN.md S20, D-024): one ASP.NET Core application that agents dial out to and that Home Assistant and
+       the hub UI talk to. It references Contracts (protocol, signing) and Core (secrets, IO, password and certificate helpers)
+       only; it never references the Agent (PLAN.md S04). -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
+    <ProjectReference Include="..\QoffeeAutomat.Core\QoffeeAutomat.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The hub database hub.db (D-013, D-032). -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+
+    <!-- Serves the published Blazor WebAssembly files of the hub UI (T915). -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The hub UI is built and published with the hub: its files (the _framework folder, the icons, the MudBlazor assets of the
+         component library) become static web assets of the hub, so `dotnet publish` of the hub puts the whole UI into wwwroot (T915).
+         It is built for the browser: a runtime identifier given to the hub on the command line must not reach it. The UI is a separate
+         assembly that nothing here references from code (the DTOs it shares with the hub live in Contracts). -->
+    <ProjectReference Include="..\QoffeeAutomat.Hub.Ui\QoffeeAutomat.Hub.Ui.csproj"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile;PublishReadyToRun" />
+  </ItemGroup>
+
+</Project>

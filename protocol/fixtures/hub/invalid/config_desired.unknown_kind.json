@@ -1,0 +1,8 @@
+{
+  "t": "config_desired",
+  "id": 11,
+  "generation": 1,
+  "policy": { "local_config": "allow", "direct_link": "allow" },
+  "items": [ { "kind": "profile", "id": "default", "hash": "6666666666666666666666666666666666666666666666666666666666666666" } ],
+  "sig": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=="
+}

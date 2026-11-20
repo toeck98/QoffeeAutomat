@@ -19,6 +19,7 @@ public partial class LinkPage
     private readonly List<LinkClientInfo> _clients = [];
     private readonly HashSet<string> _busy = new(StringComparer.Ordinal);
     private LiveFeed? _refresh;
+    private HubConfigState? _hub;
     private AgentSettingsDocument? _settings;
     private bool? _pendingZeroconf;
     private int _zeroconfVersion;
@@ -53,7 +54,7 @@ public partial class LinkPage
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()
     {
-        await Task.WhenAll(LoadClientsAsync(), LoadSettingsAsync(), LoadPortAsync());
+        await Task.WhenAll(LoadClientsAsync(), LoadSettingsAsync(), LoadPortAsync(), LoadHubAsync());
         _loading = false;
         if (!IsDisposed)
         {
@@ -69,6 +70,22 @@ public partial class LinkPage
         if (refresh is not null)
         {
             await refresh.DisposeAsync();
+        }
+    }
+
+    /// <summary>True while the hub denies direct links (T908): the agent refuses pairing, so the Pair button is off.</summary>
+    private bool IsDirectLinkDenied => HubConfigAccess.IsDirectLinkDenied(_hub);
+
+    private async Task LoadHubAsync()
+    {
+        try
+        {
+            _hub = await Api.GetHubConfigAsync();
+        }
+        catch (ApiException)
+        {
+            // An agent without the endpoint, or a failed read: pairing is offered as it always was; the agent refuses it if the hub denies it.
+            _hub = null;
         }
     }
 

@@ -1,0 +1,6 @@
+{
+  "t": "mgmt_stream_data",
+  "sid": "s1",
+  "event": "run_finished",
+  "data": "{\"run_id\":\"01JD8Z3Q4V7N2K9M5X6C8B0A1E\",\"exit_code\":0}"
+}

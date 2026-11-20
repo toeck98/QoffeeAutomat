@@ -1,0 +1,139 @@
+@page "/library"
+@using QoffeeAutomat.Contracts.Hub
+@using QoffeeAutomat.Hub.Ui.Pages.Library
+@inherits HubComponentBase
+
+@* The library of the hub (PLAN.md S20, T916): the commands, sensors, scripts, mode groups, metric overrides and variables that profiles are made of.
+   Everybody may look at it; creating, changing and deleting a document needs an administrator, and the hub refuses it for everybody else. A document
+   that a profile draft uses cannot be deleted (the hub answers 409). *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@H["Library.Title"]</MudText>
+  <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" data-testid="library-refresh">@H["Fleet.Refresh"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@H["Library.Intro"]</MudText>
+
+<HubErrorDisplay Error="Error" OnRetry="LoadAsync" Class="mb-4" />
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="library-notice">@_notice</MudAlert>
+}
+
+@if (Can(HubRoleNames.Admin))
+{
+  <MudPaper Class="pa-3 mb-3 qa-card" Elevation="1" data-testid="library-create">
+    <MudText Typo="Typo.subtitle2" Class="mb-2">@H["Library.New"]</MudText>
+    @foreach (string kind in LibraryKinds.All)
+    {
+      <MudButton Size="Size.Small" Variant="Variant.Outlined" Class="mr-2 mb-1" Href="@LibraryKinds.NewHref(kind)" StartIcon="@Icons.Material.Filled.Add" data-testid="@($"library-new-{kind}")">@H["Library.Kind." + kind]</MudButton>
+    }
+  </MudPaper>
+}
+
+<MudPaper Class="pa-3 mb-3 qa-card" Elevation="1">
+  <SelectBox Label="@H["Library.Kind"]" Value="@_kind" ValueChanged="OnKindChangedAsync" TestId="library-kind-filter">
+    <option value="" selected="@(_kind.Length == 0)">@H["Library.Kind.All"]</option>
+    @foreach (string kind in LibraryKinds.All)
+    {
+      <option value="@kind" selected="@(kind == _kind)">@H["Library.Kind." + kind]</option>
+    }
+  </SelectBox>
+</MudPaper>
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_documents.Count == 0)
+{
+  if (Error is null)
+  {
+    <MudText Color="Color.Secondary" data-testid="library-none">@H["Library.None"]</MudText>
+  }
+}
+else
+{
+  <MudPaper Class="qa-card mb-2" Elevation="1">
+    <MudSimpleTable Dense="true" Hover="true" data-testid="library-table">
+      <thead>
+        <tr>
+          <th>@H["Library.Column.Kind"]</th>
+          <th>@H["Library.Column.Id"]</th>
+          <th>@H["Library.Column.Name"]</th>
+          <th>@H["Library.Column.Revision"]</th>
+          <th>@H["Library.Column.Updated"]</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (LibraryDocumentSummary document in _documents)
+        {
+          string key = document.Kind + "-" + document.Id;
+          <tr @key="key" data-testid="@($"library-row-{key}")" data-kind="@document.Kind">
+            <td>@H["Library.Kind." + document.Kind]</td>
+            <td><code>@document.Id</code></td>
+            <td>@document.Name</td>
+            <td>@document.Revision</td>
+            <td>@Time(document.UpdatedAt)</td>
+            <td class="qa-row-actions">
+              @if (Can(HubRoleNames.Admin))
+              {
+                if (_deleting == key)
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" Disabled="Busy" OnClick="@(() => DeleteAsync(document))" data-testid="@($"library-delete-confirm-{key}")">@H["Common.Confirm"]</MudButton>
+                  <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _deleting = null)">@H["Common.Cancel"]</MudButton>
+                }
+                else
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Href="@LibraryKinds.EditHref(document.Kind, document.Id)" data-testid="@($"library-edit-{key}")">@H["Library.Edit"]</MudButton>
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => _deleting = key)" data-testid="@($"library-delete-{key}")">@H["Library.Delete"]</MudButton>
+                }
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  </MudPaper>
+}
+
+@code {
+  private IReadOnlyList<LibraryDocumentSummary> _documents = [];
+  private string _kind = string.Empty;
+  private string? _deleting;
+  private string? _notice;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+  }
+
+  private async Task OnKindChangedAsync(string kind)
+  {
+    _kind = kind;
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    LibraryDocumentList? list = null;
+    string? kind = _kind.Length == 0 ? null : _kind;
+    if (await TryAsync(async () => list = await Api.GetLibraryAsync(kind)) && list is not null)
+    {
+      _documents = [.. list.Documents.OrderBy(document => LibraryKinds.All.ToList().IndexOf(document.Kind)).ThenBy(document => document.Id, StringComparer.Ordinal)];
+    }
+
+    _loading = false;
+  }
+
+  private async Task DeleteAsync(LibraryDocumentSummary document)
+  {
+    _notice = null;
+    _deleting = null;
+    if (await TryAsync(() => Api.DeleteLibraryDocumentAsync(document.Kind, document.Id)))
+    {
+      _notice = H.Format("Library.Deleted", document.Id);
+      await LoadAsync();
+    }
+  }
+}

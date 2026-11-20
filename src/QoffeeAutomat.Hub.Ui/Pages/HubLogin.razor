@@ -1,0 +1,106 @@
+@page "/login"
+@layout HubAuthLayout
+@inherits HubComponentBase
+
+@* The sign-in of the hub: a user name and a password. Success goes back to the page the guard sent the user away from. *@
+<MudText Typo="Typo.h5" GutterBottom="true">@H["Login.Title"]</MudText>
+<MudText Class="mb-4">@H["Login.Intro"]</MudText>
+
+<HubErrorDisplay Error="Error" Class="mb-4" />
+
+<form @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+  <MudTextField T="string"
+                @bind-Value="_username"
+                Label="@H["Login.Username"]"
+                Immediate="true"
+                AutoFocus="true"
+                Class="mb-2"
+                data-testid="login-username" />
+  <MudTextField T="string"
+                @bind-Value="_password"
+                Label="@H["Login.Password"]"
+                InputType="InputType.Password"
+                Immediate="true"
+                Class="mb-2"
+                data-testid="login-password" />
+  @if (_validation is not null)
+  {
+    <MudText Color="Color.Error" Typo="Typo.caption" data-testid="validation-message">@_validation</MudText>
+  }
+  <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="_busy" Class="mt-4" data-testid="login-submit">
+    @H["Login.Submit"]
+  </MudButton>
+</form>
+
+@if (_setupAvailable)
+{
+  <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="mt-4" data-testid="setup-hint">
+    <MudLink Href="setup">@H["Login.SetupAvailable"]</MudLink>
+  </MudAlert>
+}
+
+@code {
+  private string? _username;
+  private string? _password;
+  private string? _validation;
+  private bool _busy;
+  private bool _setupAvailable;
+
+  /// <summary>The page the user wanted before the session guard sent them here, relative to the base address.</summary>
+  [Parameter]
+  [SupplyParameterFromQuery(Name = "returnUrl")]
+  public string? ReturnUrl { get; set; }
+
+  protected override async Task OnInitializedAsync()
+  {
+    try
+    {
+      SignInStatus status = await HubSession.RefreshAsync();
+      if (status == SignInStatus.SignedIn)
+      {
+        Navigation.NavigateTo(HubReturnTarget.Resolve(ReturnUrl), replace: true);
+        return;
+      }
+
+      _setupAvailable = status == SignInStatus.SetupRequired;
+    }
+    catch (ApiException exception)
+    {
+      Error = exception;
+    }
+  }
+
+  private async Task SubmitAsync()
+  {
+    if (_busy)
+    {
+      return;
+    }
+
+    Error = null;
+    _validation = null;
+    if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrEmpty(_password))
+    {
+      _validation = H["Login.Required"];
+      return;
+    }
+
+    _busy = true;
+    try
+    {
+      // A 401 here is the answer "wrong name or password", not the end of a session, so the call is not run through TryAsync.
+      await HubSession.LogInAsync(_username.Trim(), _password);
+      _password = null;
+      Navigation.NavigateTo(HubReturnTarget.Resolve(ReturnUrl), replace: true);
+    }
+    catch (ApiException exception)
+    {
+      Error = exception;
+      _password = null;
+    }
+    finally
+    {
+      _busy = false;
+    }
+  }
+}

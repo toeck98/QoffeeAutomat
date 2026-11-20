@@ -6,19 +6,34 @@ IPv4 address of the PC is an address itself, so entity states are left out and o
 structure (ids, kinds, counts) is reported.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_FINGERPRINT, CONF_REVERSE_TOKEN_HASH, CONF_TOKEN
-from .runtime import QoffeeAutomatConfigEntry
+from .const import (
+    CONF_AGENT_MACS,
+    CONF_FINGERPRINT,
+    CONF_REVERSE_TOKEN_HASH,
+    CONF_TOKEN,
+    DOMAIN,
+)
+from .routes import fleet_of
+from .runtime import (
+    QoffeeAutomatConfigEntry,
+    QoffeeAutomatRuntimeData,
+    agent_runtime_of,
+)
+
+if TYPE_CHECKING:
+    from .fleet import FleetManager
 
 REDACTED_KEYS = frozenset(
     {
         CONF_TOKEN,
+        CONF_AGENT_MACS,
         CONF_REVERSE_TOKEN_HASH,
         CONF_FINGERPRINT,
         "host",
@@ -54,9 +69,43 @@ def _entry_summary(entry: QoffeeAutomatConfigEntry) -> dict[str, Any]:
     }
 
 
-def _agent_summary(entry: QoffeeAutomatConfigEntry) -> dict[str, Any]:
+def _hub_summary(fleet: FleetManager) -> dict[str, Any]:
+    """Return the state of the fleet link and the PCs that the hub lists.
+
+    Names of PCs are left out like the title of the entry; ids and states are not
+    addresses or secrets.
+    """
+    client = fleet.client
+    last_error = client.last_error
+    return {
+        "hub": {
+            "version": fleet.hub.version,
+            "connected": client.connected,
+            "auth_failed": client.auth_failed,
+            "last_error": type(last_error).__name__ if last_error else None,
+            "protocol": (
+                {"min": client.hello.protocol.min, "max": client.hello.protocol.max}
+                if client.hello
+                else None
+            ),
+        },
+        "agents": {
+            agent_id: {
+                "served": (runtime := fleet.runtime_of(agent_id)) is not None,
+                "online": runtime.connection.online
+                if runtime is not None
+                else agent.online,
+                "power_state": runtime.connection.power_state.value
+                if runtime is not None
+                else agent.power_state,
+            }
+            for agent_id, agent in fleet.known_agents.items()
+        },
+    }
+
+
+def _agent_summary(runtime: QoffeeAutomatRuntimeData) -> dict[str, Any]:
     """Return what the agent reported about itself and the state of the link."""
-    runtime = entry.runtime_data
     client = runtime.client
     last_error = client.last_error
     connection = {
@@ -124,14 +173,17 @@ def _agent_summary(entry: QoffeeAutomatConfigEntry) -> dict[str, Any]:
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: QoffeeAutomatConfigEntry
 ) -> dict[str, Any]:
-    """Return the diagnostics of a config entry."""
-    return {"entry": _entry_summary(entry), **_agent_summary(entry)}
+    """Return the diagnostics of a config entry (of one PC, or of a hub)."""
+    fleet = fleet_of(entry)
+    if fleet is not None:
+        return {"entry": _entry_summary(entry), **_hub_summary(fleet)}
+    return {"entry": _entry_summary(entry), **_agent_summary(agent_runtime_of(entry))}
 
 
 async def async_get_device_diagnostics(
     hass: HomeAssistant, entry: QoffeeAutomatConfigEntry, device: dr.DeviceEntry
 ) -> dict[str, Any]:
-    """Return the diagnostics of the device of an agent."""
+    """Return the diagnostics of the device of an agent (or of the hub)."""
     registry = er.async_get(hass)
     entities = [
         {
@@ -157,9 +209,25 @@ async def async_get_device_diagnostics(
         },
         REDACTED_KEYS,
     )
+    fleet = fleet_of(entry)
+    if fleet is None:
+        summary = _agent_summary(agent_runtime_of(entry))
+    else:
+        # The device of one PC of the hub; the device of the hub itself has no PC.
+        agent_runtime = next(
+            (
+                found
+                for domain, key in device.identifiers
+                if domain == DOMAIN and (found := fleet.runtime_of(key)) is not None
+            ),
+            None,
+        )
+        summary = (
+            _agent_summary(agent_runtime) if agent_runtime else _hub_summary(fleet)
+        )
     return {
         "entry": _entry_summary(entry),
         "device": device_info,
         "entities": entities,
-        **_agent_summary(entry),
+        **summary,
     }

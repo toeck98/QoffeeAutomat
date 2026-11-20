@@ -23,11 +23,36 @@ from .protocol import (
     Scalar,
     VariableDescriptor,
 )
-from .runtime import QoffeeAutomatConfigEntry, QoffeeAutomatRuntimeData
+from .runtime import (
+    AgentSetup,
+    FleetRuntimeData,
+    OnUnload,
+    QoffeeAutomatConfigEntry,
+    QoffeeAutomatRuntimeData,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 _ENTITY_PREFIX = f"component.{DOMAIN}.entity."
+
+
+async def async_setup_agents(
+    entry: QoffeeAutomatConfigEntry, setup: AgentSetup
+) -> None:
+    """Run ``setup`` for every PC that the config entry serves.
+
+    This is where the route disappears: the entry of a PC that is reached directly
+    serves exactly that PC; the entry of a hub serves the PCs of the hub, those that are
+    there now and those that appear later (``setup`` runs for each of them, and what it
+    registers with ``on_unload`` is undone when the PC leaves or changes its route).
+    Either way ``setup`` gets the runtime data of one PC and nothing that depends on the
+    route.
+    """
+    data = entry.runtime_data
+    if isinstance(data, FleetRuntimeData):
+        await data.fleet.async_follow_agents(setup)
+    else:
+        await setup(data, entry.async_on_unload)
 
 
 async def async_load_translation_keys(
@@ -88,6 +113,7 @@ class QoffeeAutomatEntity(Entity):
         """Follow the connection state."""
         await super().async_added_to_hass()
         self._added = True
+        self._runtime.entities.add(self)
         self.async_on_remove(
             self._runtime.connection.add_listener(self._handle_connection_change)
         )
@@ -95,6 +121,7 @@ class QoffeeAutomatEntity(Entity):
     async def async_will_remove_from_hass(self) -> None:
         """Remember that the entity is gone."""
         self._added = False
+        self._runtime.entities.discard(self)
         await super().async_will_remove_from_hass()
 
     async def async_discard(self) -> None:
@@ -289,32 +316,37 @@ async def async_setup_feature_platform(
     write its state again, because what it supports follows the commands and metrics
     of the manifest. No reload of the config entry is needed.
     """
-    runtime = entry.runtime_data
-    entity: QoffeeAutomatEntity | None = None
 
-    async def apply(diff: ManifestDiff) -> None:
-        nonlocal entity
-        manifest = runtime.manifest_manager.manifest
-        wanted = feature in manifest.features
-        if wanted and entity is None:
-            entity = build(runtime)
-            if entity is not None:
-                async_add_entities([entity])
-        elif not wanted:
-            if entity is not None:
-                await entity.async_discard()
-                entity = None
-            # Also an entry that an earlier run left behind: without the feature there
-            # is no entity, not even an unavailable one.
-            registry = er.async_get(hass)
-            if entity_id := registry.async_get_entity_id(
-                domain, DOMAIN, unique_id(runtime.agent_id, key)
-            ):
-                registry.async_remove(entity_id)
-        elif entity is not None:
-            entity.async_refresh()
+    async def setup_agent(
+        runtime: QoffeeAutomatRuntimeData, on_unload: OnUnload
+    ) -> None:
+        entity: QoffeeAutomatEntity | None = None
 
-    entry.async_on_unload(await runtime.manifest_manager.async_add_listener(apply))
+        async def apply(diff: ManifestDiff) -> None:
+            nonlocal entity
+            manifest = runtime.manifest_manager.manifest
+            wanted = feature in manifest.features
+            if wanted and entity is None:
+                entity = build(runtime)
+                if entity is not None:
+                    async_add_entities([entity])
+            elif not wanted:
+                if entity is not None:
+                    await entity.async_discard()
+                    entity = None
+                # Also an entry that an earlier run left behind: without the feature
+                # there is no entity, not even an unavailable one.
+                registry = er.async_get(hass)
+                if entity_id := registry.async_get_entity_id(
+                    domain, DOMAIN, unique_id(runtime.agent_id, key)
+                ):
+                    registry.async_remove(entity_id)
+            elif entity is not None:
+                entity.async_refresh()
+
+        on_unload(await runtime.manifest_manager.async_add_listener(apply))
+
+    await async_setup_agents(entry, setup_agent)
 
 
 type CommandEntityBuilder = Callable[
@@ -335,24 +367,33 @@ async def async_setup_command_platform(
     whose descriptor changed gets a new entity that reuses the registry entry. No
     reload of the config entry is needed.
     """
-    runtime = entry.runtime_data
-    entities: dict[str, QoffeeAutomatCommandEntity] = {}
 
-    async def apply(diff: ManifestDiff) -> None:
-        for removed in diff.removed_commands:
-            if removed.control is None or removed.control.type != control_type:
-                continue
-            if entity := entities.pop(removed.id, None):
-                await entity.async_discard()
-        created: list[QoffeeAutomatCommandEntity] = []
-        for added in diff.added_commands:
-            control = added.control
-            if control is None or control.type != control_type or added.id in entities:
-                continue
-            if (entity := build(runtime, added, control)) is not None:
-                entities[added.id] = entity
-                created.append(entity)
-        if created:
-            async_add_entities(created)
+    async def setup_agent(
+        runtime: QoffeeAutomatRuntimeData, on_unload: OnUnload
+    ) -> None:
+        entities: dict[str, QoffeeAutomatCommandEntity] = {}
 
-    entry.async_on_unload(await runtime.manifest_manager.async_add_listener(apply))
+        async def apply(diff: ManifestDiff) -> None:
+            for removed in diff.removed_commands:
+                if removed.control is None or removed.control.type != control_type:
+                    continue
+                if entity := entities.pop(removed.id, None):
+                    await entity.async_discard()
+            created: list[QoffeeAutomatCommandEntity] = []
+            for added in diff.added_commands:
+                control = added.control
+                if (
+                    control is None
+                    or control.type != control_type
+                    or added.id in entities
+                ):
+                    continue
+                if (entity := build(runtime, added, control)) is not None:
+                    entities[added.id] = entity
+                    created.append(entity)
+            if created:
+                async_add_entities(created)
+
+        on_unload(await runtime.manifest_manager.async_add_listener(apply))
+
+    await async_setup_agents(entry, setup_agent)

@@ -96,11 +96,22 @@ nav:
       - The PC as a media player: user/media-player.md
       - Updates: user/updates.md
       - Roaming devices (reverse link): user/reverse-link.md
+      - Connect Home Assistant to a hub: user/hub-route.md
       - Events: user/events.md
       - "Example: start the PC in a mode": user/example-mode-start.md
+  - The hub:
+      - What the hub is: user/hub/index.md
+      - Install with Docker: user/hub/docker.md
+      - Install as a Home Assistant app: user/hub/ha-app.md
+      - Enroll PCs: user/hub/enrollment.md
+      - Profiles, assignments and policies: user/hub/profiles.md
+      - Metrics and Prometheus: user/hub/metrics.md
+      - Back up and restore the hub: user/hub/backup.md
+      - Security recommendations: user/hub/security.md
   - Operations:
       - Security model and recommendations: user/security.md
       - Backup and restore: user/backup-restore.md
+      - Sizing the hub for metric history: user/hub-sizing.md
       - Troubleshooting: user/troubleshooting.md
       - Migration from the prototype: migration-from-prototype.md
   - Reference:

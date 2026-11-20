@@ -238,7 +238,9 @@ public sealed class ConfigStoreTests
         await store.Local.SaveAsync(Command(), null, CancellationToken.None);
         await store.Local.SaveScriptAsync("run.ps1", "Write-Output 1", null, CancellationToken.None);
 
-        IConfigLayer layer = Assert.Single(store.Layers);
+        Assert.Equal(2, store.Layers.Count);
+        Assert.False(store.Hub.State.IsActive);
+        IConfigLayer layer = store.Local;
 
         Assert.Equal("local", layer.Name);
         Assert.False(layer.IsReadOnly);

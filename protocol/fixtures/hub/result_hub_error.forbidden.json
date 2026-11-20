@@ -1,0 +1,6 @@
+{
+  "t": "result",
+  "id": 22,
+  "ok": false,
+  "error": { "code": "forbidden", "message": "The tunnel is switched off on this agent." }
+}

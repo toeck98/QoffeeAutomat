@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/enrollment_string.schema.json",
+  "title": "enrollment string",
+  "description": "The enrollment string shown by the hub UI: the prefix qahub1. followed by the base64url (no padding) encoding of the UTF-8 JSON of an enrollment payload (PLAN.md S20). validate_protocol.py decodes every enrollment_string fixture and compares it with the enrollment_payload fixture of the same variant.",
+  "type": "string",
+  "pattern": "^qahub1\\.[A-Za-z0-9_-]+$",
+  "maxLength": 4096
+}

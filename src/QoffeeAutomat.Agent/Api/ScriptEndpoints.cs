@@ -1,4 +1,5 @@
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Core.Config;
 
@@ -30,6 +31,7 @@ public static class ScriptEndpoints
             .Returns<ScriptContent>()
             .Fails(StatusCodes.Status404NotFound);
         api.MapPut("/scripts/{name}", PutScriptAsync)
+            .GuardsLocalConfig(LocalConfigArea.Script)
             .Describe(Tag, "putScript", "Creates or replaces a script file.")
             .Takes<ScriptWriteRequest>()
             .Returns<ScriptContent>()
@@ -37,6 +39,7 @@ public static class ScriptEndpoints
             .HonoursIfMatch()
             .Fails(StatusCodes.Status400BadRequest, ApiResults.UnprocessableContent);
         api.MapDelete("/scripts/{name}", DeleteScriptAsync)
+            .GuardsLocalConfig(LocalConfigArea.Script)
             .Describe(Tag, "deleteScript", "Deletes a script file.")
             .ReturnsNothing()
             .HonoursIfMatch()

@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using QoffeeAutomat.Agent.Api.OpenApi;
 using QoffeeAutomat.Agent.Hosting;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Agent.Link.Pairing;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
@@ -41,6 +42,7 @@ public static class ArchiveEndpoints
             .Describe(Tag, "exportConfig", "Downloads all commands, sensors, metric overrides, settings and scripts as a zip file. The archive contains no secrets.")
             .ReturnsFile(ZipContentType);
         api.MapPost("/config/import", ImportAsync)
+            .GuardsLocalConfig(LocalConfigArea.Collection)
             .Describe(Tag, "importConfig", "Imports a zip file made by the export. The whole archive is validated first; nothing is changed unless it is valid. Existing items with the same id are replaced.")
             .Query("settings", "boolean", "True also imports the settings; they belong to one PC, so the default is false.")
             .TakesFile(ZipContentType)

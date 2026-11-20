@@ -1,4 +1,5 @@
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Core.Config;
@@ -28,6 +29,7 @@ public static class RevisionEndpoints
             .Returns<RevisionList>()
             .Fails(StatusCodes.Status404NotFound);
         api.MapPost("/config/revisions/{kind}/{id}/{revision}/restore", RestoreAsync)
+            .GuardsLocalConfig(LocalConfigArea.Revision)
             .Describe(Tag, "restoreRevision", "Stores a kept revision as a new revision of the document.")
             .ReturnsNothing()
             .HonoursIfMatch()

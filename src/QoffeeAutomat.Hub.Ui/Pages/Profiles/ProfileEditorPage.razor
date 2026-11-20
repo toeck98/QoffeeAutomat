@@ -1,0 +1,476 @@
+@page "/profiles/{Id}"
+@using QoffeeAutomat.Contracts.Hub
+@using QoffeeAutomat.Hub.Ui.Pages.Library
+@using QoffeeAutomat.Hub.Ui.Pages.Profiles
+@inherits HubComponentBase
+
+@* One profile (PLAN.md S20, D-030, T916): the draft (name, priority, OS filter, policy, documents pinned at library revisions, variables), the
+   publishing of the draft as the next immutable revision with a confirmation that shows the affected agents, and the roll-back to an earlier revision.
+   An administrator edits the draft; an operator may publish and roll back (an administrator when the content has system scripts); a viewer reads.
+   Publishing works on the draft as it is saved at the hub, so unsaved changes must be saved first. *@
+<div class="d-flex align-center mb-2">
+  <MudButton Variant="Variant.Text" Href="profiles" StartIcon="@Icons.Material.Filled.ArrowBack" data-testid="profile-back">@H["Profile.Back"]</MudButton>
+</div>
+
+<HubErrorDisplay Error="Error" OnRetry="LoadAsync" Class="mb-4" />
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_profile is not null)
+{
+  <div class="qa-card-header">
+    <MudText Typo="Typo.h4" GutterBottom="true" data-testid="profile-title">@_profile.Draft.Name</MudText>
+    <span class="qa-editor-actions">
+      @if (_profile.ActiveRevision is { } active)
+      {
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success" data-testid="profile-active">@H.Format("Profiles.Active", active)</MudChip>
+      }
+      else
+      {
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" data-testid="profile-not-published">@H["Profiles.NotPublished"]</MudChip>
+      }
+      @if (Dirty)
+      {
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" data-testid="profile-dirty">@H["Profile.Unsaved"]</MudChip>
+      }
+      else if (_profile.HasUnpublishedChanges)
+      {
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" data-testid="profile-unpublished-changes">@H["Profiles.Changes"]</MudChip>
+      }
+      @if (Can(HubRoleNames.Admin))
+      {
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Save" Disabled="@(Busy || !Dirty)" OnClick="SaveAsync" data-testid="profile-save">@H["Profile.SaveDraft"]</MudButton>
+      }
+      @if (Can(HubRoleNames.Operator))
+      {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Publish" Disabled="@(Busy || Dirty)" OnClick="StartPublishAsync" data-testid="profile-publish">@H["Profile.Publish"]</MudButton>
+      }
+    </span>
+  </div>
+
+  @if (_notice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="profile-notice">@_notice</MudAlert>
+  }
+  @if (Dirty && Can(HubRoleNames.Operator))
+  {
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2" data-testid="profile-save-first">@H["Profile.SaveFirst"]</MudText>
+  }
+  @if (_problems.Count > 0)
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4" data-testid="profile-problems">
+      <ul class="qa-error-list">
+        @foreach (string problem in _problems)
+        {
+          <li>@H[problem]</li>
+        }
+      </ul>
+    </MudAlert>
+  }
+
+  @if (_preview is not null)
+  {
+    <PublishConfirmation Preview="_preview"
+                         Title="@(_rollbackRevision is { } back ? H.Format("Publish.Title.Rollback", _profile.Draft.Name, back) : H.Format("Publish.Title.Publish", _profile.Draft.Name))"
+                         ConfirmText="@(_rollbackRevision is null ? H["Publish.Confirm"] : H["Publish.ConfirmRollback"])"
+                         AllowNote="true"
+                         @bind-Note="_note"
+                         Working="Busy"
+                         OnConfirm="ConfirmAsync"
+                         OnCancel="CancelPreview" />
+  }
+
+  <MudPaper Class="pa-4 mb-3 qa-card" Elevation="1" data-testid="profile-general">
+    <MudText Typo="Typo.h6" Class="mb-2">@H["Profile.General"]</MudText>
+    <MudGrid Spacing="2">
+      <MudItem xs="12" md="6">
+        <div data-testid="profile-name">
+          <MudTextField T="string" @bind-Value="_draft.Name" Immediate="true" Disabled="@(!CanEdit)" Label="@H["Profiles.Name"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="6" md="3">
+        <div data-testid="profile-priority">
+          <MudNumericField T="int" @bind-Value="_draft.Priority" Immediate="true" Disabled="@(!CanEdit)" Label="@H["Profiles.Column.Priority"]" HelperText="@H["Profile.PriorityHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="6" md="3">
+        <SelectBox Label="@H["Profile.OsFilter"]" Value="@_draft.OsFilter" ValueChanged="@(value => _draft.OsFilter = value)" Disabled="@(!CanEdit)" TestId="profile-os">
+          @foreach (string os in ProfileDraft.OsFilters)
+          {
+            <option value="@os" selected="@(os == _draft.OsFilter)">@(os.Length == 0 ? H["Profile.Os.any"] : os)</option>
+          }
+        </SelectBox>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <SelectBox Label="@H["Profile.LocalConfig"]" Value="@_draft.LocalConfig" ValueChanged="@(value => _draft.LocalConfig = value)" Disabled="@(!CanEdit)" TestId="profile-local-config">
+          @foreach (string choice in ProfileDraft.LocalConfigChoices)
+          {
+            <option value="@choice" selected="@(choice == _draft.LocalConfig)">@H[ProfileDraft.PolicyKey(choice)]</option>
+          }
+        </SelectBox>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">@H["Profile.LocalConfigHelp"]</MudText>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <SelectBox Label="@H["Profile.DirectLink"]" Value="@_draft.DirectLink" ValueChanged="@(value => _draft.DirectLink = value)" Disabled="@(!CanEdit)" TestId="profile-direct-link">
+          @foreach (string choice in ProfileDraft.DirectLinkChoices)
+          {
+            <option value="@choice" selected="@(choice == _draft.DirectLink)">@H[ProfileDraft.PolicyKey(choice)]</option>
+          }
+        </SelectBox>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">@H["Profile.DirectLinkHelp"]</MudText>
+      </MudItem>
+    </MudGrid>
+  </MudPaper>
+
+  <MudPaper Class="pa-4 mb-3 qa-card" Elevation="1" data-testid="profile-documents">
+    <MudText Typo="Typo.h6" Class="mb-2">@H["Profile.Documents"]</MudText>
+    @if (_draft.Items.Count == 0)
+    {
+      <MudText Color="Color.Secondary" data-testid="profile-documents-none">@H["Profile.Documents.None"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Hover="true" data-testid="profile-items">
+        <thead>
+          <tr>
+            <th>@H["Library.Column.Kind"]</th>
+            <th>@H["Library.Column.Id"]</th>
+            <th>@H["Library.Column.Name"]</th>
+            <th>@H["Profile.Pinned"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (ProfileItemRow item in _draft.Items)
+          {
+            LibraryDocumentSummary? known = Find(item.Kind, item.Id);
+            string key = item.Kind + "-" + item.Id;
+            <tr @key="key" data-testid="@($"profile-item-{key}")">
+              <td>@H["Library.Kind." + item.Kind]</td>
+              <td><code>@item.Id</code></td>
+              <td>@known?.Name</td>
+              <td>
+                @if (item.Revision is { } pinned)
+                {
+                  <span>@H.Format("Profile.PinnedAt", pinned)</span>
+                  @if (known is not null && known.Revision > pinned)
+                  {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info" data-testid="@($"profile-item-newer-{key}")">@H.Format("Profile.Newer", known.Revision)</MudChip>
+                  }
+                }
+                else
+                {
+                  <span>@H["Profile.PinOnSave"]</span>
+                }
+              </td>
+              <td class="qa-row-actions">
+                @if (CanEdit)
+                {
+                  @if (item.Revision is not null)
+                  {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => UseNewest(item))" data-testid="@($"profile-item-newest-{key}")">@H["Profile.UseNewest"]</MudButton>
+                  }
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => RemoveItem(item))" data-testid="@($"profile-item-remove-{key}")">@H["Profile.Remove"]</MudButton>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+
+    @if (CanEdit)
+    {
+      <MudGrid Spacing="2" Class="mt-2 align-end" data-testid="profile-add-document">
+        <MudItem xs="12" md="4">
+          <SelectBox Label="@H["Library.Column.Kind"]" Value="@_addKind" ValueChanged="OnAddKindChanged" TestId="profile-add-kind">
+            @foreach (string kind in LibraryKinds.All)
+            {
+              <option value="@kind" selected="@(kind == _addKind)">@H["Library.Kind." + kind]</option>
+            }
+          </SelectBox>
+        </MudItem>
+        <MudItem xs="12" md="5">
+          <SelectBox Label="@H["Profile.Add.Document"]" Value="@_addId" ValueChanged="@(value => _addId = value)" TestId="profile-add-document-select">
+            <option value="" selected="@(_addId.Length == 0)">@H["Profile.Add.Choose"]</option>
+            @foreach (LibraryDocumentSummary document in Addable)
+            {
+              <option value="@document.Id" selected="@(document.Id == _addId)">@document.Id@(string.IsNullOrEmpty(document.Name) ? string.Empty : " – " + document.Name)</option>
+            }
+          </SelectBox>
+        </MudItem>
+        <MudItem xs="12" md="3">
+          <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" Disabled="@(_addId.Length == 0)" OnClick="AddItem" data-testid="profile-add">@H["Profile.Add"]</MudButton>
+        </MudItem>
+      </MudGrid>
+    }
+  </MudPaper>
+
+  <MudPaper Class="pa-4 mb-3 qa-card" Elevation="1" data-testid="profile-variables">
+    <MudText Typo="Typo.h6" Class="mb-1">@H["Profile.Variables"]</MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">@H["Profile.VariablesHelp"]</MudText>
+    @foreach (VariableRow row in _draft.Variables)
+    {
+      <MudGrid Spacing="2" Class="align-center" data-testid="profile-variable-row">
+        <MudItem xs="12" md="4">
+          <MudTextField T="string" @bind-Value="row.Name" Immediate="true" Disabled="@(!CanEdit)" Label="@H["Profile.Variable.Name"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+          <MudTextField T="string" @bind-Value="row.Value" Immediate="true" Disabled="@(!CanEdit)" Label="@H["Profile.Variable.Value"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </MudItem>
+        <MudItem xs="12" md="2">
+          @if (CanEdit)
+          {
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => RemoveVariable(row))" data-testid="profile-variable-remove">@H["Profile.Remove"]</MudButton>
+          }
+        </MudItem>
+      </MudGrid>
+    }
+    @if (CanEdit)
+    {
+      <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="AddVariable" Class="mt-1" data-testid="profile-variable-add">@H["Profile.Variable.Add"]</MudButton>
+    }
+  </MudPaper>
+
+  <MudPaper Class="pa-4 mb-3 qa-card" Elevation="1" data-testid="profile-revisions-card">
+    <div class="qa-card-header">
+      <MudText Typo="Typo.h6" Class="mb-2">@H["Profile.Revisions"]</MudText>
+      <MudButton Size="Size.Small" Variant="Variant.Text" Href="@("rollouts?profile=" + Uri.EscapeDataString(_profile.Id))" data-testid="profile-rollout-link">@H["Profile.ViewRollout"]</MudButton>
+    </div>
+    @if (_revisions.Count == 0)
+    {
+      <MudText Color="Color.Secondary" data-testid="profile-revisions-none">@H["Profile.Revisions.None"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Hover="true" data-testid="profile-revisions">
+        <thead>
+          <tr>
+            <th>@H["Library.Column.Revision"]</th>
+            <th>@H["Profile.PublishedAt"]</th>
+            <th>@H["Library.Column.By"]</th>
+            <th>@H["Publish.Note"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (ProfileRevisionSummary revision in _revisions)
+          {
+            <tr @key="revision.Revision" data-testid="@($"profile-revision-{revision.Revision}")" data-active="@(revision.Active ? "true" : "false")">
+              <td>
+                @revision.Revision
+                @if (revision.Active)
+                {
+                  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success">@H["Profile.InEffect"]</MudChip>
+                }
+              </td>
+              <td>@Time(revision.PublishedAt)</td>
+              <td>@revision.PublishedBy</td>
+              <td>@revision.Note</td>
+              <td class="qa-row-actions">
+                @if (Can(HubRoleNames.Operator) && !revision.Active)
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="Busy" OnClick="@(() => StartRollbackAsync(revision.Revision))" data-testid="@($"profile-rollback-{revision.Revision}")">@H["Profile.Rollback"]</MudButton>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+  </MudPaper>
+}
+
+@code {
+  private ProfileInfo? _profile;
+  private ProfileDraft _draft = new();
+  private IReadOnlyList<LibraryDocumentSummary> _library = [];
+  private IReadOnlyList<ProfileRevisionSummary> _revisions = [];
+  private IReadOnlyList<string> _problems = [];
+  private PublishPreview? _preview;
+  private int? _rollbackRevision;
+  private string? _note;
+  private string? _notice;
+  private string _baseline = string.Empty;
+  private string _addKind = DocumentKinds.Command;
+  private string _addId = string.Empty;
+  private string? _loadedId;
+  private bool _loading = true;
+
+  /// <summary>The id of the profile.</summary>
+  [Parameter]
+  public string Id { get; set; } = string.Empty;
+
+  private bool CanEdit => Can(HubRoleNames.Admin);
+
+  private bool Dirty => _profile is not null && !string.Equals(_draft.Snapshot(), _baseline, StringComparison.Ordinal);
+
+  private IEnumerable<LibraryDocumentSummary> Addable => _library
+    .Where(document => document.Kind == _addKind && !_draft.Contains(document.Kind, document.Id))
+    .OrderBy(document => document.Id, StringComparer.Ordinal);
+
+  protected override async Task OnParametersSetAsync()
+  {
+    if (Id == _loadedId)
+    {
+      return;
+    }
+
+    _loadedId = Id;
+    _loading = true;
+    _profile = null;
+    await LoadAsync();
+  }
+
+  private LibraryDocumentSummary? Find(string kind, string id) => _library.FirstOrDefault(document => document.Kind == kind && document.Id == id);
+
+  private async Task LoadAsync()
+  {
+    ProfileInfo? profile = null;
+    ProfileRevisionList? revisions = null;
+    LibraryDocumentList? library = null;
+    bool ok = await TryAsync(async () =>
+    {
+      profile = await Api.GetProfileAsync(Id);
+      revisions = await Api.GetProfileRevisionsAsync(Id);
+      library = await Api.GetLibraryAsync();
+    });
+    if (ok && profile is not null && revisions is not null && library is not null)
+    {
+      Adopt(profile);
+      _revisions = revisions.Revisions;
+      _library = library.Documents;
+    }
+
+    _loading = false;
+  }
+
+  private void Adopt(ProfileInfo profile)
+  {
+    _profile = profile;
+    _draft = ProfileDraft.From(profile.Id, profile.Draft);
+    _baseline = _draft.Snapshot();
+    _problems = [];
+  }
+
+  private async Task SaveAsync()
+  {
+    _notice = null;
+    _problems = _draft.Problems();
+    if (_problems.Count > 0)
+    {
+      return;
+    }
+
+    ProfileInfo? saved = null;
+    if (await TryAsync(async () => saved = await Api.UpdateProfileAsync(Id, _draft.ToRequest())) && saved is not null)
+    {
+      Adopt(saved);
+      _notice = H["Profile.Saved"];
+    }
+  }
+
+  private void OnAddKindChanged(string kind)
+  {
+    _addKind = kind;
+    _addId = string.Empty;
+  }
+
+  private void AddItem()
+  {
+    if (_addId.Length == 0 || _draft.Contains(_addKind, _addId))
+    {
+      return;
+    }
+
+    _draft.Items.Add(new ProfileItemRow(_addKind, _addId, null));
+    _draft.Items.Sort((left, right) =>
+    {
+      int byKind = ProfileDraft.KindOrder(left.Kind).CompareTo(ProfileDraft.KindOrder(right.Kind));
+      return byKind != 0 ? byKind : string.CompareOrdinal(left.Id, right.Id);
+    });
+    _addId = string.Empty;
+  }
+
+  private void RemoveItem(ProfileItemRow item)
+  {
+    _draft.Items.Remove(item);
+  }
+
+  private void UseNewest(ProfileItemRow item)
+  {
+    int index = _draft.Items.IndexOf(item);
+    if (index >= 0)
+    {
+      _draft.Items[index] = item with { Revision = null };
+    }
+  }
+
+  private void AddVariable()
+  {
+    _draft.Variables.Add(new VariableRow());
+  }
+
+  private void RemoveVariable(VariableRow row)
+  {
+    _draft.Variables.Remove(row);
+  }
+
+  private async Task StartPublishAsync()
+  {
+    _notice = null;
+    PublishPreview? preview = null;
+    if (await TryAsync(async () => preview = await Api.PreviewProfileAsync(Id)) && preview is not null)
+    {
+      _rollbackRevision = null;
+      _note = null;
+      _preview = preview;
+    }
+  }
+
+  private async Task StartRollbackAsync(int revision)
+  {
+    _notice = null;
+    PublishPreview? preview = null;
+    if (await TryAsync(async () => preview = await Api.PreviewProfileAsync(Id, revision)) && preview is not null)
+    {
+      _rollbackRevision = revision;
+      _note = null;
+      _preview = preview;
+    }
+  }
+
+  private void CancelPreview()
+  {
+    _preview = null;
+    _rollbackRevision = null;
+  }
+
+  private async Task ConfirmAsync()
+  {
+    if (_preview is null)
+    {
+      return;
+    }
+
+    PublishResult? result = null;
+    string? note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim();
+    bool ok = _rollbackRevision is { } revision
+      ? await TryAsync(async () => result = await Api.RollbackProfileAsync(Id, revision, note))
+      : await TryAsync(async () => result = await Api.PublishProfileAsync(Id, note));
+    if (!ok || result is null)
+    {
+      return;
+    }
+
+    bool rolledBack = _rollbackRevision is not null;
+    _preview = null;
+    _rollbackRevision = null;
+    _notice = result.Unchanged
+      ? H.Format("Publish.Done.Unchanged", result.Revision)
+      : H.Format(rolledBack ? "Publish.Done.Rollback" : "Publish.Done.Publish", result.Revision, result.Agents.Count);
+    await LoadAsync();
+  }
+}

@@ -1,0 +1,43 @@
+@using QoffeeAutomat.Hub.Fleet.Actions
+@inherits HubComponentBase
+
+@* The agents of one fleet action with what became of each (T917): the state, the version change of an update, and what the agent or the hub said. *@
+<MudSimpleTable Dense="true" Hover="true" data-testid="@($"action-items-{Info.Id}")">
+  <thead>
+    <tr>
+      <th>@H["Fleet.Column.Name"]</th>
+      <th>@H["Fleet.Column.State"]</th>
+      @if (Info.Kind == FleetActionKinds.Update)
+      {
+        <th>@H["Actions.Column.Versions"]</th>
+      }
+      <th>@H["Actions.Column.Detail"]</th>
+    </tr>
+  </thead>
+  <tbody>
+    @foreach (FleetActionItem item in Info.Items)
+    {
+      <tr @key="item.AgentId" data-testid="@($"action-item-{item.AgentId}")" data-state="@item.State">
+        <td><MudLink Href="@("agents/" + Uri.EscapeDataString(item.AgentId))">@item.AgentName</MudLink></td>
+        <td><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ActionForms.ItemColor(item.State)">@H["Actions.Item.State." + item.State]</MudChip></td>
+        @if (Info.Kind == FleetActionKinds.Update)
+        {
+          <td>@(item.VersionBefore ?? "?") → @(item.VersionAfter ?? "?")</td>
+        }
+        <td data-testid="@($"action-detail-{item.AgentId}")" title="@item.ErrorCode">
+          @item.Message
+          @if (item.ExitCode is { } exit && exit != 0)
+          {
+            <span> (@H.Format("Actions.ExitCode", exit))</span>
+          }
+        </td>
+      </tr>
+    }
+  </tbody>
+</MudSimpleTable>
+
+@code {
+  /// <summary>The action whose agents are shown.</summary>
+  [Parameter, EditorRequired]
+  public FleetActionInfo Info { get; set; } = null!;
+}

@@ -40,12 +40,13 @@ def test_manifest_has_the_keys_required_by_hacs(manifest: dict[str, Any]) -> Non
         assert manifest.get(key), f"manifest.json is missing {key}"
 
 
-def test_manifest_describes_a_local_push_device_integration(
+def test_manifest_describes_a_local_push_hub_integration(
     manifest: dict[str, Any],
 ) -> None:
     assert manifest["domain"] == "qoffeeautomat"
     assert manifest["config_flow"] is True
-    assert manifest["integration_type"] == "device"
+    # Entries of a single PC and entries of a hub with many devices (T914, S10).
+    assert manifest["integration_type"] == "hub"
     assert manifest["iot_class"] == "local_push"
     assert manifest["requirements"] == []
     assert manifest["zeroconf"] == ["_qoffeeautomat._tcp.local."]
@@ -82,11 +83,14 @@ def test_strings_and_english_translation_are_in_sync() -> None:
 
 
 def test_no_configuration_file_names_outside_hidden_folders() -> None:
-    """D-034: no config.yaml, config.yml or config.json outside hidden folders."""
+    """D-034: no config.yaml/.yml/.json outside hidden folders (except ha-app)."""
+    allowed = {ROOT / "packaging" / "hub" / "ha-app" / "config.yaml"}
     offenders = []
     for current, dirs, files in os.walk(ROOT):
         dirs[:] = [d for d in dirs if not d.startswith(".") and d != "node_modules"]
         offenders.extend(
-            str(Path(current, name)) for name in files if name in FORBIDDEN_FILE_NAMES
+            str(Path(current, name))
+            for name in files
+            if name in FORBIDDEN_FILE_NAMES and Path(current, name) not in allowed
         )
     assert offenders == []

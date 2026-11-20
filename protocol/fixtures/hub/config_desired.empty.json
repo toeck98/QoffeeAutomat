@@ -1,0 +1,8 @@
+{
+  "t": "config_desired",
+  "id": 14,
+  "generation": 1,
+  "policy": { "local_config": "allow", "direct_link": "allow" },
+  "items": [],
+  "sig": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg=="
+}

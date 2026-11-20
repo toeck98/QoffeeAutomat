@@ -1,0 +1,214 @@
+@page "/library/document/{Kind}/new"
+@page "/library/document/{Kind}/{Id}"
+@using QoffeeAutomat.Contracts.Hub
+@using QoffeeAutomat.Hub.Ui.Pages.Library
+@inherits HubComponentBase
+
+@* The editor of the library documents that have no form (PLAN.md S20, T916): scripts as text, mode groups, metric overrides and variables as JSON.
+   The hub validates what is saved with the validators of the agent and answers 422 with the places that are wrong; they are listed here. A save of
+   the same content adds no revision. Older revisions can be loaded into the editor and saved again, which makes them the newest. *@
+<LibraryEditorFrame ShowTestTarget="false">
+  @if (!LibraryKinds.UsesTextEditor(Kind) || !LibraryKinds.All.Contains(Kind))
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" data-testid="library-doc-unknown-kind">@H["Library.Doc.UnknownKind"]</MudAlert>
+  }
+  else
+  {
+    <div class="qa-card-header">
+      <MudText Typo="Typo.h4" GutterBottom="true" data-testid="library-doc-title">@(IsNew ? H.Format("Library.Doc.TitleNew", H["Library.Kind." + Kind]) : H.Format("Library.Doc.TitleEdit", H["Library.Kind." + Kind], Id!))</MudText>
+      <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@(Busy || _loading)" OnClick="SaveAsync" data-testid="library-doc-save">@H["Library.Doc.Save"]</MudButton>
+    </div>
+
+    <HubErrorDisplay Error="Error" OnRetry="LoadAsync" Class="mb-4" />
+    @if (_localError is not null)
+    {
+      <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4" data-testid="library-doc-local-error">@_localError</MudAlert>
+    }
+    @if (_notice is not null)
+    {
+      <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="library-doc-notice">@_notice</MudAlert>
+    }
+
+    @if (_loading)
+    {
+      <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+    }
+    else
+    {
+      <MudPaper Class="pa-4 mb-3 qa-card" Elevation="1">
+        @if (IsNew)
+        {
+          <div data-testid="library-doc-id">
+            <MudTextField T="string" @bind-Value="_id" Immediate="true" Label="@H["Library.Doc.Id"]" HelperText="@H[Kind == DocumentKinds.Script ? "Library.Doc.IdHelpScript" : "Library.Doc.IdHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+          </div>
+        }
+        <div data-testid="library-doc-body">
+          <MudTextField T="string"
+                        @bind-Value="_text"
+                        Immediate="true"
+                        Lines="18"
+                        Label="@H[Kind == DocumentKinds.Script ? "Library.Doc.Script" : "Library.Doc.Json"]"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        Class="mt-2"
+                        spellcheck="false" />
+        </div>
+      </MudPaper>
+
+      @if (!IsNew)
+      {
+        <MudText Typo="Typo.h6" Class="mb-1">@H["Library.Doc.Revisions"]</MudText>
+        <MudPaper Class="qa-card mb-2" Elevation="1">
+          <MudSimpleTable Dense="true" Hover="true" data-testid="library-doc-revisions">
+            <thead>
+              <tr>
+                <th>@H["Library.Column.Revision"]</th>
+                <th>@H["Library.Column.Updated"]</th>
+                <th>@H["Library.Column.By"]</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (LibraryRevisionSummary revision in _revisions)
+              {
+                <tr @key="revision.Revision" data-testid="@($"library-doc-revision-{revision.Revision}")">
+                  <td>@revision.Revision</td>
+                  <td>@Time(revision.CreatedAt)</td>
+                  <td>@revision.CreatedBy</td>
+                  <td class="qa-row-actions">
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="Busy" OnClick="@(() => LoadRevisionAsync(revision.Revision))" data-testid="@($"library-doc-load-{revision.Revision}")">@H["Library.Doc.LoadRevision"]</MudButton>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </MudSimpleTable>
+        </MudPaper>
+      }
+    }
+  }
+</LibraryEditorFrame>
+
+@code {
+  private IReadOnlyList<LibraryRevisionSummary> _revisions = [];
+  private string _id = string.Empty;
+  private string _text = string.Empty;
+  private string? _notice;
+  private string? _localError;
+  private string? _loadedKey;
+  private bool _loading = true;
+
+  /// <summary>The kind of the document: script, mode, metric_overrides or variables.</summary>
+  [Parameter]
+  public string Kind { get; set; } = string.Empty;
+
+  /// <summary>The library id of the document; <c>null</c> on the page of a new document.</summary>
+  [Parameter]
+  public string? Id { get; set; }
+
+  private bool IsNew => Id is null;
+
+  protected override async Task OnParametersSetAsync()
+  {
+    string key = Kind + "/" + Id;
+    if (key == _loadedKey || !Can(HubRoleNames.Admin) || !LibraryKinds.UsesTextEditor(Kind))
+    {
+      return;
+    }
+
+    _loadedKey = key;
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    _notice = null;
+    _localError = null;
+    _loading = true;
+    if (Id is null)
+    {
+      _id = string.Empty;
+      _text = LibraryKinds.NewText(Kind);
+      _revisions = [];
+      _loading = false;
+      return;
+    }
+
+    LibraryDocumentInfo? document = null;
+    LibraryRevisionList? revisions = null;
+    bool ok = await TryAsync(async () =>
+    {
+      document = await Api.GetLibraryDocumentAsync(Kind, Id);
+      revisions = await Api.GetLibraryRevisionsAsync(Kind, Id);
+    });
+    if (ok && document is not null && revisions is not null)
+    {
+      _text = LibraryKinds.ToText(Kind, document.Body);
+      _revisions = revisions.Revisions;
+    }
+
+    _loading = false;
+  }
+
+  private async Task LoadRevisionAsync(int revision)
+  {
+    if (Id is null)
+    {
+      return;
+    }
+
+    _notice = null;
+    _localError = null;
+    LibraryDocumentInfo? document = null;
+    if (await TryAsync(async () => document = await Api.GetLibraryDocumentAsync(Kind, Id, revision)) && document is not null)
+    {
+      _text = LibraryKinds.ToText(Kind, document.Body);
+      _notice = H.Format("Library.Doc.Loaded", revision);
+    }
+  }
+
+  private async Task SaveAsync()
+  {
+    _notice = null;
+    _localError = null;
+    Error = null;
+
+    string id = IsNew ? _id.Trim() : Id!;
+    if (id.Length == 0)
+    {
+      _localError = H["Library.Doc.IdRequired"];
+      return;
+    }
+
+    if (IsNew && Kind != DocumentKinds.Script && !LibraryKinds.IsValidDocumentId(id))
+    {
+      _localError = H["Library.Doc.IdInvalid"];
+      return;
+    }
+
+    if (!LibraryKinds.TryParse(Kind, _text, out System.Text.Json.JsonElement body, out string? parseError))
+    {
+      _localError = H.Format("Library.Doc.NotJson", parseError ?? string.Empty);
+      return;
+    }
+
+    LibraryDocumentInfo? saved = null;
+    if (await TryAsync(async () => saved = await Api.SaveLibraryDocumentAsync(Kind, id, body)) && saved is not null)
+    {
+      _notice = saved.Changed == false
+          ? H.Format("Library.Doc.Unchanged", saved.Revision)
+          : H.Format("Library.Doc.Saved", saved.Revision);
+      if (IsNew)
+      {
+        // The editor goes on with the saved document; the address becomes the one of the document so that a reload finds it.
+        _loadedKey = Kind + "/" + id;
+        Navigation.NavigateTo(LibraryKinds.EditHref(Kind, id), replace: true);
+      }
+
+      LibraryRevisionList? revisions = null;
+      if (await TryAsync(async () => revisions = await Api.GetLibraryRevisionsAsync(Kind, id)) && revisions is not null)
+      {
+        _revisions = revisions.Revisions;
+      }
+    }
+  }
+}

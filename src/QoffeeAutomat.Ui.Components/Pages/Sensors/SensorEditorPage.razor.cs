@@ -21,6 +21,8 @@ public partial class SensorEditorPage
     private DraftErrors _errors = DraftErrors.Empty;
     private IReadOnlyList<string> _scripts = [];
     private string? _platform;
+    private HubConfigState? _hub;
+    private string? _origin;
     private string? _loadedId;
     private string? _notice;
     private ApiException? _loadError;
@@ -54,6 +56,9 @@ public partial class SensorEditorPage
 
     [Inject]
     private NavigationManager Navigation { get; set; } = null!;
+
+    [Inject]
+    private IAppLinks Links { get; set; } = null!;
 
     private string TitleText => _draft.IsNew ? L["Sensors.Title.New"] : L.Format("Sensors.Title.Edit", _draft.Name);
 
@@ -159,6 +164,8 @@ public partial class SensorEditorPage
         ResetResults();
         try
         {
+            await LoadHubAsync();
+            _origin = null;
             if (id is null)
             {
                 _draft = new SensorDraft();
@@ -175,6 +182,7 @@ public partial class SensorEditorPage
             }
 
             _draft = SensorDraft.From(sensor);
+            _origin = sensor.Origin;
             _loadedId = id;
             _idTouched = true;
             await LoadStateValueAsync(sensor);
@@ -190,6 +198,22 @@ public partial class SensorEditorPage
         finally
         {
             _loading = false;
+        }
+    }
+
+    /// <summary>True when the sensor cannot be saved: it comes from the hub (T908), or the hub locked the local configuration.</summary>
+    private bool ReadOnly => HubConfigAccess.IsReadOnly(_hub, _origin);
+
+    /// <summary>Reads what the hub configured; an agent without it, or a failed read, leaves the editor as it always was.</summary>
+    private async Task LoadHubAsync()
+    {
+        try
+        {
+            _hub = await Api.GetHubConfigAsync();
+        }
+        catch (ApiException)
+        {
+            _hub = null;
         }
     }
 
@@ -394,7 +418,7 @@ public partial class SensorEditorPage
             {
                 // The editor stays; only the address becomes the one of the sensor, so that a reload finds it.
                 _loadedId = saved.Id;
-                Navigation.NavigateTo("/sensors/" + Uri.EscapeDataString(saved.Id), replace: true);
+                Navigation.NavigateTo(Links.Resolve("/sensors/" + Uri.EscapeDataString(saved.Id)), replace: true);
             }
         }
         catch (ApiException exception) when (exception.IsUnauthorized)

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/agent_removed.schema.json",
+  "title": "agent_removed",
+  "description": "Hub to client, fleet link (PLAN.md S20). An agent left the scope of the token or was removed from the hub.",
+  "type": "object",
+  "required": ["t", "a"],
+  "properties": {
+    "t": { "const": "agent_removed" },
+    "a": { "$ref": "defs.schema.json#/$defs/agent_id" }
+  }
+}

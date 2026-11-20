@@ -1,0 +1,392 @@
+@page "/actions"
+@using QoffeeAutomat.Hub.Fleet.Actions
+@inherits HubComponentBase
+@inject HubUiOptions Options
+
+@* Fleet actions (PLAN.md S20 "Fleet actions", T917). Run one command with variables on the PCs that are chosen or carry a tag: the page shows, while the
+   hub works through them with bounded parallelism, whether each PC succeeded, failed or was offline. Update PCs: the page shows every PC's version against
+   the newest release that a PC reports, and the hub updates the chosen PCs one after another, waiting for each to come back with the new version, and
+   stops at the first that does not. An operator may run commands (and cancel a run), only an administrator may update PCs. A viewer sees what ran. The
+   hub keeps the permanent record in its audit log; the list here is what the hub still has in memory. The page reads again while it is open. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@H["Actions.Title"]</MudText>
+  <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="ReloadAsync" data-testid="actions-refresh">@H["Fleet.Refresh"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@H["Actions.Intro"]</MudText>
+
+<HubErrorDisplay Error="Error" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="actions-notice">@_notice</MudAlert>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else
+{
+  @* ---------------------------------------------------------------- Bulk run ---------------------------------------------------------------- *@
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="bulk-card">
+    <MudText Typo="Typo.h6" Class="mb-1">@H["Actions.Bulk.Title"]</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">@H["Actions.Bulk.Intro"]</MudText>
+    @if (!Can(HubRoleNames.Operator))
+    {
+      <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" data-testid="bulk-role-required">@H.Format("Role.Required", H["Role.operator"])</MudAlert>
+    }
+    else
+    {
+      <MudGrid Spacing="2">
+        <MudItem xs="12" md="4">
+          <MudTextField T="string" @bind-Value="_command" Immediate="true" Label="@H["Actions.Bulk.Command"]" HelperText="@H["Actions.Bulk.CommandHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" data-testid="bulk-command" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+          <MudTextField T="string" @bind-Value="_tags" Immediate="true" Label="@H["Actions.Bulk.Tags"]" HelperText="@H["Actions.Bulk.TagsHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" data-testid="bulk-tags" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+          <MudNumericField T="int" @bind-Value="_parallelism" Min="1" Max="16" Label="@H["Actions.Bulk.Parallelism"]" Variant="Variant.Outlined" Margin="Margin.Dense" data-testid="bulk-parallelism" />
+        </MudItem>
+        <MudItem xs="12">
+          <MudTextField T="string" @bind-Value="_vars" Immediate="true" Lines="3" Label="@H["Actions.Bulk.Vars"]" HelperText="@H["Actions.Bulk.VarsHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" data-testid="bulk-vars" />
+        </MudItem>
+      </MudGrid>
+      <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1">@H["Actions.Bulk.Agents"]</MudText>
+      <div class="qh-agent-checks" data-testid="bulk-agents">
+        @foreach (AgentSummary agent in _agents)
+        {
+          <label class="qh-check">
+            <input type="checkbox"
+                   checked="@_bulkAgents.Contains(agent.Id)"
+                   @onchange="@(args => Toggle(_bulkAgents, agent.Id, args.Value is true))"
+                   data-testid="@($"bulk-agent-{agent.Id}")" />
+            @agent.Name
+          </label>
+        }
+      </div>
+      @if (_bulkError is not null)
+      {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2" data-testid="bulk-error">@_bulkError</MudAlert>
+      }
+      <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Disabled="Busy" OnClick="StartBulkAsync" data-testid="bulk-start">@H["Actions.Bulk.Start"]</MudButton>
+    }
+  </MudPaper>
+
+  @* ---------------------------------------------------------------- Update ---------------------------------------------------------------- *@
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="update-card">
+    <MudText Typo="Typo.h6" Class="mb-1">@H["Actions.Update.Title"]</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">@H["Actions.Update.Intro"]</MudText>
+    <MudText Typo="Typo.subtitle2" Class="mb-2" data-testid="update-latest">
+      @(_versions?.LatestVersion is { } latest ? H.Format("Actions.Update.Latest", latest) : H["Actions.Update.LatestUnknown"])
+    </MudText>
+    @if (_versions is null || _versions.Agents.Count == 0)
+    {
+      <MudText Color="Color.Secondary" data-testid="update-none">@H["Actions.Update.None"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Hover="true" data-testid="update-table">
+        <thead>
+          <tr>
+            @if (Can(HubRoleNames.Admin))
+            {
+              <th>@H["Actions.Update.Column.Select"]</th>
+            }
+            <th>@H["Fleet.Column.Name"]</th>
+            <th>@H["Fleet.Column.State"]</th>
+            <th>@H["Actions.Update.Column.Version"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (AgentVersionInfo agent in _versions.Agents)
+          {
+            <tr @key="agent.AgentId" data-testid="@($"update-agent-{agent.AgentId}")" data-state="@agent.State" data-online="@(agent.Online ? "true" : "false")">
+              @if (Can(HubRoleNames.Admin))
+              {
+                <td>
+                  <input type="checkbox"
+                         checked="@_updateAgents.Contains(agent.AgentId)"
+                         disabled="@(!agent.CanUpdate)"
+                         @onchange="@(args => Toggle(_updateAgents, agent.AgentId, args.Value is true))"
+                         aria-label="@agent.AgentName"
+                         data-testid="@($"update-select-{agent.AgentId}")" />
+                </td>
+              }
+              <td>
+                <MudLink Href="@("agents/" + Uri.EscapeDataString(agent.AgentId))">@agent.AgentName</MudLink>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@(agent.Online ? Color.Success : Color.Default)">@(agent.Online ? H["Fleet.State.online"] : H["Fleet.State.offline"])</MudChip>
+              </td>
+              <td>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@(agent.State == "outdated" ? Color.Warning : agent.State == "current" ? Color.Success : Color.Default)">@H["Actions.Update.State." + agent.State]</MudChip>
+              </td>
+              <td>@(agent.Version ?? "?")</td>
+              <td></td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+
+    @if (!Can(HubRoleNames.Admin))
+    {
+      <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-2" data-testid="update-role-required">@H.Format("Role.Required", H["Role.admin"])</MudAlert>
+    }
+    else if (_versions is { Agents.Count: > 0 })
+    {
+      <MudGrid Spacing="2" Class="mt-1">
+        <MudItem xs="12" md="4">
+          <MudNumericField T="int" @bind-Value="_updateTimeout" Min="1" Max="3600" Label="@H["Actions.Update.Timeout"]" Variant="Variant.Outlined" Margin="Margin.Dense" data-testid="update-timeout" />
+        </MudItem>
+      </MudGrid>
+      @if (_updateError is not null)
+      {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2" data-testid="update-error">@_updateError</MudAlert>
+      }
+      @if (_confirmUpdate)
+      {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-2" data-testid="update-confirm-text">@H.Format("Actions.Update.ConfirmText", _updateAgents.Count)</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" Class="mt-2 mr-2" Disabled="Busy" OnClick="StartUpdateAsync" data-testid="update-confirm">@H["Common.Confirm"]</MudButton>
+        <MudButton Variant="Variant.Text" Class="mt-2" OnClick="@(() => _confirmUpdate = false)" data-testid="update-confirm-cancel">@H["Common.Cancel"]</MudButton>
+      }
+      else
+      {
+        <MudButton Variant="Variant.Outlined" Class="mt-2 mr-2" OnClick="SelectOutdated" data-testid="update-select-outdated">@H["Actions.Update.SelectOutdated"]</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled="Busy" OnClick="AskUpdate" data-testid="update-start">@H["Actions.Update.Start"]</MudButton>
+      }
+    }
+  </MudPaper>
+
+  @* ---------------------------------------------------------------- Recent actions ---------------------------------------------------------------- *@
+  <MudText Typo="Typo.h6" Class="mb-1">@H["Actions.List.Title"]</MudText>
+  @if (_actions.Count == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="actions-none">@H["Actions.List.None"]</MudText>
+  }
+  else
+  {
+    <div data-testid="actions-list">
+      @foreach (FleetActionInfo action in _actions)
+      {
+        <MudPaper Class="pa-3 mb-2 qa-card" Elevation="1" data-testid="@($"action-{action.Id}")" data-kind="@action.Kind" data-state="@action.State">
+          <div class="d-flex align-center flex-wrap">
+            <MudText Typo="Typo.subtitle1" Class="mr-2">
+              @H["Actions.Kind." + action.Kind]
+              @(action.Command is not null ? " · " + action.Command : action.TargetVersion is not null ? " · " + action.TargetVersion : string.Empty)
+            </MudText>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ActionForms.ActionColor(action.State)" data-testid="@($"action-state-{action.Id}")">@H["Actions.State." + action.State]</MudChip>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-2">@H.Format("Actions.By", action.User) · @Time(action.CreatedAt)</MudText>
+            <MudSpacer />
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ToggleDetails(action.Id))" data-testid="@($"action-details-{action.Id}")">@(_details == action.Id ? H["Actions.HideDetails"] : H["Actions.Details"])</MudButton>
+            @if (action.State == FleetActionStates.Running && Can(ActionForms.CancelRole(action)))
+            {
+              <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" Disabled="Busy" OnClick="@(() => CancelAsync(action.Id))" data-testid="@($"action-cancel-{action.Id}")">@H["Actions.Cancel"]</MudButton>
+            }
+          </div>
+          <MudText Typo="Typo.body2" data-testid="@($"action-counts-{action.Id}")">
+            @H.Format("Actions.Counts", action.Counts.Success, action.Counts.Failure, action.Counts.Offline, action.Counts.Skipped + action.Counts.Cancelled, action.Counts.Pending + action.Counts.Running)
+          </MudText>
+          @if (action.Kind == FleetActionKinds.Update && action.State != FleetActionStates.Running)
+          {
+            <MudText Typo="Typo.body2" data-testid="@($"action-updated-{action.Id}")">
+              @(action.Updated.Count == 0 ? H["Actions.UpdatedNone"] : H.Format("Actions.Updated", string.Join(", ", action.Updated.Select(NameOf))))
+            </MudText>
+          }
+          @if (action.StoppedAt is not null)
+          {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Text" Dense="true" data-testid="@($"action-stopped-{action.Id}")">@H.Format("Actions.StoppedAt", NameOf(action.StoppedAt), action.StopReason ?? string.Empty)</MudAlert>
+          }
+          @if (_details == action.Id)
+          {
+            <div class="mt-2">
+              <ActionItemsTable Info="action" />
+            </div>
+          }
+        </MudPaper>
+      }
+    </div>
+  }
+}
+
+@code {
+  private readonly CancellationTokenSource _stop = new();
+  private readonly HashSet<string> _bulkAgents = new(StringComparer.Ordinal);
+  private readonly HashSet<string> _updateAgents = new(StringComparer.Ordinal);
+  private IReadOnlyList<AgentSummary> _agents = [];
+  private FleetVersionOverview? _versions;
+  private IReadOnlyList<FleetActionInfo> _actions = [];
+  private string _command = string.Empty;
+  private string _tags = string.Empty;
+  private string _vars = string.Empty;
+  private int _parallelism = 5;
+  private int _updateTimeout = 600;
+  private string? _bulkError;
+  private string? _updateError;
+  private string? _notice;
+  private string? _details;
+  private bool _confirmUpdate;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+    _ = RefreshLoopAsync(_stop.Token);
+  }
+
+  protected override ValueTask OnDisposeAsync()
+  {
+    _stop.Cancel();
+    _stop.Dispose();
+    return base.OnDisposeAsync();
+  }
+
+  private string NameOf(string agentId)
+  {
+    return _versions?.Agents.FirstOrDefault(agent => agent.AgentId == agentId)?.AgentName
+      ?? _agents.FirstOrDefault(agent => agent.Id == agentId)?.Name
+      ?? agentId;
+  }
+
+  private static void Toggle(HashSet<string> set, string id, bool selected)
+  {
+    _ = selected ? set.Add(id) : set.Remove(id);
+  }
+
+  private void ToggleDetails(string id) => _details = _details == id ? null : id;
+
+  private void SelectOutdated()
+  {
+    _updateAgents.Clear();
+    foreach (AgentVersionInfo agent in _versions?.Agents ?? [])
+    {
+      if (agent.State == "outdated" && agent.CanUpdate)
+      {
+        _ = _updateAgents.Add(agent.AgentId);
+      }
+    }
+  }
+
+  private async Task ReloadAsync()
+  {
+    _notice = null;
+    await LoadAsync();
+  }
+
+  private async Task RefreshLoopAsync(CancellationToken stop)
+  {
+    using var timer = new PeriodicTimer(Options.RefreshInterval);
+    try
+    {
+      while (await timer.WaitForNextTickAsync(stop))
+      {
+        await InvokeAsync(async () =>
+        {
+          if (!IsDisposed)
+          {
+            await LoadAsync();
+            StateHasChanged();
+          }
+        });
+      }
+    }
+    catch (OperationCanceledException)
+    {
+      // The page was left.
+    }
+  }
+
+  private async Task LoadAsync()
+  {
+    AgentList? agents = null;
+    FleetVersionOverview? versions = null;
+    FleetActionList? actions = null;
+    bool ok = await TryAsync(async () =>
+    {
+      agents = await Api.GetAgentsAsync();
+      versions = await Api.GetFleetVersionsAsync();
+      actions = await Api.GetFleetActionsAsync();
+    });
+    if (ok && agents is not null && versions is not null && actions is not null)
+    {
+      _agents = [.. agents.Agents.Where(agent => agent.Status == "enrolled").OrderBy(agent => agent.Name, StringComparer.OrdinalIgnoreCase)];
+      _versions = versions;
+      _actions = actions.Actions;
+
+      // A PC that left the fleet or went offline cannot stay selected.
+      _ = _bulkAgents.RemoveWhere(id => !_agents.Any(agent => agent.Id == id));
+      _ = _updateAgents.RemoveWhere(id => !versions.Agents.Any(agent => agent.AgentId == id && agent.CanUpdate));
+    }
+
+    _loading = false;
+  }
+
+  private async Task StartBulkAsync()
+  {
+    _notice = null;
+    _bulkError = null;
+    IReadOnlyList<string> tags = ActionForms.ParseTags(_tags);
+    string command = _command.Trim();
+    if (command.Length == 0)
+    {
+      _bulkError = H["Actions.Bulk.NoCommand"];
+      return;
+    }
+
+    if (_bulkAgents.Count == 0 && tags.Count == 0)
+    {
+      _bulkError = H["Actions.Bulk.NoTargets"];
+      return;
+    }
+
+    if (!ActionForms.TryParseVars(_vars, out IReadOnlyDictionary<string, System.Text.Json.JsonElement>? vars))
+    {
+      _bulkError = H["Actions.Bulk.VarsInvalid"];
+      return;
+    }
+
+    var request = new StartBulkRunRequest(command, vars, [.. _bulkAgents.Order(StringComparer.Ordinal)], tags, _parallelism);
+    FleetActionInfo? started = null;
+    if (await TryAsync(async () => started = await Api.StartBulkRunAsync(request)) && started is not null)
+    {
+      _notice = H.Format("Actions.Bulk.Started", started.Items.Count);
+      _details = started.Id;
+      await LoadAsync();
+    }
+  }
+
+  private void AskUpdate()
+  {
+    _notice = null;
+    _updateError = null;
+    if (_updateAgents.Count == 0)
+    {
+      _updateError = H["Actions.Update.NoTargets"];
+      return;
+    }
+
+    _confirmUpdate = true;
+  }
+
+  private async Task StartUpdateAsync()
+  {
+    _confirmUpdate = false;
+    var request = new StartFleetUpdateRequest([.. _updateAgents.Order(StringComparer.Ordinal)], null, null, _updateTimeout);
+    FleetActionInfo? started = null;
+    if (await TryAsync(async () => started = await Api.StartFleetUpdateAsync(request)) && started is not null)
+    {
+      _notice = H.Format("Actions.Update.Started", started.Items.Count);
+      _details = started.Id;
+      _updateAgents.Clear();
+      await LoadAsync();
+    }
+  }
+
+  private async Task CancelAsync(string id)
+  {
+    _notice = null;
+    if (await TryAsync(() => Api.CancelFleetActionAsync(id)))
+    {
+      _notice = H["Actions.Cancelled"];
+      await LoadAsync();
+    }
+  }
+}

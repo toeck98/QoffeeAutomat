@@ -1,0 +1,571 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Deutsch. HubStrings.resx (Englisch) ist die neutrale Sprache; beide Dateien müssen genau dieselben Schlüssel haben (ein Test prüft das). -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="App.Title" xml:space="preserve"><value>QoffeeAutomat Hub</value></data>
+
+  <data name="Nav.Fleet" xml:space="preserve"><value>Flotte</value></data>
+  <data name="Nav.Enrollment" xml:space="preserve"><value>Anmeldung</value></data>
+  <data name="Nav.Access" xml:space="preserve"><value>Home Assistant</value></data>
+  <data name="Nav.Users" xml:space="preserve"><value>Benutzer</value></data>
+  <data name="Nav.Tokens" xml:space="preserve"><value>API-Token</value></data>
+  <data name="Nav.Audit" xml:space="preserve"><value>Audit-Protokoll</value></data>
+  <data name="Nav.Settings" xml:space="preserve"><value>Hub-Einstellungen</value></data>
+
+  <data name="Common.Confirm" xml:space="preserve"><value>Bestätigen</value></data>
+  <data name="Common.Cancel" xml:space="preserve"><value>Abbrechen</value></data>
+  <data name="Common.Copy" xml:space="preserve"><value>Kopieren</value></data>
+  <data name="Common.Copied" xml:space="preserve"><value>In die Zwischenablage kopiert.</value></data>
+  <data name="Common.CopyFailed" xml:space="preserve"><value>Der Browser hat das Kopieren nicht erlaubt. Markieren Sie den Text und kopieren Sie ihn von Hand.</value></data>
+
+  <data name="Role.admin" xml:space="preserve"><value>Administrator</value></data>
+  <data name="Role.operator" xml:space="preserve"><value>Bediener</value></data>
+  <data name="Role.viewer" xml:space="preserve"><value>Betrachter</value></data>
+  <data name="Role.Required" xml:space="preserve"><value>Diese Seite braucht die Rolle „{0}“ oder eine höhere. Fragen Sie einen Administrator des Hubs.</value></data>
+
+  <data name="Login.Title" xml:space="preserve"><value>Anmelden</value></data>
+  <data name="Login.Intro" xml:space="preserve"><value>Melden Sie sich an, um die PCs dieses Hubs zu verwalten.</value></data>
+  <data name="Login.Username" xml:space="preserve"><value>Benutzername</value></data>
+  <data name="Login.Password" xml:space="preserve"><value>Passwort</value></data>
+  <data name="Login.Submit" xml:space="preserve"><value>Anmelden</value></data>
+  <data name="Login.Required" xml:space="preserve"><value>Geben Sie Benutzernamen und Passwort ein.</value></data>
+  <data name="Login.SetupAvailable" xml:space="preserve"><value>Dieser Hub hat noch kein Konto. Richten Sie ihn zuerst ein.</value></data>
+
+  <data name="Setup.Title" xml:space="preserve"><value>Ersteinrichtung</value></data>
+  <data name="Setup.Intro" xml:space="preserve"><value>Legen Sie den ersten Administrator dieses Hubs an. Fügen Sie das Setup-Token aus der Datei setup-token.txt im Datenverzeichnis des Hubs ein (es steht auch im Protokoll des Hubs).</value></data>
+  <data name="Setup.Token" xml:space="preserve"><value>Setup-Token</value></data>
+  <data name="Setup.Username" xml:space="preserve"><value>Benutzername des Administrators</value></data>
+  <data name="Setup.Password" xml:space="preserve"><value>Passwort</value></data>
+  <data name="Setup.PasswordConfirm" xml:space="preserve"><value>Passwort wiederholen</value></data>
+  <data name="Setup.Submit" xml:space="preserve"><value>Administrator anlegen und anmelden</value></data>
+  <data name="Setup.HaveAccount" xml:space="preserve"><value>Dieser Hub hat schon ein Konto. Anmelden.</value></data>
+  <data name="Setup.Required" xml:space="preserve"><value>Füllen Sie alle Felder aus.</value></data>
+  <data name="Setup.Mismatch" xml:space="preserve"><value>Die beiden Passwörter sind nicht gleich.</value></data>
+
+  <data name="Fleet.Title" xml:space="preserve"><value>Flotte</value></data>
+  <data name="Fleet.Refresh" xml:space="preserve"><value>Aktualisieren</value></data>
+  <data name="Fleet.None" xml:space="preserve"><value>Noch kein PC hat sich an diesem Hub angemeldet.</value></data>
+  <data name="Fleet.Enroll" xml:space="preserve"><value>PC hinzufügen</value></data>
+  <data name="Fleet.Pending.Hint" xml:space="preserve"><value>{0} PC(s) warten auf Ihre Freigabe.</value></data>
+  <data name="Fleet.Pending.Review" xml:space="preserve"><value>Prüfen</value></data>
+  <data name="Fleet.Search" xml:space="preserve"><value>Name, Host, System oder Tag suchen</value></data>
+  <data name="Fleet.State" xml:space="preserve"><value>Zustand</value></data>
+  <data name="Fleet.State.All" xml:space="preserve"><value>Jeder Zustand</value></data>
+  <data name="Fleet.State.online" xml:space="preserve"><value>Online</value></data>
+  <data name="Fleet.State.offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="Fleet.State.pending" xml:space="preserve"><value>Wartet auf Freigabe</value></data>
+  <data name="Fleet.State.approved" xml:space="preserve"><value>Freigegeben</value></data>
+  <data name="Fleet.State.rejected" xml:space="preserve"><value>Abgelehnt</value></data>
+  <data name="Fleet.Tag" xml:space="preserve"><value>Tag</value></data>
+  <data name="Fleet.Tag.All" xml:space="preserve"><value>Jeder Tag</value></data>
+  <data name="Fleet.Count" xml:space="preserve"><value>{0} von {1} PCs</value></data>
+  <data name="Fleet.NoMatch" xml:space="preserve"><value>Kein PC passt zu den Filtern.</value></data>
+  <data name="Fleet.Column.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Fleet.Column.State" xml:space="preserve"><value>Zustand</value></data>
+  <data name="Fleet.Column.System" xml:space="preserve"><value>System</value></data>
+  <data name="Fleet.Column.Version" xml:space="preserve"><value>Version</value></data>
+  <data name="Fleet.Column.Tags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Fleet.Column.Generation" xml:space="preserve"><value>Konfiguration (angewendet / gewünscht)</value></data>
+  <data name="Fleet.Column.LastSeen" xml:space="preserve"><value>Zuletzt gesehen</value></data>
+
+  <data name="Rollout.State.no_desired_state" xml:space="preserve"><value>nichts zugewiesen</value></data>
+  <data name="Rollout.State.up_to_date" xml:space="preserve"><value>aktuell</value></data>
+  <data name="Rollout.State.pending" xml:space="preserve"><value>unterwegs</value></data>
+  <data name="Rollout.State.failed" xml:space="preserve"><value>fehlgeschlagen</value></data>
+
+  <data name="Agent.Back" xml:space="preserve"><value>Flotte</value></data>
+  <data name="Agent.Tabs" xml:space="preserve"><value>Seiten dieses PCs</value></data>
+  <data name="Agent.Tab.overview" xml:space="preserve"><value>Übersicht</value></data>
+  <data name="Agent.Tab.dashboard" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Agent.Tab.commands" xml:space="preserve"><value>Befehle</value></data>
+  <data name="Agent.Tab.sensors" xml:space="preserve"><value>Sensoren</value></data>
+  <data name="Agent.Tab.metrics" xml:space="preserve"><value>Metriken</value></data>
+  <data name="Agent.Tab.history" xml:space="preserve"><value>Verlauf</value></data>
+  <data name="Agent.Tab.logs" xml:space="preserve"><value>Protokoll</value></data>
+  <data name="Agent.Tab.secrets" xml:space="preserve"><value>Geheimnisse</value></data>
+  <data name="Agent.Offline" xml:space="preserve"><value>Dieser PC ist nicht mit dem Hub verbunden. Seine Seiten stehen zur Verfügung, solange er online ist.</value></data>
+  <data name="Agent.Info" xml:space="preserve"><value>Dieser PC</value></data>
+  <data name="Agent.Hostname" xml:space="preserve"><value>Hostname</value></data>
+  <data name="Agent.System" xml:space="preserve"><value>System</value></data>
+  <data name="Agent.Version" xml:space="preserve"><value>Version</value></data>
+  <data name="Agent.Macs" xml:space="preserve"><value>MAC-Adressen</value></data>
+  <data name="Agent.UiUrl" xml:space="preserve"><value>Lokale Oberfläche</value></data>
+  <data name="Agent.EnrolledAt" xml:space="preserve"><value>Angemeldet</value></data>
+  <data name="Agent.ApprovedAt" xml:space="preserve"><value>Freigegeben</value></data>
+  <data name="Agent.LastSeen" xml:space="preserve"><value>Zuletzt gesehen</value></data>
+  <data name="Agent.Credential" xml:space="preserve"><value>Zugangsdaten ausgestellt</value></data>
+  <data name="Agent.RotationPending" xml:space="preserve"><value>neue Zugangsdaten noch nicht benutzt</value></data>
+  <data name="Agent.Connection" xml:space="preserve"><value>Verbindung</value></data>
+  <data name="Agent.State" xml:space="preserve"><value>Zustand</value></data>
+  <data name="Agent.ConnectedAt" xml:space="preserve"><value>Verbunden seit</value></data>
+  <data name="Agent.PowerState" xml:space="preserve"><value>Energiezustand beim Verlassen</value></data>
+  <data name="Agent.Power.sleep" xml:space="preserve"><value>Standby</value></data>
+  <data name="Agent.Power.hibernate" xml:space="preserve"><value>Ruhezustand</value></data>
+  <data name="Agent.Power.shutdown" xml:space="preserve"><value>heruntergefahren</value></data>
+  <data name="Agent.Power.restart" xml:space="preserve"><value>Neustart</value></data>
+  <data name="Agent.Power.service_stop" xml:space="preserve"><value>Agent beendet</value></data>
+  <data name="Agent.Power.update" xml:space="preserve"><value>Update</value></data>
+  <data name="Agent.Power.unknown" xml:space="preserve"><value>unbekannt</value></data>
+  <data name="Agent.Features" xml:space="preserve"><value>Funktionen der Verbindung</value></data>
+  <data name="Agent.Tags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Agent.NoTags" xml:space="preserve"><value>Keine Tags.</value></data>
+  <data name="Agent.TagsEdit" xml:space="preserve"><value>Tags dieses PCs</value></data>
+  <data name="Agent.TagsHelp" xml:space="preserve"><value>Tags mit Kommas trennen. 1 bis 32 Zeichen aus a-z, 0-9, Punkt, Unterstrich und Bindestrich; höchstens 16.</value></data>
+  <data name="Agent.TagsSave" xml:space="preserve"><value>Tags speichern</value></data>
+  <data name="Agent.TagsSaved" xml:space="preserve"><value>Die Tags sind gespeichert.</value></data>
+  <data name="Agent.Config" xml:space="preserve"><value>Konfiguration vom Hub</value></data>
+  <data name="Agent.ConfigNone" xml:space="preserve"><value>Der Hub hat keinen Konfigurationsstand für diesen PC.</value></data>
+  <data name="Agent.ConfigGenerations" xml:space="preserve"><value>Angewendete Generation {0}, gewünschte Generation {1}, zuletzt gesendete Generation {2}.</value></data>
+  <data name="Agent.ConfigPush" xml:space="preserve"><value>Erneut senden</value></data>
+  <data name="Agent.ConfigPushed" xml:space="preserve"><value>Die Konfiguration wird erneut gesendet.</value></data>
+  <data name="Agent.Document" xml:space="preserve"><value>Dokument</value></data>
+  <data name="Agent.DocumentState" xml:space="preserve"><value>Zustand auf dem PC</value></data>
+  <data name="Agent.Values" xml:space="preserve"><value>Letzte Werte</value></data>
+  <data name="Agent.ValuesNone" xml:space="preserve"><value>Der Hub hat von diesem PC noch keine Werte erhalten.</value></data>
+  <data name="Agent.Events" xml:space="preserve"><value>Letzte Ereignisse</value></data>
+  <data name="Agent.EventsNone" xml:space="preserve"><value>Keine Ereignisse.</value></data>
+  <data name="Agent.Admin" xml:space="preserve"><value>Diesen PC verwalten</value></data>
+  <data name="Agent.Rotate" xml:space="preserve"><value>Neue Zugangsdaten ausstellen</value></data>
+  <data name="Agent.Remove" xml:space="preserve"><value>Aus dem Hub entfernen</value></data>
+  <data name="Agent.Confirm.rotate" xml:space="preserve"><value>Neue Zugangsdaten für {0} ausstellen? Die alten bleiben gültig, bis der PC die neuen benutzt hat.</value></data>
+  <data name="Agent.Confirm.remove" xml:space="preserve"><value>{0} aus dem Hub entfernen? Seine Zugangsdaten werden widerrufen, und der PC kehrt zu seiner lokalen Konfiguration zurück.</value></data>
+  <data name="Agent.Rotated" xml:space="preserve"><value>Neue Zugangsdaten sind ausgestellt.</value></data>
+
+  <data name="Enrollment.Title" xml:space="preserve"><value>Anmeldung von PCs</value></data>
+  <data name="Enrollment.Pending" xml:space="preserve"><value>PCs, die auf Freigabe warten</value></data>
+  <data name="Enrollment.PendingNone" xml:space="preserve"><value>Kein PC wartet auf Freigabe.</value></data>
+  <data name="Enrollment.Column.RequestedAt" xml:space="preserve"><value>Angefragt</value></data>
+  <data name="Enrollment.Approve" xml:space="preserve"><value>Freigeben</value></data>
+  <data name="Enrollment.Reject" xml:space="preserve"><value>Ablehnen</value></data>
+  <data name="Enrollment.Approved" xml:space="preserve"><value>Der PC ist freigegeben.</value></data>
+  <data name="Enrollment.Rejected" xml:space="preserve"><value>Der PC ist abgelehnt.</value></data>
+  <data name="Enrollment.Create" xml:space="preserve"><value>Neues Anmelde-Token</value></data>
+  <data name="Enrollment.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Enrollment.Tags" xml:space="preserve"><value>Tags für die PCs, die sich anmelden</value></data>
+  <data name="Enrollment.MaxUses" xml:space="preserve"><value>Wie viele PCs sich anmelden dürfen</value></data>
+  <data name="Enrollment.ExpiresDays" xml:space="preserve"><value>Gültig für (Tage)</value></data>
+  <data name="Enrollment.ExpiresHelp" xml:space="preserve"><value>0 bedeutet: läuft nicht ab.</value></data>
+  <data name="Enrollment.HubUrl" xml:space="preserve"><value>Adresse des Hubs für die PCs</value></data>
+  <data name="Enrollment.HubUrlHelp" xml:space="preserve"><value>Leer lassen, um die Adresse dieser Seite zu verwenden. Geben Sie die Adresse an, die die PCs erreichen können, wenn der Hub hinter einem Proxy oder Home Assistant steht.</value></data>
+  <data name="Enrollment.RequiresApproval" xml:space="preserve"><value>Ein Administrator muss jeden PC freigeben</value></data>
+  <data name="Enrollment.CreateButton" xml:space="preserve"><value>Token erstellen</value></data>
+  <data name="Enrollment.Created" xml:space="preserve"><value>Das Token ist erstellt</value></data>
+  <data name="Enrollment.CreatedWarning" xml:space="preserve"><value>Der Anmeldestring enthält das Geheimnis des Tokens. Er wird nur jetzt angezeigt; kopieren Sie ihn, bevor Sie diese Seite verlassen.</value></data>
+  <data name="Enrollment.String" xml:space="preserve"><value>Anmeldestring</value></data>
+  <data name="Enrollment.Installer" xml:space="preserve"><value>Agent installieren und am Hub anmelden (Windows, Eingabeaufforderung als Administrator)</value></data>
+  <data name="Enrollment.Join" xml:space="preserve"><value>Einen bereits installierten Agent anmelden</value></data>
+  <data name="Enrollment.TrustNote" xml:space="preserve"><value>Mit der Anmeldung erhält der Hub die volle Kontrolle über den PC: Er kann dort Befehle ausführen, auch als System.</value></data>
+  <data name="Enrollment.Tokens" xml:space="preserve"><value>Anmelde-Token</value></data>
+  <data name="Enrollment.TokensNone" xml:space="preserve"><value>Es gibt noch kein Anmelde-Token.</value></data>
+  <data name="Enrollment.Column.Uses" xml:space="preserve"><value>Benutzt</value></data>
+  <data name="Enrollment.Column.Expires" xml:space="preserve"><value>Läuft ab</value></data>
+  <data name="Enrollment.Column.Approval" xml:space="preserve"><value>Freigabe</value></data>
+  <data name="Enrollment.NeverExpires" xml:space="preserve"><value>nie</value></data>
+  <data name="Enrollment.Status.active" xml:space="preserve"><value>gültig</value></data>
+  <data name="Enrollment.Status.revoked" xml:space="preserve"><value>widerrufen</value></data>
+  <data name="Enrollment.Status.expired" xml:space="preserve"><value>abgelaufen</value></data>
+  <data name="Enrollment.Status.used_up" xml:space="preserve"><value>aufgebraucht</value></data>
+  <data name="Enrollment.Revoke" xml:space="preserve"><value>Widerrufen</value></data>
+  <data name="Enrollment.Revoked" xml:space="preserve"><value>Das Token ist widerrufen.</value></data>
+
+  <data name="Access.Title" xml:space="preserve"><value>Home Assistant und Werkzeuge</value></data>
+  <data name="Access.Pairing" xml:space="preserve"><value>Home Assistant verbinden</value></data>
+  <data name="Access.PairingIntro" xml:space="preserve"><value>Starten Sie eine Kopplung und geben Sie den Code in der QoffeeAutomat-Integration von Home Assistant ein („Mit einem Hub verbinden“). Eine Verbindung trägt dann alle PCs ihres Bereichs.</value></data>
+  <data name="Access.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Access.Scope" xml:space="preserve"><value>Welche PCs</value></data>
+  <data name="Access.Scope.All" xml:space="preserve"><value>Alle PCs</value></data>
+  <data name="Access.Scope.Tags" xml:space="preserve"><value>PCs mit den Tags: {0}</value></data>
+  <data name="Access.PairingStart" xml:space="preserve"><value>Kopplung starten</value></data>
+  <data name="Access.PairingCode" xml:space="preserve"><value>Kopplungscode</value></data>
+  <data name="Access.PairingExpires" xml:space="preserve"><value>Der Code gilt bis {0}.</value></data>
+  <data name="Access.Fingerprint" xml:space="preserve"><value>Fingerabdruck des Zertifikats des Hubs; vergleichen Sie ihn mit dem, den Home Assistant zeigt:</value></data>
+  <data name="Access.PairingCancel" xml:space="preserve"><value>Kopplung abbrechen</value></data>
+  <data name="Access.PairingCancelled" xml:space="preserve"><value>Die Kopplung ist abgebrochen.</value></data>
+  <data name="Access.Tokens" xml:space="preserve"><value>Flotten-Token</value></data>
+  <data name="Access.TokensNone" xml:space="preserve"><value>Noch kein Client ist gekoppelt.</value></data>
+  <data name="Access.Client" xml:space="preserve"><value>Client</value></data>
+  <data name="Access.Kind.homeassistant" xml:space="preserve"><value>Home Assistant</value></data>
+  <data name="Access.Kind.tool" xml:space="preserve"><value>Werkzeug</value></data>
+  <data name="Access.CreatedBy" xml:space="preserve"><value>Erstellt von</value></data>
+  <data name="Access.LastUsed" xml:space="preserve"><value>Zuletzt benutzt</value></data>
+  <data name="Access.Connections" xml:space="preserve"><value>Offene Verbindungen</value></data>
+  <data name="Access.Active" xml:space="preserve"><value>gültig</value></data>
+  <data name="Access.Revoked" xml:space="preserve"><value>widerrufen</value></data>
+  <data name="Access.TokenRevoked" xml:space="preserve"><value>Das Token ist widerrufen.</value></data>
+
+  <data name="Users.Title" xml:space="preserve"><value>Benutzer</value></data>
+  <data name="Users.Create" xml:space="preserve"><value>Neuer Benutzer</value></data>
+  <data name="Users.Username" xml:space="preserve"><value>Benutzername</value></data>
+  <data name="Users.UsernameHelp" xml:space="preserve"><value>2 bis 64 Zeichen: Buchstaben, Ziffern und . _ - @</value></data>
+  <data name="Users.Password" xml:space="preserve"><value>Passwort</value></data>
+  <data name="Users.PasswordHelp" xml:space="preserve"><value>10 bis 256 Zeichen.</value></data>
+  <data name="Users.NewPassword" xml:space="preserve"><value>Neues Passwort</value></data>
+  <data name="Users.Role" xml:space="preserve"><value>Rolle</value></data>
+  <data name="Users.CreateButton" xml:space="preserve"><value>Benutzer anlegen</value></data>
+  <data name="Users.None" xml:space="preserve"><value>Es gibt keinen Benutzer.</value></data>
+  <data name="Users.LastLogin" xml:space="preserve"><value>Letzte Anmeldung</value></data>
+  <data name="Users.Enabled" xml:space="preserve"><value>aktiv</value></data>
+  <data name="Users.Disabled" xml:space="preserve"><value>gesperrt</value></data>
+  <data name="Users.Enable" xml:space="preserve"><value>Entsperren</value></data>
+  <data name="Users.Disable" xml:space="preserve"><value>Sperren</value></data>
+  <data name="Users.SetPassword" xml:space="preserve"><value>Passwort setzen</value></data>
+  <data name="Users.SetPasswordFor" xml:space="preserve"><value>Passwort von {0} setzen</value></data>
+  <data name="Users.SetPasswordSave" xml:space="preserve"><value>Passwort setzen</value></data>
+  <data name="Users.Delete" xml:space="preserve"><value>Löschen</value></data>
+  <data name="Users.Created" xml:space="preserve"><value>Der Benutzer ist angelegt.</value></data>
+  <data name="Users.Updated" xml:space="preserve"><value>Der Benutzer ist geändert. Seine Sitzungen sind beendet.</value></data>
+  <data name="Users.PasswordSet" xml:space="preserve"><value>Das Passwort ist gesetzt. Die Sitzungen des Benutzers sind beendet.</value></data>
+  <data name="Users.Deleted" xml:space="preserve"><value>Der Benutzer ist gelöscht.</value></data>
+
+  <data name="Tokens.Title" xml:space="preserve"><value>API-Token</value></data>
+  <data name="Tokens.Create" xml:space="preserve"><value>Neues API-Token</value></data>
+  <data name="Tokens.Name" xml:space="preserve"><value>Wofür das Token gedacht ist</value></data>
+  <data name="Tokens.CreateButton" xml:space="preserve"><value>Token erstellen</value></data>
+  <data name="Tokens.Created" xml:space="preserve"><value>Das Token ist erstellt</value></data>
+  <data name="Tokens.CreatedWarning" xml:space="preserve"><value>Das ist das Geheimnis des Tokens. Es wird nur jetzt angezeigt und kann nicht erneut gelesen werden; senden Sie es als „Authorization: Bearer ...“.</value></data>
+  <data name="Tokens.None" xml:space="preserve"><value>Es gibt kein API-Token.</value></data>
+  <data name="Tokens.Revoked" xml:space="preserve"><value>Das Token ist widerrufen.</value></data>
+
+  <data name="Audit.Title" xml:space="preserve"><value>Audit-Protokoll</value></data>
+  <data name="Audit.Filter.User" xml:space="preserve"><value>Benutzer</value></data>
+  <data name="Audit.Filter.Action" xml:space="preserve"><value>Aktion</value></data>
+  <data name="Audit.Filter.Agent" xml:space="preserve"><value>PC (Id)</value></data>
+  <data name="Audit.Filter.Result" xml:space="preserve"><value>Ergebnis</value></data>
+  <data name="Audit.Apply" xml:space="preserve"><value>Anwenden</value></data>
+  <data name="Audit.Result.any" xml:space="preserve"><value>Jedes Ergebnis</value></data>
+  <data name="Audit.Result.success" xml:space="preserve"><value>Erfolg</value></data>
+  <data name="Audit.Result.failure" xml:space="preserve"><value>Fehler</value></data>
+  <data name="Audit.Result.denied" xml:space="preserve"><value>abgelehnt</value></data>
+  <data name="Audit.None" xml:space="preserve"><value>Kein Eintrag passt.</value></data>
+  <data name="Audit.More" xml:space="preserve"><value>Ältere Einträge</value></data>
+  <data name="Audit.Column.Time" xml:space="preserve"><value>Zeit</value></data>
+  <data name="Audit.Column.User" xml:space="preserve"><value>Benutzer</value></data>
+  <data name="Audit.Column.Action" xml:space="preserve"><value>Aktion</value></data>
+  <data name="Audit.Column.Target" xml:space="preserve"><value>Ziel</value></data>
+  <data name="Audit.Column.Agents" xml:space="preserve"><value>PCs</value></data>
+  <data name="Audit.Column.Result" xml:space="preserve"><value>Ergebnis</value></data>
+  <data name="Audit.Column.Address" xml:space="preserve"><value>Adresse</value></data>
+
+  <data name="Settings.Title" xml:space="preserve"><value>Hub-Einstellungen</value></data>
+  <data name="Settings.Hub" xml:space="preserve"><value>Dieser Hub</value></data>
+  <data name="Settings.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Settings.Id" xml:space="preserve"><value>Id</value></data>
+  <data name="Settings.Tls" xml:space="preserve"><value>TLS</value></data>
+  <data name="Settings.Tls.selfsigned" xml:space="preserve"><value>selbstsigniertes Zertifikat</value></data>
+  <data name="Settings.Tls.certificate" xml:space="preserve"><value>eigenes Zertifikat</value></data>
+  <data name="Settings.Tls.none" xml:space="preserve"><value>keines (hinter einem vertrauenswürdigen Proxy)</value></data>
+  <data name="Settings.Fingerprint" xml:space="preserve"><value>Fingerabdruck des TLS-Zertifikats</value></data>
+  <data name="Settings.SigningKey" xml:space="preserve"><value>Öffentlicher Signaturschlüssel der Konfiguration</value></data>
+  <data name="Settings.Account" xml:space="preserve"><value>Ihr Konto</value></data>
+  <data name="Settings.ChangePassword" xml:space="preserve"><value>Passwort ändern</value></data>
+  <data name="Settings.CurrentPassword" xml:space="preserve"><value>Aktuelles Passwort</value></data>
+  <data name="Settings.ChangePasswordButton" xml:space="preserve"><value>Passwort ändern</value></data>
+  <data name="Settings.PasswordChanged" xml:space="preserve"><value>Ihr Passwort ist geändert. Ihre anderen Sitzungen sind beendet.</value></data>
+
+  <data name="Error.invalid_credentials" xml:space="preserve"><value>Benutzername oder Passwort ist falsch.</value></data>
+  <data name="Error.forbidden" xml:space="preserve"><value>Ihre Rolle darf das nicht.</value></data>
+  <data name="Error.admin_required" xml:space="preserve"><value>Dafür ist ein Administrator nötig.</value></data>
+  <data name="Error.unknown_agent" xml:space="preserve"><value>Der Hub kennt diesen PC nicht.</value></data>
+  <data name="Error.agent_offline" xml:space="preserve"><value>Der PC ist nicht mit dem Hub verbunden.</value></data>
+  <data name="Error.tunnel_disabled" xml:space="preserve"><value>Der PC nimmt keine Verwaltung durch den Hub an.</value></data>
+  <data name="Error.timeout" xml:space="preserve"><value>Der PC hat nicht rechtzeitig geantwortet.</value></data>
+
+  <!-- Konfiguration und Metriken (T916) -->
+  <data name="Nav.Library" xml:space="preserve"><value>Bibliothek</value></data>
+  <data name="Nav.Profiles" xml:space="preserve"><value>Profile</value></data>
+  <data name="Nav.Assignments" xml:space="preserve"><value>Zuweisungen</value></data>
+  <data name="Nav.Rollouts" xml:space="preserve"><value>Ausrollen</value></data>
+  <data name="Nav.Metrics" xml:space="preserve"><value>Metriken</value></data>
+  <data name="Common.None" xml:space="preserve"><value>keine</value></data>
+
+  <data name="Library.Title" xml:space="preserve"><value>Bibliothek</value></data>
+  <data name="Library.Intro" xml:space="preserve"><value>Die Befehle, Sensoren, Skripte, Modusgruppen, Metrik-Überschreibungen und Variablen, aus denen Profile bestehen. Eine Änderung hier erreicht keinen PC, bevor ein Profil veröffentlicht wird, das das Dokument enthält.</value></data>
+  <data name="Library.New" xml:space="preserve"><value>Neues Dokument</value></data>
+  <data name="Library.Kind" xml:space="preserve"><value>Art</value></data>
+  <data name="Library.Kind.All" xml:space="preserve"><value>Alle Arten</value></data>
+  <data name="Library.Kind.command" xml:space="preserve"><value>Befehl</value></data>
+  <data name="Library.Kind.sensor" xml:space="preserve"><value>Sensor</value></data>
+  <data name="Library.Kind.script" xml:space="preserve"><value>Skript</value></data>
+  <data name="Library.Kind.mode" xml:space="preserve"><value>Modusgruppe</value></data>
+  <data name="Library.Kind.metric_overrides" xml:space="preserve"><value>Metrik-Überschreibungen</value></data>
+  <data name="Library.Kind.variables" xml:space="preserve"><value>Variablen</value></data>
+  <data name="Library.Column.Kind" xml:space="preserve"><value>Art</value></data>
+  <data name="Library.Column.Id" xml:space="preserve"><value>Id</value></data>
+  <data name="Library.Column.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Library.Column.Revision" xml:space="preserve"><value>Revision</value></data>
+  <data name="Library.Column.Updated" xml:space="preserve"><value>Geändert</value></data>
+  <data name="Library.Column.By" xml:space="preserve"><value>Von</value></data>
+  <data name="Library.Edit" xml:space="preserve"><value>Bearbeiten</value></data>
+  <data name="Library.Delete" xml:space="preserve"><value>Löschen</value></data>
+  <data name="Library.Deleted" xml:space="preserve"><value>{0} wurde gelöscht.</value></data>
+  <data name="Library.None" xml:space="preserve"><value>Die Bibliothek hat noch kein Dokument dieser Art.</value></data>
+  <data name="Library.Back" xml:space="preserve"><value>Zurück zur Bibliothek</value></data>
+  <data name="Library.Target.Title" xml:space="preserve"><value>Auf einem PC testen</value></data>
+  <data name="Library.Target.Hint" xml:space="preserve"><value>Ein Entwurf wird über den Tunnel auf einem der PCs getestet, die online sind. Zum Speichern ist kein PC nötig.</value></data>
+  <data name="Library.Target.None" xml:space="preserve"><value>Kein PC ist online, ein Entwurf kann jetzt nicht getestet werden. Speichern ist trotzdem möglich.</value></data>
+  <data name="Library.Target.Label" xml:space="preserve"><value>PC für Tests</value></data>
+  <data name="Library.Target.Not" xml:space="preserve"><value>Kein PC gewählt</value></data>
+  <data name="Library.Doc.UnknownKind" xml:space="preserve"><value>Für diese Art von Dokument gibt es keinen Texteditor. Befehle und Sensoren haben eigene Editoren.</value></data>
+  <data name="Library.Doc.TitleNew" xml:space="preserve"><value>Neues Dokument: {0}</value></data>
+  <data name="Library.Doc.TitleEdit" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="Library.Doc.Save" xml:space="preserve"><value>Speichern</value></data>
+  <data name="Library.Doc.Id" xml:space="preserve"><value>Id</value></data>
+  <data name="Library.Doc.IdHelp" xml:space="preserve"><value>Kleinbuchstaben, Ziffern und Unterstriche, beginnend mit einem Buchstaben.</value></data>
+  <data name="Library.Doc.IdHelpScript" xml:space="preserve"><value>Der Dateiname des Skripts auf dem PC, zum Beispiel backup.ps1.</value></data>
+  <data name="Library.Doc.Script" xml:space="preserve"><value>Skripttext</value></data>
+  <data name="Library.Doc.Json" xml:space="preserve"><value>Dokument (JSON)</value></data>
+  <data name="Library.Doc.Revisions" xml:space="preserve"><value>Revisionen</value></data>
+  <data name="Library.Doc.LoadRevision" xml:space="preserve"><value>In den Editor laden</value></data>
+  <data name="Library.Doc.IdRequired" xml:space="preserve"><value>Geben Sie eine Id ein.</value></data>
+  <data name="Library.Doc.IdInvalid" xml:space="preserve"><value>Die Id darf nur Kleinbuchstaben, Ziffern und Unterstriche enthalten und muss mit einem Buchstaben beginnen.</value></data>
+  <data name="Library.Doc.NotJson" xml:space="preserve"><value>Der Text ist kein brauchbares JSON-Dokument: {0}</value></data>
+  <data name="Library.Doc.Saved" xml:space="preserve"><value>Als Revision {0} gespeichert.</value></data>
+  <data name="Library.Doc.Unchanged" xml:space="preserve"><value>Nichts geändert: Revision {0} hat diesen Inhalt bereits.</value></data>
+  <data name="Library.Doc.Loaded" xml:space="preserve"><value>Revision {0} ist im Editor. Speichern macht sie zur neuesten Revision.</value></data>
+
+  <data name="Profiles.Title" xml:space="preserve"><value>Profile</value></data>
+  <data name="Profiles.Intro" xml:space="preserve"><value>Ein Profil ist ein benannter Satz aus Bibliotheksdokumenten, Variablen und Richtlinien. Es erreicht PCs über eine Zuweisung, und nur seine veröffentlichte Revision wird ausgeliefert.</value></data>
+  <data name="Profiles.New" xml:space="preserve"><value>Neues Profil</value></data>
+  <data name="Profiles.Id" xml:space="preserve"><value>Id</value></data>
+  <data name="Profiles.IdHelp" xml:space="preserve"><value>Kleinbuchstaben, Ziffern und Unterstriche, beginnend mit einem Buchstaben.</value></data>
+  <data name="Profiles.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Profiles.Create" xml:space="preserve"><value>Anlegen</value></data>
+  <data name="Profiles.CreateInvalid" xml:space="preserve"><value>Geben Sie einen Namen und eine Id aus Kleinbuchstaben, Ziffern und Unterstrichen ein, die mit einem Buchstaben beginnt.</value></data>
+  <data name="Profiles.None" xml:space="preserve"><value>Es gibt noch kein Profil.</value></data>
+  <data name="Profiles.Column.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Profiles.Column.Priority" xml:space="preserve"><value>Priorität</value></data>
+  <data name="Profiles.Column.Os" xml:space="preserve"><value>System</value></data>
+  <data name="Profiles.Column.Documents" xml:space="preserve"><value>Dokumente</value></data>
+  <data name="Profiles.Column.Policy" xml:space="preserve"><value>Richtlinie</value></data>
+  <data name="Profiles.Column.Revision" xml:space="preserve"><value>Veröffentlicht</value></data>
+  <data name="Profiles.Active" xml:space="preserve"><value>Revision {0} gilt</value></data>
+  <data name="Profiles.NotPublished" xml:space="preserve"><value>Nicht veröffentlicht</value></data>
+  <data name="Profiles.Changes" xml:space="preserve"><value>Unveröffentlichte Änderungen</value></data>
+  <data name="Profiles.Deleted" xml:space="preserve"><value>Das Profil {0} wurde gelöscht.</value></data>
+  <data name="Profiles.DeleteWarning" xml:space="preserve"><value>Beim Löschen eines Profils werden auch seine Revisionen und Zuweisungen gelöscht. Die PCs, die es erreicht hat, bekommen eine neue Konfiguration.</value></data>
+
+  <data name="Profile.Back" xml:space="preserve"><value>Zurück zu den Profilen</value></data>
+  <data name="Profile.Os.any" xml:space="preserve"><value>Jedes System</value></data>
+  <data name="Profile.OsFilter" xml:space="preserve"><value>Gilt für</value></data>
+  <data name="Profile.LocalConfig" xml:space="preserve"><value>Lokale Konfiguration</value></data>
+  <data name="Profile.LocalConfigHelp" xml:space="preserve"><value>Gesperrt: Der PC lehnt Änderungen an seinen eigenen Befehlen und Sensoren ab und nutzt nur Dokumente des Hubs.</value></data>
+  <data name="Profile.DirectLink" xml:space="preserve"><value>Direkte Verbindung zu Home Assistant</value></data>
+  <data name="Profile.DirectLinkHelp" xml:space="preserve"><value>Verweigern: Der PC nimmt keine Kopplung und keine direkten Verbindungen mehr an; Home Assistant erreicht ihn über den Hub.</value></data>
+  <data name="Policy.Value.inherit" xml:space="preserve"><value>Von diesem Profil nicht festgelegt</value></data>
+  <data name="Policy.Value.allow" xml:space="preserve"><value>Erlauben</value></data>
+  <data name="Policy.Value.locked" xml:space="preserve"><value>Gesperrt</value></data>
+  <data name="Policy.Value.deny" xml:space="preserve"><value>Verweigern</value></data>
+  <data name="Profile.Unsaved" xml:space="preserve"><value>Ungespeicherte Änderungen</value></data>
+  <data name="Profile.SaveDraft" xml:space="preserve"><value>Entwurf speichern</value></data>
+  <data name="Profile.Saved" xml:space="preserve"><value>Der Entwurf ist gespeichert. Kein PC ist betroffen, bis er veröffentlicht wird.</value></data>
+  <data name="Profile.Publish" xml:space="preserve"><value>Veröffentlichen</value></data>
+  <data name="Profile.SaveFirst" xml:space="preserve"><value>Veröffentlicht wird der gespeicherte Entwurf. Speichern Sie Ihre Änderungen zuerst.</value></data>
+  <data name="Profile.Problem.Name" xml:space="preserve"><value>Das Profil braucht einen Namen.</value></data>
+  <data name="Profile.Problem.Priority" xml:space="preserve"><value>Die Priorität muss zwischen -10000 und 10000 liegen.</value></data>
+  <data name="Profile.Problem.VariableName" xml:space="preserve"><value>Ein Variablenname beginnt mit einem Buchstaben und hat höchstens 64 Buchstaben, Ziffern und Unterstriche.</value></data>
+  <data name="Profile.Problem.VariableDuplicate" xml:space="preserve"><value>Zwei Variablen haben denselben Namen.</value></data>
+  <data name="Profile.Problem.MetricOverrides" xml:space="preserve"><value>Ein Profil kann nur ein Dokument mit Metrik-Überschreibungen enthalten.</value></data>
+  <data name="Profile.General" xml:space="preserve"><value>Allgemein</value></data>
+  <data name="Profile.PriorityHelp" xml:space="preserve"><value>Die höhere Zahl gewinnt bei gleich spezifischen Zuweisungen.</value></data>
+  <data name="Profile.Documents" xml:space="preserve"><value>Dokumente</value></data>
+  <data name="Profile.Documents.None" xml:space="preserve"><value>Das Profil hat noch kein Dokument.</value></data>
+  <data name="Profile.Pinned" xml:space="preserve"><value>Revision</value></data>
+  <data name="Profile.PinnedAt" xml:space="preserve"><value>Revision {0}</value></data>
+  <data name="Profile.Newer" xml:space="preserve"><value>Revision {0} ist verfügbar</value></data>
+  <data name="Profile.PinOnSave" xml:space="preserve"><value>Die neueste, beim Speichern festgelegt</value></data>
+  <data name="Profile.UseNewest" xml:space="preserve"><value>Neueste verwenden</value></data>
+  <data name="Profile.Remove" xml:space="preserve"><value>Entfernen</value></data>
+  <data name="Profile.Add.Document" xml:space="preserve"><value>Dokument</value></data>
+  <data name="Profile.Add.Choose" xml:space="preserve"><value>Dokument wählen</value></data>
+  <data name="Profile.Add" xml:space="preserve"><value>Zum Profil hinzufügen</value></data>
+  <data name="Profile.Variables" xml:space="preserve"><value>Variablen</value></data>
+  <data name="Profile.VariablesHelp" xml:space="preserve"><value>Jede Ausführung auf dem PC sieht eine Variable als Umgebungsvariable QA_HUBVAR_NAME. Ein Wert wird nie in Skripttext eingesetzt.</value></data>
+  <data name="Profile.Variable.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Profile.Variable.Value" xml:space="preserve"><value>Wert</value></data>
+  <data name="Profile.Variable.Add" xml:space="preserve"><value>Variable hinzufügen</value></data>
+  <data name="Profile.Revisions" xml:space="preserve"><value>Veröffentlichte Revisionen</value></data>
+  <data name="Profile.Revisions.None" xml:space="preserve"><value>Es ist noch nichts veröffentlicht.</value></data>
+  <data name="Profile.ViewRollout" xml:space="preserve"><value>Ausrollen anzeigen</value></data>
+  <data name="Profile.PublishedAt" xml:space="preserve"><value>Veröffentlicht</value></data>
+  <data name="Profile.InEffect" xml:space="preserve"><value>Gilt</value></data>
+  <data name="Profile.Rollback" xml:space="preserve"><value>Auf diese zurücksetzen</value></data>
+
+  <data name="Publish.Title.Publish" xml:space="preserve"><value>{0} veröffentlichen</value></data>
+  <data name="Publish.Title.Rollback" xml:space="preserve"><value>{0} auf Revision {1} zurücksetzen</value></data>
+  <data name="Publish.Unchanged" xml:space="preserve"><value>Der Inhalt entspricht der geltenden Revision. Veröffentlichen erzeugt keine Revision und ändert nichts.</value></data>
+  <data name="Publish.Summary.New" xml:space="preserve"><value>Dies erzeugt Revision {0}.</value></data>
+  <data name="Publish.Summary.Existing" xml:space="preserve"><value>Dies macht Revision {0} zur geltenden Revision.</value></data>
+  <data name="Publish.Affected" xml:space="preserve"><value>PCs mit neuer Konfiguration: {0}.</value></data>
+  <data name="Publish.SystemScripts" xml:space="preserve"><value>Dieser Inhalt führt auf den PCs Code als SYSTEM aus. Nur ein Administrator darf ihn veröffentlichen. Befehle und Skripte:</value></data>
+  <data name="Publish.AdminRequired" xml:space="preserve"><value>Zum Veröffentlichen dieses Inhalts ist ein Administrator nötig. Bitten Sie einen, zu bestätigen.</value></data>
+  <data name="Publish.NoAgents" xml:space="preserve"><value>Kein PC ändert sich: Noch keine Zuweisung erreicht einen PC mit diesem Inhalt, oder nichts unterscheidet sich.</value></data>
+  <data name="Publish.Generation" xml:space="preserve"><value>Generation {0} auf {1}</value></data>
+  <data name="Publish.Change.added" xml:space="preserve"><value>Neu</value></data>
+  <data name="Publish.Change.changed" xml:space="preserve"><value>Geändert</value></data>
+  <data name="Publish.Change.removed" xml:space="preserve"><value>Entfernt</value></data>
+  <data name="Publish.Policy" xml:space="preserve"><value>Richtlinie {0}: {1} auf {2}</value></data>
+  <data name="Publish.Note" xml:space="preserve"><value>Notiz</value></data>
+  <data name="Publish.Confirm" xml:space="preserve"><value>Jetzt veröffentlichen</value></data>
+  <data name="Publish.ConfirmRollback" xml:space="preserve"><value>Jetzt zurücksetzen</value></data>
+  <data name="Publish.Done.Unchanged" xml:space="preserve"><value>Nichts geändert: Revision {0} gilt weiter.</value></data>
+  <data name="Publish.Done.Publish" xml:space="preserve"><value>Revision {0} veröffentlicht. PCs mit neuer Konfiguration: {1}.</value></data>
+  <data name="Publish.Done.Rollback" xml:space="preserve"><value>Auf Revision {0} zurückgesetzt. PCs mit neuer Konfiguration: {1}.</value></data>
+
+  <data name="Assignments.Title" xml:space="preserve"><value>Zuweisungen</value></data>
+  <data name="Assignments.Intro" xml:space="preserve"><value>Eine Zuweisung gibt ein Profil an alle PCs, an die PCs mit einem Tag oder an einen PC. Das spezifischere Ziel überschreibt das weniger spezifische; bei gleichen Zielen gewinnt die höhere Priorität. Eine Zuweisung gilt sofort.</value></data>
+  <data name="Assignments.New" xml:space="preserve"><value>Profil zuweisen</value></data>
+  <data name="Assignments.Profile" xml:space="preserve"><value>Profil</value></data>
+  <data name="Assignments.Profile.Choose" xml:space="preserve"><value>Profil wählen</value></data>
+  <data name="Assignments.Target" xml:space="preserve"><value>Ziel</value></data>
+  <data name="Assignments.Target.all" xml:space="preserve"><value>Alle PCs</value></data>
+  <data name="Assignments.Target.tag" xml:space="preserve"><value>Tag</value></data>
+  <data name="Assignments.Target.agent" xml:space="preserve"><value>PC</value></data>
+  <data name="Assignments.Tag.Choose" xml:space="preserve"><value>Tag wählen</value></data>
+  <data name="Assignments.Agent.Choose" xml:space="preserve"><value>PC wählen</value></data>
+  <data name="Assignments.Assign" xml:space="preserve"><value>Zuweisen</value></data>
+  <data name="Assignments.None" xml:space="preserve"><value>Noch ist kein Profil zugewiesen.</value></data>
+  <data name="Assignments.NotPublished" xml:space="preserve"><value>Nicht veröffentlicht: liefert nichts aus</value></data>
+  <data name="Assignments.Remove" xml:space="preserve"><value>Zuweisung aufheben</value></data>
+  <data name="Assignments.Created" xml:space="preserve"><value>Zugewiesen. PCs mit neuer Konfiguration: {0} ({1}).</value></data>
+  <data name="Assignments.Created.None" xml:space="preserve"><value>Zugewiesen. Noch kein PC bekommt eine neue Konfiguration; vielleicht ist das Profil nicht veröffentlicht.</value></data>
+  <data name="Assignments.Removed" xml:space="preserve"><value>Die Zuweisung ist aufgehoben.</value></data>
+
+  <data name="Rollout.Title" xml:space="preserve"><value>Ausrollen</value></data>
+  <data name="Rollout.Intro" xml:space="preserve"><value>Wie die gewünschte Konfiguration die PCs erreicht. Ein PC, der eine Generation ablehnt, behält die vorherige und meldet den Grund.</value></data>
+  <data name="Rollout.Scope" xml:space="preserve"><value>Anzeigen</value></data>
+  <data name="Rollout.Scope.All" xml:space="preserve"><value>Jeder PC</value></data>
+  <data name="Rollout.ProfileRevision" xml:space="preserve"><value>{0}, Revision {1}</value></data>
+  <data name="Rollout.None" xml:space="preserve"><value>Kein PC anzuzeigen.</value></data>
+  <data name="Rollout.NotPublished" xml:space="preserve"><value>Dieses Profil ist nicht veröffentlicht und hat daher kein Ausrollen.</value></data>
+  <data name="Rollout.Documents" xml:space="preserve"><value>Dokumente</value></data>
+  <data name="Rollout.Errors" xml:space="preserve"><value>Fehler</value></data>
+  <data name="Rollout.Push" xml:space="preserve"><value>Erneut senden</value></data>
+  <data name="Rollout.PushRequested" xml:space="preserve"><value>Die Konfiguration wird erneut an {0} gesendet.</value></data>
+  <data name="Rollout.Pushed" xml:space="preserve"><value>Gesendet</value></data>
+  <data name="Rollout.PushedAt" xml:space="preserve"><value>Generation {0}, {1}</value></data>
+  <data name="Rollout.DeliveryError" xml:space="preserve"><value>Zustellung</value></data>
+  <data name="Rollout.Details" xml:space="preserve"><value>Details</value></data>
+  <data name="Rollout.HideDetails" xml:space="preserve"><value>Details ausblenden</value></data>
+  <data name="Rollout.DocumentsOfAgent" xml:space="preserve"><value>Dokumente auf diesem PC</value></data>
+  <data name="Rollout.NoDocuments" xml:space="preserve"><value>Der PC hat kein Dokument gemeldet.</value></data>
+  <data name="Rollout.DesiredState" xml:space="preserve"><value>Gewünschter Zustand</value></data>
+  <data name="Rollout.Profiles" xml:space="preserve"><value>Profile</value></data>
+  <data name="Rollout.Document.applied" xml:space="preserve"><value>angewendet</value></data>
+  <data name="Rollout.Document.pending" xml:space="preserve"><value>wartet</value></data>
+  <data name="Rollout.Document.skipped_unsupported" xml:space="preserve"><value>übersprungen, auf diesem System nicht unterstützt</value></data>
+  <data name="Rollout.Document.invalid" xml:space="preserve"><value>ungültig</value></data>
+  <data name="Rollout.Count.Total" xml:space="preserve"><value>{0} PCs</value></data>
+  <data name="Rollout.Count.UpToDate" xml:space="preserve"><value>{0} aktuell</value></data>
+  <data name="Rollout.Count.Pending" xml:space="preserve"><value>{0} ausstehend</value></data>
+  <data name="Rollout.Count.Failed" xml:space="preserve"><value>{0} fehlgeschlagen</value></data>
+  <data name="Rollout.Count.NoDesiredState" xml:space="preserve"><value>{0} ohne Konfiguration</value></data>
+  <data name="Rollout.Count.Offline" xml:space="preserve"><value>{0} offline</value></data>
+
+  <data name="Metrics.Title" xml:space="preserve"><value>Metriken</value></data>
+  <data name="Metrics.Intro" xml:space="preserve"><value>Vergleichen Sie eine Metrik über mehrere PCs und einen Zeitraum, aus den Werten, die der Hub gespeichert hat.</value></data>
+  <data name="Metrics.NoAgents" xml:space="preserve"><value>Noch ist kein PC diesem Hub beigetreten.</value></data>
+  <data name="Metrics.Agents" xml:space="preserve"><value>PCs ({0} von höchstens {1} gewählt)</value></data>
+  <data name="Metrics.Metric" xml:space="preserve"><value>Metrik</value></data>
+  <data name="Metrics.Metric.Choose" xml:space="preserve"><value>Metrik wählen</value></data>
+  <data name="Metrics.Range" xml:space="preserve"><value>Zeitraum</value></data>
+  <data name="Metrics.Range.1h" xml:space="preserve"><value>Letzte Stunde</value></data>
+  <data name="Metrics.Range.6h" xml:space="preserve"><value>Letzte 6 Stunden</value></data>
+  <data name="Metrics.Range.24h" xml:space="preserve"><value>Letzte 24 Stunden</value></data>
+  <data name="Metrics.Range.7d" xml:space="preserve"><value>Letzte 7 Tage</value></data>
+  <data name="Metrics.Range.30d" xml:space="preserve"><value>Letzte 30 Tage</value></data>
+  <data name="Metrics.Resolution" xml:space="preserve"><value>Auflösung</value></data>
+  <data name="Metrics.Resolution.auto" xml:space="preserve"><value>Automatisch</value></data>
+  <data name="Metrics.Resolution.raw" xml:space="preserve"><value>Rohwerte</value></data>
+  <data name="Metrics.Resolution.5m" xml:space="preserve"><value>5-Minuten-Intervalle</value></data>
+  <data name="Metrics.Resolution.1h" xml:space="preserve"><value>1-Stunden-Intervalle</value></data>
+  <data name="Metrics.ResolutionUsed" xml:space="preserve"><value>Auflösung: {0}</value></data>
+  <data name="Metrics.SelectAgents" xml:space="preserve"><value>Wählen Sie einen oder mehrere PCs.</value></data>
+  <data name="Metrics.NoMetrics" xml:space="preserve"><value>Der Hub hat für die gewählten PCs noch keine numerische Metrik gespeichert.</value></data>
+  <data name="Metrics.SelectMetric" xml:space="preserve"><value>Wählen Sie eine Metrik.</value></data>
+  <data name="Metrics.NoData" xml:space="preserve"><value>Keine Werte in diesem Zeitraum.</value></data>
+  <data name="Metrics.ChartLabel" xml:space="preserve"><value>Diagramm von {0} für die gewählten PCs</value></data>
+  <data name="Metrics.Latest" xml:space="preserve"><value>Aktuell</value></data>
+  <data name="Metrics.Min" xml:space="preserve"><value>Minimum</value></data>
+  <data name="Metrics.Avg" xml:space="preserve"><value>Durchschnitt</value></data>
+  <data name="Metrics.Max" xml:space="preserve"><value>Maximum</value></data>
+  <data name="Metrics.Points" xml:space="preserve"><value>Punkte</value></data>
+  <data name="Metrics.Truncated" xml:space="preserve"><value>Abgeschnitten: Ein kürzerer Zeitraum oder gröbere Auflösung zeigt alles</value></data>
+
+  <data name="Nav.Actions" xml:space="preserve"><value>Aktionen</value></data>
+  <data name="Actions.Title" xml:space="preserve"><value>Flottenaktionen</value></data>
+  <data name="Actions.Intro" xml:space="preserve"><value>Führen Sie einen Befehl auf vielen PCs gleichzeitig aus oder aktualisieren Sie PCs nacheinander. Den dauerhaften Nachweis führt der Hub in seinem Audit-Log; diese Seite zeigt, was er noch im Speicher hat.</value></data>
+  <data name="Actions.Bulk.Title" xml:space="preserve"><value>Befehl auf vielen PCs ausführen</value></data>
+  <data name="Actions.Bulk.Intro" xml:space="preserve"><value>Wählen Sie PCs, Tags oder beides. Jeder PC endet als erfolgreich, fehlgeschlagen oder offline; an Offline-PCs wird nichts gesendet.</value></data>
+  <data name="Actions.Bulk.Command" xml:space="preserve"><value>Befehls-ID</value></data>
+  <data name="Actions.Bulk.CommandHelp" xml:space="preserve"><value>Die ID eines Befehls, den die PCs haben, zum Beispiel lock.</value></data>
+  <data name="Actions.Bulk.Tags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Actions.Bulk.TagsHelp" xml:space="preserve"><value>Jeder PC mit einem dieser Tags, durch Kommas getrennt.</value></data>
+  <data name="Actions.Bulk.Parallelism" xml:space="preserve"><value>Gleichzeitig</value></data>
+  <data name="Actions.Bulk.Vars" xml:space="preserve"><value>Variablen (JSON-Objekt)</value></data>
+  <data name="Actions.Bulk.VarsHelp" xml:space="preserve"><value>Zum Beispiel {"volume": 30}. Die Werte werden dem Befehl als Variablen übergeben, nie in ein Skript eingesetzt.</value></data>
+  <data name="Actions.Bulk.Agents" xml:space="preserve"><value>PCs</value></data>
+  <data name="Actions.Bulk.Start" xml:space="preserve"><value>Auf den gewählten PCs ausführen</value></data>
+  <data name="Actions.Bulk.NoCommand" xml:space="preserve"><value>Geben Sie die ID eines Befehls ein.</value></data>
+  <data name="Actions.Bulk.NoTargets" xml:space="preserve"><value>Wählen Sie mindestens einen PC oder geben Sie einen Tag ein.</value></data>
+  <data name="Actions.Bulk.VarsInvalid" xml:space="preserve"><value>Die Variablen müssen ein JSON-Objekt sein.</value></data>
+  <data name="Actions.Bulk.Started" xml:space="preserve"><value>Der Befehl läuft auf {0} PCs.</value></data>
+  <data name="Actions.Update.Title" xml:space="preserve"><value>PCs aktualisieren</value></data>
+  <data name="Actions.Update.Intro" xml:space="preserve"><value>Der Hub aktualisiert die gewählten PCs nacheinander und wartet, bis jeder mit der neuen Version zurückkommt. Beim ersten PC, der das nicht schafft, hält er an und lässt die folgenden PCs unberührt.</value></data>
+  <data name="Actions.Update.Latest" xml:space="preserve"><value>Neueste Version, die ein PC meldet: {0}</value></data>
+  <data name="Actions.Update.LatestUnknown" xml:space="preserve"><value>Noch kein PC meldet eine neueste Version (die Update-Prüfung der PCs ist vielleicht aus).</value></data>
+  <data name="Actions.Update.None" xml:space="preserve"><value>Es ist kein PC angemeldet.</value></data>
+  <data name="Actions.Update.Column.Select" xml:space="preserve"><value>Aktualisieren</value></data>
+  <data name="Actions.Update.Column.Version" xml:space="preserve"><value>Version</value></data>
+  <data name="Actions.Update.State.current" xml:space="preserve"><value>Aktuell</value></data>
+  <data name="Actions.Update.State.outdated" xml:space="preserve"><value>Veraltet</value></data>
+  <data name="Actions.Update.State.unknown" xml:space="preserve"><value>Unbekannt</value></data>
+  <data name="Actions.Update.Timeout" xml:space="preserve"><value>Wartezeit je PC (Sekunden)</value></data>
+  <data name="Actions.Update.SelectOutdated" xml:space="preserve"><value>Veraltete PCs wählen</value></data>
+  <data name="Actions.Update.Start" xml:space="preserve"><value>Gewählte PCs aktualisieren</value></data>
+  <data name="Actions.Update.NoTargets" xml:space="preserve"><value>Wählen Sie mindestens einen PC, der online ist und das Update anbietet.</value></data>
+  <data name="Actions.Update.ConfirmText" xml:space="preserve"><value>{0} PCs werden nacheinander aktualisiert. Jeder installiert die neue Version und startet neu.</value></data>
+  <data name="Actions.Update.Started" xml:space="preserve"><value>Die Aktualisierung von {0} PCs hat begonnen.</value></data>
+  <data name="Actions.List.Title" xml:space="preserve"><value>Letzte Aktionen</value></data>
+  <data name="Actions.List.None" xml:space="preserve"><value>Seit dem Start des Hubs lief keine Aktion.</value></data>
+  <data name="Actions.Kind.bulk_run" xml:space="preserve"><value>Sammellauf</value></data>
+  <data name="Actions.Kind.update" xml:space="preserve"><value>Update</value></data>
+  <data name="Actions.State.running" xml:space="preserve"><value>Läuft</value></data>
+  <data name="Actions.State.completed" xml:space="preserve"><value>Fertig</value></data>
+  <data name="Actions.State.stopped" xml:space="preserve"><value>Angehalten</value></data>
+  <data name="Actions.State.cancelled" xml:space="preserve"><value>Abgebrochen</value></data>
+  <data name="Actions.Item.State.pending" xml:space="preserve"><value>Wartet</value></data>
+  <data name="Actions.Item.State.running" xml:space="preserve"><value>Läuft</value></data>
+  <data name="Actions.Item.State.success" xml:space="preserve"><value>Erfolgreich</value></data>
+  <data name="Actions.Item.State.failure" xml:space="preserve"><value>Fehlgeschlagen</value></data>
+  <data name="Actions.Item.State.offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="Actions.Item.State.skipped" xml:space="preserve"><value>Übersprungen</value></data>
+  <data name="Actions.Item.State.cancelled" xml:space="preserve"><value>Abgebrochen</value></data>
+  <data name="Actions.Column.Versions" xml:space="preserve"><value>Version vorher → nachher</value></data>
+  <data name="Actions.Column.Detail" xml:space="preserve"><value>Einzelheiten</value></data>
+  <data name="Actions.ExitCode" xml:space="preserve"><value>Exitcode {0}</value></data>
+  <data name="Actions.By" xml:space="preserve"><value>von {0}</value></data>
+  <data name="Actions.Counts" xml:space="preserve"><value>{0} erfolgreich · {1} fehlgeschlagen · {2} offline · {3} übersprungen oder abgebrochen · {4} wartend oder laufend</value></data>
+  <data name="Actions.Updated" xml:space="preserve"><value>Aktualisiert: {0}</value></data>
+  <data name="Actions.UpdatedNone" xml:space="preserve"><value>Es wurde kein PC aktualisiert.</value></data>
+  <data name="Actions.StoppedAt" xml:space="preserve"><value>Die Aktualisierung hielt bei {0} an: {1}</value></data>
+  <data name="Actions.Details" xml:space="preserve"><value>PCs zeigen</value></data>
+  <data name="Actions.HideDetails" xml:space="preserve"><value>PCs ausblenden</value></data>
+  <data name="Actions.Cancel" xml:space="preserve"><value>Abbrechen</value></data>
+  <data name="Actions.Cancelled" xml:space="preserve"><value>Die Aktion ist angehalten. PCs, die noch nicht erreicht waren, bleiben unberührt.</value></data>
+  <data name="Error.too_many_actions" xml:space="preserve"><value>Es laufen so viele Aktionen, wie der Hub zulässt. Warten Sie, bis eine endet, oder brechen Sie eine ab.</value></data>
+  <data name="Error.update_in_progress" xml:space="preserve"><value>Es läuft bereits eine Aktualisierung. Warten Sie, bis sie endet, oder brechen Sie sie ab.</value></data>
+  <data name="Error.unknown_action" xml:space="preserve"><value>Der Hub kennt diese Aktion nicht mehr. Das Audit-Log hält ihren Nachweis fest.</value></data>
+  <data name="Error.not_running" xml:space="preserve"><value>Die Aktion ist bereits beendet.</value></data>
+</root>

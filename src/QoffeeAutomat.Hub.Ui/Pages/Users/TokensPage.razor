@@ -1,0 +1,153 @@
+@page "/tokens"
+@inherits HubComponentBase
+@inject TimeProvider Clock
+
+@* The API tokens of the hub (PLAN.md S20 "Hub security" items 1 and 3, T915): a token acts with a role, is stored as a hash, and its secret is shown
+   once, when it is created. Administrators only. *@
+<MudText Typo="Typo.h4" GutterBottom="true">@H["Tokens.Title"]</MudText>
+
+<RoleGate Role="@HubRoleNames.Admin">
+  <HubErrorDisplay Error="Error" Class="mb-4" />
+  @if (_notice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="tokens-notice">@_notice</MudAlert>
+  }
+
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="api-token-form">
+    <MudText Typo="Typo.h6" Class="mb-2">@H["Tokens.Create"]</MudText>
+    <MudGrid Spacing="2">
+      <MudItem xs="12" md="4">
+        <MudTextField T="string" @bind-Value="_name" Immediate="true" Label="@H["Tokens.Name"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="6" md="4">
+        <SelectBox Label="@H["Users.Role"]" Value="@_role" ValueChanged="@(value => _role = value)" TestId="api-token-role">
+          @foreach (string role in HubRoleNames.All)
+          {
+            <option value="@role" selected="@(role == _role)">@H["Role." + role]</option>
+          }
+        </SelectBox>
+      </MudItem>
+      <MudItem xs="6" md="4">
+        <MudNumericField T="int" @bind-Value="_expiresDays" Min="0" Max="3650" Label="@H["Enrollment.ExpiresDays"]" HelperText="@H["Enrollment.ExpiresHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+    </MudGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled="Busy" OnClick="CreateAsync" data-testid="api-token-create">@H["Tokens.CreateButton"]</MudButton>
+  </MudPaper>
+
+  @if (_created is { } created)
+  {
+    <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="api-token-created">
+      <MudText Typo="Typo.h6" Class="mb-2">@H["Tokens.Created"]</MudText>
+      <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3">@H["Tokens.CreatedWarning"]</MudAlert>
+      <code class="qh-secret mb-1" data-testid="api-token-secret">@created.Secret</code>
+      <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="@(() => CopyTextAsync(created.Secret))" data-testid="api-token-copy">@H["Common.Copy"]</MudButton>
+    </MudPaper>
+  }
+
+  <MudPaper Class="qa-card mb-2" Elevation="1" data-testid="api-token-list">
+    @if (_tokens.Count == 0)
+    {
+      <MudText Color="Color.Secondary" Class="pa-4" data-testid="api-tokens-none">@H["Tokens.None"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Hover="true">
+        <thead>
+          <tr>
+            <th>@H["Tokens.Name"]</th>
+            <th>@H["Users.Role"]</th>
+            <th>@H["Access.CreatedBy"]</th>
+            <th>@H["Enrollment.Column.Expires"]</th>
+            <th>@H["Access.LastUsed"]</th>
+            <th>@H["Fleet.Column.State"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (TokenInfo token in _tokens)
+          {
+            <tr @key="token.Id" data-testid="@($"api-token-{token.Id}")" data-active="@(token.Active ? "true" : "false")">
+              <td>@token.Name<MudText Typo="Typo.caption" Color="Color.Secondary">@token.Prefix…</MudText></td>
+              <td>@H["Role." + token.Role]</td>
+              <td>@token.CreatedBy<MudText Typo="Typo.caption" Color="Color.Secondary">@Time(token.CreatedAt)</MudText></td>
+              <td>@(token.ExpiresAt is null ? H["Enrollment.NeverExpires"] : Time(token.ExpiresAt))</td>
+              <td>@Time(token.LastUsedAt)</td>
+              <td>@(token.Active ? H["Access.Active"] : H["Access.Revoked"])</td>
+              <td class="qa-row-actions">
+                @if (token.Active)
+                {
+                  if (_revoking == token.Id)
+                  {
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" Disabled="Busy" OnClick="@(() => RevokeAsync(token.Id))" data-testid="@($"api-token-revoke-confirm-{token.Id}")">@H["Common.Confirm"]</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _revoking = null)">@H["Common.Cancel"]</MudButton>
+                  }
+                  else
+                  {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => _revoking = token.Id)" data-testid="@($"api-token-revoke-{token.Id}")">@H["Enrollment.Revoke"]</MudButton>
+                  }
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+  </MudPaper>
+</RoleGate>
+
+@code {
+  private IReadOnlyList<TokenInfo> _tokens = [];
+  private CreatedToken? _created;
+  private string? _notice;
+  private string? _revoking;
+  private string? _name;
+  private string _role = HubRoleNames.Viewer;
+  private int _expiresDays;
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (Can(HubRoleNames.Admin))
+    {
+      await LoadAsync();
+    }
+  }
+
+  private async Task LoadAsync()
+  {
+    TokenList? list = null;
+    if (await TryAsync(async () => list = await Api.GetTokensAsync()) && list is not null)
+    {
+      _tokens = list.Tokens;
+    }
+  }
+
+  private async Task CreateAsync()
+  {
+    _notice = null;
+    DateTimeOffset? expires = _expiresDays > 0 ? Clock.GetUtcNow().AddDays(_expiresDays) : null;
+    var request = new CreateTokenRequest(_name?.Trim() ?? string.Empty, _role, expires);
+    CreatedToken? created = null;
+    if (await TryAsync(async () => created = await Api.CreateTokenAsync(request)))
+    {
+      _created = created;
+      _name = null;
+      await LoadAsync();
+    }
+  }
+
+  private async Task RevokeAsync(string id)
+  {
+    _notice = null;
+    _revoking = null;
+    if (await TryAsync(() => Api.RevokeTokenAsync(id)))
+    {
+      _notice = H["Tokens.Revoked"];
+      await LoadAsync();
+    }
+  }
+
+  private async Task CopyTextAsync(string text)
+  {
+    _notice = await CopyAsync(text) ? H["Common.Copied"] : H["Common.CopyFailed"];
+  }
+}

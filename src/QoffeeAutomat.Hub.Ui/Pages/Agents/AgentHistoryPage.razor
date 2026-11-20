@@ -1,0 +1,13 @@
+@page "/agents/{AgentId}/history"
+@using QoffeeAutomat.Ui.Components.Pages.History
+
+@* The run history and the events of the agent (the component library, through the tunnel). Runs started from the hub are marked with the source hub. *@
+<AgentPageFrame AgentId="@AgentId" Tab="history" MinRole="@HubRoleNames.Viewer">
+  <HistoryPage />
+</AgentPageFrame>
+
+@code {
+  /// <summary>The id of the agent.</summary>
+  [Parameter]
+  public string AgentId { get; set; } = string.Empty;
+}

@@ -10,7 +10,8 @@ namespace QoffeeAutomat.Agent.Link.Outbound;
 /// <param name="Url">The <c>wss://</c> URL (see <c>OutboundLinkRules</c>).</param>
 /// <param name="Credential">The bearer credential; sent only in the <c>Authorization</c> header of the upgrade request, never in a frame.</param>
 /// <param name="Fingerprint">The SHA-256 fingerprint of the certificate to accept, 64 upper-case hexadecimal digits; null means the normal certificate validation.</param>
-public sealed record OutboundEndpoint(Uri Url, string Credential, string? Fingerprint = null)
+/// <param name="AllowCompression">Whether the connector offers <c>permessage-deflate</c>. The hub link turns it off: its frames can carry a credential (<c>credential_rotate</c>), and S07 keeps credentials out of compressed frames.</param>
+public sealed record OutboundEndpoint(Uri Url, string Credential, string? Fingerprint = null, bool AllowCompression = true)
 {
     /// <summary>The URL without a query string, for logs and messages; it never contains the credential.</summary>
     public string DisplayUrl => Url.GetLeftPart(UriPartial.Path);

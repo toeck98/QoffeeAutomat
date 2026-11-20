@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/mgmt_stream_close.schema.json",
+  "title": "mgmt_stream_close",
+  "description": "Either direction, feature mgmt_tunnel (PLAN.md S20). The agent closes a stream that ended; the hub closes a stream that nobody watches any more.",
+  "type": "object",
+  "required": ["t", "sid"],
+  "properties": {
+    "t": { "const": "mgmt_stream_close" },
+    "sid": { "$ref": "defs.schema.json#/$defs/stream_id" }
+  }
+}

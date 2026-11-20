@@ -1,0 +1,9 @@
+{
+  "t": "config_documents",
+  "id": 12,
+  "generation": 7,
+  "documents": [
+    { "kind": "command", "id": "broken", "hash": "1111111111111111111111111111111111111111111111111111111111111111", "body": { "id": "broken" } }
+  ],
+  "final": true
+}

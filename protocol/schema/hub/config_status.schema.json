@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/config_status.schema.json",
+  "title": "config_status",
+  "description": "Agent to hub, feature config_sync (PLAN.md S20). The outcome of applying a generation; sent once after every handshake with the last applied generation (0 and no results when none was applied yet). It is a notification: it carries no request id.",
+  "type": "object",
+  "required": ["t", "generation", "state", "results"],
+  "properties": {
+    "t": { "const": "config_status" },
+    "generation": { "$ref": "defs.schema.json#/$defs/applied_generation" },
+    "state": { "enum": ["applied", "failed"] },
+    "results": {
+      "type": "array",
+      "items": { "$ref": "defs.schema.json#/$defs/config_item_result" }
+    }
+  }
+}

@@ -89,14 +89,28 @@ jobs:
       - name: Syntax check
         run: |
           set -euo pipefail
-          for script in scripts/*/*.sh tests/scripts/*.sh; do
+          for script in scripts/*/*.sh tests/scripts/*.sh packaging/hub/*.sh packaging/hub/ha-app/rootfs/*.sh; do
             echo "bash -n $script"
             bash -n "$script"
           done
       - name: Shellcheck
-        run: shellcheck scripts/*/*.sh tests/scripts/*.sh
+        run: shellcheck scripts/*/*.sh tests/scripts/*.sh packaging/hub/*.sh packaging/hub/ha-app/rootfs/*.sh
       - name: Test the repository setup script with a fake gh
         run: bash tests/scripts/test_setup_repo.sh
+
+  config-files:
+    name: no stray config files
+    # D-034: the Home Assistant Supervisor finds app definitions by the file names config.yaml, config.yml and
+    # config.json at any depth. Outside hidden folders only packaging/hub/ha-app/config.yaml may have one of them.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Look for config.yaml, config.yml and config.json
+        run: python3 scripts/dev/check_config_files.py
 
   links:
     name: markdown links
@@ -124,7 +138,7 @@ jobs:
   result:
     name: meta ci passed
     # Require this job in the branch ruleset.
-    needs: [plan, actionlint, workflow-security, scripts, links]
+    needs: [plan, actionlint, workflow-security, scripts, config-files, links]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

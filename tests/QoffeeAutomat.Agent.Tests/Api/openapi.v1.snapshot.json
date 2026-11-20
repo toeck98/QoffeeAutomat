@@ -1462,6 +1462,279 @@
         ]
       }
     },
+    "/api/v1/hub": {
+      "get": {
+        "tags": [
+          "Hub"
+        ],
+        "summary": "Reports the hub link: not joined, pending, connected, disconnected or revoked, the hub and the local switch of the management tunnel.",
+        "operationId": "getHub",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HubLinkStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Hub"
+        ],
+        "summary": "Switches the management tunnel on or off locally. The hub learns of it when the link is renewed, which happens at once.",
+        "operationId": "updateHub",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HubSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HubLinkStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hub/config": {
+      "get": {
+        "tags": [
+          "Hub"
+        ],
+        "summary": "Reports what the hub configured on this agent: the applied generation, the policy, the documents of the hub layer, the local documents that are kept but not used, and the names of the hub variables.",
+        "operationId": "getHubConfig",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HubConfigState"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hub/join": {
+      "post": {
+        "tags": [
+          "Hub"
+        ],
+        "summary": "Joins a hub with the enrollment string that the hub shows. This gives the hub full control over this PC. The hub is asked at once; a token that needs approval leaves the agent pending.",
+        "operationId": "joinHub",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HubJoinRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HubLinkStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hub/leave": {
+      "post": {
+        "tags": [
+          "Hub"
+        ],
+        "summary": "Leaves the hub: deletes the credential and stops the hub link. The local configuration becomes active again.",
+        "operationId": "leaveHub",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/csrfHeader"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HubLeaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HubLinkStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/link/clients": {
       "get": {
         "tags": [
@@ -1576,6 +1849,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PairingInfo"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
                 }
               }
             }
@@ -3899,6 +4182,65 @@
           },
           "configProblems": {
             "type": "integer"
+          },
+          "hub": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "state": {
+                "type": "string"
+              },
+              "managementTunnel": {
+                "type": "boolean"
+              },
+              "hubId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "hubName": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "detail": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "configGeneration": {
+                "type": "integer",
+                "default": 0
+              },
+              "localConfigLocked": {
+                "type": "boolean",
+                "default": false
+              },
+              "directLinkDenied": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "required": [
+              "state",
+              "managementTunnel"
+            ],
+            "default": null
           }
         },
         "required": [
@@ -5050,6 +5392,206 @@
         "required": [
           "supported",
           "hotkeys"
+        ]
+      },
+      "HubConfigState": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "generation": {
+            "type": "integer"
+          },
+          "appliedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "policy": {
+            "type": "object",
+            "properties": {
+              "localConfig": {
+                "type": "string"
+              },
+              "directLink": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "localConfig",
+              "directLink"
+            ]
+          },
+          "localConfigLocked": {
+            "type": "boolean"
+          },
+          "directLinkDenied": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "hash": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "hash",
+                "state"
+              ]
+            }
+          },
+          "shadowed": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "reason"
+              ]
+            }
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "active",
+          "generation",
+          "appliedAt",
+          "policy",
+          "localConfigLocked",
+          "directLinkDenied",
+          "items",
+          "shadowed",
+          "variables"
+        ]
+      },
+      "HubJoinRequest": {
+        "type": "object",
+        "properties": {
+          "enrollment": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enrollment"
+        ]
+      },
+      "HubLeaveRequest": {
+        "type": "object",
+        "properties": {
+          "documents": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          }
+        }
+      },
+      "HubLinkStatus": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "managementTunnel": {
+            "type": "boolean"
+          },
+          "hubId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "hubName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "configGeneration": {
+            "type": "integer",
+            "default": 0
+          },
+          "localConfigLocked": {
+            "type": "boolean",
+            "default": false
+          },
+          "directLinkDenied": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "state",
+          "managementTunnel"
+        ]
+      },
+      "HubSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "managementTunnel": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "managementTunnel"
         ]
       },
       "LinkClientList": {

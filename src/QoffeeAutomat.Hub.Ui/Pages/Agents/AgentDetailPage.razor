@@ -1,0 +1,13 @@
+@page "/agents/{AgentId}"
+
+@* The page of one agent: the overview inside the frame, which also offers the tabs of the pages of the component library. The agent does not
+   have to be connected to see what the hub knows about it. *@
+<AgentPageFrame AgentId="@AgentId" Tab="overview" MinRole="@HubRoleNames.Viewer" RequireOnline="false">
+  <AgentOverview />
+</AgentPageFrame>
+
+@code {
+  /// <summary>The id of the agent.</summary>
+  [Parameter]
+  public string AgentId { get; set; } = string.Empty;
+}

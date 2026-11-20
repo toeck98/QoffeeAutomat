@@ -1,0 +1,6 @@
+{
+  "t": "result",
+  "id": 3,
+  "ok": false,
+  "error": { "code": "unknown_command", "message": "This is a protocol v1 code, not a hub code." }
+}

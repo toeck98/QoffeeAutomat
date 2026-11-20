@@ -1,0 +1,6 @@
+{
+  "t": "result",
+  "id": 6,
+  "ok": false,
+  "error": { "code": "agent_offline", "message": "The agent is not connected." }
+}

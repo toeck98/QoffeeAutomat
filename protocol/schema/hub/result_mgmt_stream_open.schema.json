@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/result_mgmt_stream_open.schema.json",
+  "title": "result of mgmt_stream_open",
+  "description": "A result frame (S07) whose data has the shape of the answer to mgmt_stream_open: sid (PLAN.md S20).",
+  "allOf": [
+    { "$ref": "../result.schema.json" },
+    {
+      "if": { "properties": { "ok": { "const": true } }, "required": ["ok"] },
+      "then": { "properties": { "data": { "$ref": "defs.schema.json#/$defs/mgmt_stream_open_result_data" } } }
+    }
+  ]
+}

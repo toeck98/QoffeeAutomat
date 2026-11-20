@@ -7,21 +7,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import (
-    CONF_BROADCAST,
-    CONF_MACS,
-    DEFAULT_BROADCAST,
-    DOMAIN,
-    WOL_FAST_RETRY_SECONDS,
-    WOL_KEY,
-)
+from .const import DOMAIN, WOL_FAST_RETRY_SECONDS, WOL_KEY
 from .entity import (
     QoffeeAutomatCommandEntity,
     QoffeeAutomatEntity,
+    async_setup_agents,
     async_setup_command_platform,
 )
 from .protocol import CommandDescriptor, ControlDescriptor, MetricValue
-from .runtime import QoffeeAutomatConfigEntry, QoffeeAutomatRuntimeData
+from .runtime import OnUnload, QoffeeAutomatConfigEntry, QoffeeAutomatRuntimeData
 from .wol import async_send_magic_packets
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,8 +50,14 @@ async def async_setup_entry(
     from the manifest and are kept in the config entry (T703).
     """
     await async_setup_command_platform(entry, async_add_entities, "button", _build)
-    if entry.data.get(CONF_MACS):
-        async_add_entities([QoffeeAutomatWakeButton(entry)])
+
+    async def setup_agent(
+        runtime: QoffeeAutomatRuntimeData, on_unload: OnUnload
+    ) -> None:
+        if runtime.macs():
+            async_add_entities([QoffeeAutomatWakeButton(runtime)])
+
+    await async_setup_agents(entry, setup_agent)
 
 
 class QoffeeAutomatWakeButton(QoffeeAutomatEntity, ButtonEntity):
@@ -67,24 +67,25 @@ class QoffeeAutomatWakeButton(QoffeeAutomatEntity, ButtonEntity):
     is needed. A press sends a magic packet for every stored MAC address to the
     broadcast address of the options and then makes the client retry the connection
     every second for five minutes, so Home Assistant notices the PC as soon as it is up.
+    On the hub route there is nothing to retry: the PC dials the hub by itself as soon
+    as it is up, and the hub tells Home Assistant.
     """
 
     _always_available = True
     _attr_translation_key = "wake_on_lan"
 
-    def __init__(self, entry: QoffeeAutomatConfigEntry) -> None:
-        """Create the button of the PC of ``entry``."""
-        super().__init__(entry.runtime_data, WOL_KEY)
-        self._entry = entry
+    def __init__(self, runtime: QoffeeAutomatRuntimeData) -> None:
+        """Create the button of the PC."""
+        super().__init__(runtime, WOL_KEY)
 
     async def async_press(self) -> None:
         """Send the magic packets and switch the client to fast retry."""
-        macs = list(self._entry.data.get(CONF_MACS, ()))
+        macs = self._runtime.macs()
         if not macs:
             raise ServiceValidationError(
                 translation_domain=DOMAIN, translation_key="wol_no_mac"
             )
-        broadcast = self._entry.options.get(CONF_BROADCAST, DEFAULT_BROADCAST)
+        broadcast = self._runtime.broadcast()
         try:
             sent = await async_send_magic_packets(macs, broadcast)
         except (OSError, ValueError) as err:

@@ -3,8 +3,8 @@ using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
-using QoffeeAutomat.Agent.Security.Tls;
 using QoffeeAutomat.Contracts.Link;
+using QoffeeAutomat.Core.Security;
 
 namespace QoffeeAutomat.Agent.Benchmarks;
 

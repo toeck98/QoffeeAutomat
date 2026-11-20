@@ -1,6 +1,9 @@
-# Keeps the Docker build context of tests/e2e/agent.Dockerfile small (the context is the
-# repository root). Only global.json, the Directory.* files, .editorconfig and src/ are used.
+# Keeps the Docker build context small (the context is the repository root) of
+# tests/e2e/agent.Dockerfile and of packaging/hub/Dockerfile (T918). They use global.json, the
+# Directory.* files, .editorconfig and src/; the hub image also copies packaging/hub/healthcheck.sh.
 .git
+artifacts
+site
 .github
 .venv
 .mypy_cache

@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using QoffeeAutomat.Contracts.Config;
+using QoffeeAutomat.Core.Config.HubLayer;
 
 namespace QoffeeAutomat.Core.Config;
 
@@ -118,14 +119,17 @@ public interface ILocalConfigLayer : IConfigLayer
 /// </summary>
 public interface IConfigStore
 {
-    /// <summary>The layers, highest priority first. Only the local layer exists today.</summary>
+    /// <summary>The layers, highest priority first: the hub layer, then the local layer.</summary>
     IReadOnlyList<IConfigLayer> Layers { get; }
 
-    /// <summary>The merged view: on equal kind and id the first layer wins.</summary>
+    /// <summary>The merged view: on equal kind and id the first layer wins; a locked local layer does not take part (except for the settings).</summary>
     IConfigView Effective { get; }
 
     /// <summary>The writable local layer.</summary>
     ILocalConfigLayer Local { get; }
+
+    /// <summary>The read-only hub layer under <c>config/hub/</c> (PLAN.md S20, D-028); empty while no hub manages this agent.</summary>
+    IHubConfigLayer Hub { get; }
 
     /// <summary>The files that are currently skipped because they are invalid.</summary>
     IReadOnlyList<ConfigProblem> Problems { get; }

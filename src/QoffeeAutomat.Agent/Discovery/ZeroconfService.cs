@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QoffeeAutomat.Agent.Hosting;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Contracts.Link;
 using QoffeeAutomat.Core.Config;
 using QoffeeAutomat.Core.Platform;
@@ -125,6 +126,7 @@ public sealed class ZeroconfService : IHostedService, IAsyncDisposable
     private readonly IServer _server;
     private readonly TimeProvider _time;
     private readonly ILogger<ZeroconfService> _logger;
+    private readonly IHubPolicy? _hubPolicy;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly CancellationTokenSource _stop = new();
     private ITimer? _debounce;
@@ -149,6 +151,7 @@ public sealed class ZeroconfService : IHostedService, IAsyncDisposable
     /// <param name="time">The clock for the debounce of network changes.</param>
     /// <param name="options">The timing.</param>
     /// <param name="logger">The logger.</param>
+    /// <param name="hubPolicy">The policy of the hub; while it denies direct links the agent is not advertised (PLAN.md S20, T908). Null means no hub policy.</param>
     public ZeroconfService(
         IHostApplicationLifetime lifetime,
         IServiceAdvertiser advertiser,
@@ -160,8 +163,10 @@ public sealed class ZeroconfService : IHostedService, IAsyncDisposable
         IServer server,
         TimeProvider time,
         ZeroconfOptions options,
-        ILogger<ZeroconfService> logger)
+        ILogger<ZeroconfService> logger,
+        IHubPolicy? hubPolicy = null)
     {
+        _hubPolicy = hubPolicy;
         _options = options;
         _lifetime = lifetime;
         _advertiser = advertiser;
@@ -180,6 +185,11 @@ public sealed class ZeroconfService : IHostedService, IAsyncDisposable
     {
         _debounce = _time.CreateTimer(static state => ((ZeroconfService)state!).OnNetworkQuiet(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         _power.PowerChanged += OnPowerChanged;
+        if (_hubPolicy is not null)
+        {
+            _hubPolicy.Changed += OnHubPolicyChanged;
+        }
+
         _settings = _config.Subscribe();
         ConfigSubscription settings = _settings;
         _settingsPump = Task.Run(() => PumpSettingsAsync(settings, _stop.Token), CancellationToken.None);
@@ -191,6 +201,11 @@ public sealed class ZeroconfService : IHostedService, IAsyncDisposable
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _power.PowerChanged -= OnPowerChanged;
+        if (_hubPolicy is not null)
+        {
+            _hubPolicy.Changed -= OnHubPolicyChanged;
+        }
+
         await _startedRegistration.DisposeAsync().ConfigureAwait(false);
 
         try
@@ -241,6 +256,12 @@ public sealed class ZeroconfService : IHostedService, IAsyncDisposable
         {
             _ = ApplyAsync(force: true);
         }
+    }
+
+    private void OnHubPolicyChanged(object? sender, EventArgs e)
+    {
+        // A denial withdraws the advertisement at once; the end of a denial announces the agent again.
+        _ = ApplyAsync(force: true);
     }
 
     private void OnNetworkChanged()
@@ -298,7 +319,7 @@ public sealed class ZeroconfService : IHostedService, IAsyncDisposable
                 return;
             }
 
-            if (!_identity.ZeroconfEnabled)
+            if (!_identity.ZeroconfEnabled || _hubPolicy is { DirectLinkDenied: true })
             {
                 await WithdrawAsync().ConfigureAwait(false);
                 return;

@@ -8,7 +8,9 @@
   <MudButton Variant="Variant.Filled"
              Color="Color.Primary"
              StartIcon="@Icons.Material.Filled.Add"
-             Href="/commands/new"
+             Href="@Links.Resolve("/commands/new")"
+             Disabled="IsLocked"
+             title="@(IsLocked ? L["Hub.Locked.Editing"] : null)"
              data-testid="command-new">@L["Commands.New"]</MudButton>
 </div>
 
@@ -130,7 +132,7 @@ else
           {
             <tr @key="command.Id" data-testid="@($"command-{command.Id}")" data-enabled="@(command.Enabled ? "true" : "false")">
               <td>
-                <div class="qa-command-name">@command.Name</div>
+                <div class="qa-command-name">@command.Name <OriginChip Managed="HubConfigAccess.IsManaged(_hub)" Origin="@command.Origin" TestId="@($"origin-{command.Id}")" /></div>
                 <div class="qa-muted"><code>@command.Id</code></div>
                 @if (!string.IsNullOrWhiteSpace(command.Description))
                 {
@@ -144,7 +146,7 @@ else
                              Value="IsEnabled(command)"
                              ValueChanged="@((bool value) => SetEnabledAsync(command, value))"
                              Color="Color.Primary"
-                             Disabled="IsBusy(command)"
+                             Disabled="@(IsBusy(command) || IsReadOnly(command))"
                              aria-label="@Aria(L["Commands.Column.Enabled"], command)" />
                 </span>
               </td>
@@ -155,7 +157,7 @@ else
                              Value="IsExposed(command)"
                              ValueChanged="@((bool value) => SetExposedAsync(command, value))"
                              Color="Color.Primary"
-                             Disabled="IsBusy(command)"
+                             Disabled="@(IsBusy(command) || IsReadOnly(command))"
                              aria-label="@Aria(L["Commands.Column.Expose"], command)" />
                 </span>
               </td>
@@ -197,7 +199,7 @@ else
                                data-testid="@($"edit-{command.Id}")" />
                 <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
                                Size="Size.Small"
-                               Disabled="IsBusy(command)"
+                               Disabled="@(IsBusy(command) || IsLocked)"
                                OnClick="@(() => DuplicateAsync(command))"
                                aria-label="@Aria(L["Commands.Duplicate"], command)"
                                title="@L["Commands.Duplicate"]"
@@ -205,7 +207,7 @@ else
                 <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                Size="Size.Small"
                                Color="Color.Error"
-                               Disabled="IsBusy(command)"
+                               Disabled="@(IsBusy(command) || IsReadOnly(command))"
                                OnClick="@(() => DeleteAsync(command))"
                                aria-label="@Aria(L["Commands.Delete"], command)"
                                title="@L["Commands.Delete"]"
@@ -217,4 +219,18 @@ else
       </MudSimpleTable>
     </MudPaper>
   }
+}
+
+@if (!_loading && ShadowedCommands.Count > 0)
+{
+  <MudPaper Class="pa-3 mt-4 qa-card" Elevation="1" data-testid="commands-shadowed">
+    <MudText Typo="Typo.subtitle1">@L["Hub.Shadowed.Title"]</MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Hub.Shadowed.Help"]</MudText>
+    <ul class="qa-error-list">
+      @foreach (HubShadowedItem item in ShadowedCommands)
+      {
+        <li data-testid="@($"shadowed-{item.Id}")" data-reason="@item.Reason"><code>@item.Id</code> @(L["Hub.Shadow.Reason." + item.Reason])</li>
+      }
+    </ul>
+  </MudPaper>
 }

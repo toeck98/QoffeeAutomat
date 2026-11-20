@@ -1,0 +1,50 @@
+@inject IBrowserInterop Browser
+@inject Localizer L
+
+@* The root of the hub UI: theme (light or dark, following the system), the providers that MudBlazor needs and the router. The pages of the
+   component library are not routed here: they are shown inside the pages of an agent (PLAN.md D-033, T915). *@
+<MudThemeProvider @ref="_themeProvider" Theme="_theme" IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<Router AppAssembly="typeof(App).Assembly">
+  <Found Context="routeData">
+    <RouteView RouteData="routeData" DefaultLayout="typeof(HubLayout)" />
+  </Found>
+</Router>
+
+@code {
+  private readonly MudTheme _theme = UiTheme.Create();
+  private MudThemeProvider? _themeProvider;
+  private bool _isDarkMode;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender)
+    {
+      return;
+    }
+
+    if (_themeProvider is not null)
+    {
+      // Follow the system setting now and whenever it changes.
+      _isDarkMode = await _themeProvider.GetSystemDarkModeAsync();
+      await _themeProvider.WatchSystemDarkModeAsync(OnSystemDarkModeChangedAsync);
+      StateHasChanged();
+    }
+
+    // The language the user chose earlier wins over the language of the browser.
+    string? stored = await Browser.GetStoredAsync(LanguageSwitch.StorageKey);
+    if (!string.IsNullOrEmpty(stored))
+    {
+      L.SetLanguage(stored);
+    }
+  }
+
+  private async Task OnSystemDarkModeChangedAsync(bool isDark)
+  {
+    _isDarkMode = isDark;
+    await InvokeAsync(StateHasChanged);
+  }
+}

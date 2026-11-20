@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/enroll_response.schema.json",
+  "title": "enroll response",
+  "description": "Response of POST /hub/v1/enroll (PLAN.md S20). state enrolled carries the credential, which the hub shows exactly once and stores only as a hash. state pending (the token requires approval) carries retry_after, the number of seconds after which the agent repeats the request; the credential is returned by the first repetition after an administrator accepted the agent. Failures use HTTP status codes with the body {error: {code, message}}.",
+  "type": "object",
+  "required": ["state", "hub"],
+  "properties": {
+    "state": { "enum": ["enrolled", "pending"] },
+    "hub": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "credential": { "$ref": "defs.schema.json#/$defs/credential" },
+    "retry_after": { "type": "integer", "minimum": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "enrolled" } }, "required": ["state"] },
+      "then": { "required": ["credential"] }
+    },
+    {
+      "if": { "properties": { "state": { "const": "pending" } }, "required": ["state"] },
+      "then": { "required": ["retry_after"] }
+    }
+  ]
+}

@@ -45,8 +45,20 @@ REVERSE_ENROLL_TIMEOUT_SECONDS: Final = 900.0
 # How long a connection that has not sent ``hello`` yet may take at the endpoint.
 REVERSE_HELLO_TIMEOUT_SECONDS: Final = 10.0
 
+# The hub route (PLAN.md S10, S20, D-031, T914). An entry with ``hub: true`` connects
+# to a hub (host, port, fleet token and pinned fingerprint as for an agent; the unique
+# id is the id of the hub) and serves every PC of the hub that has no entry of its own.
+# The MAC addresses of those PCs are kept per agent id in ``agent_macs``.
+CONF_HUB: Final = "hub"
+CONF_AGENT_MACS: Final = "agent_macs"
+DEFAULT_HUB_PORT: Final = 8490
+# Prefix of the device identifier of a hub. The ids of agents are GUIDs, so the device
+# of the hub cannot collide with the device of a PC.
+HUB_IDENTIFIER_PREFIX: Final = "hub_"
+
 MANUFACTURER: Final = "QoffeeAutomat"
 MODEL: Final = "QoffeeAutomat Agent"
+HUB_MODEL: Final = "QoffeeAutomat Hub"
 
 # Bus event fired for every agent event and for ``booted`` (PLAN.md S10). Its data are
 # ``device_id`` (the Home Assistant device), ``type`` and ``data``.

@@ -1,0 +1,9 @@
+{
+  "t": "config_status",
+  "generation": 9,
+  "state": "applied",
+  "results": [
+    { "kind": "variables", "id": "site", "state": "applied", "duration_ms": 12 }
+  ],
+  "some_future_field": true
+}

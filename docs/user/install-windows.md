@@ -53,6 +53,7 @@ For software distribution or scripts, run an **elevated** prompt:
 |--------|--------|
 | `/LINKPORT=<port>` | QoffeeLink port (default `8481`); also used for the firewall rule. |
 | `/UIPORT=<port>` | Port of the loopback web interface (default `8480`). |
+| `/HUBENROLL=<string>` | Joins a central hub after the installation with the enrollment string (`qahub1.…`) that the hub shows. Joining gives the hub full control over the PC. The string contains a token: the installer does not log it, but Inno Setup records its own command line in the `/LOG` file, so protect that file or use a token with a short expiry and one use. A failed join does not fail the installation; run `qoffeeautomat hub join` afterwards. |
 | `/LOG=<file>` | Writes the installer log. |
 
 A silent installation does not show the setup token page. Read the token from `%ProgramData%\QoffeeAutomat\secrets\setup-token.txt`.

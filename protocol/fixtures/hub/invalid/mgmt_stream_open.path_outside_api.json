@@ -1,0 +1,6 @@
+{
+  "t": "mgmt_stream_open",
+  "id": 23,
+  "path": "/events",
+  "principal": { "user": "alice", "role": "admin" }
+}

@@ -1,0 +1,91 @@
+# End-to-end test stack of the hub (PLAN.md S14, S20, task T919): the hub image built from
+# packaging/hub/Dockerfile, two Linux agents with the simulated platform, and a real Home Assistant
+# container with the integration mounted. All of it is a throw-away stack; nothing in it is a secret.
+#
+#   HA_VERSION          Home Assistant image tag: stable (default), beta or a version
+#   E2E_HUB_PORT        host port of the hub (default 18490, loopback only)
+#   E2E_HUB_AGENT1_PORT host port of the HTTPS listener of the first agent (default 18491, loopback only)
+#   E2E_HUB_AGENT2_PORT host port of the HTTPS listener of the second agent (default 18492, loopback only)
+#   E2E_HUB_HA_PORT     host port of Home Assistant (default 18223, loopback only)
+#   E2E_AGENT_PASSWORD  password set in both agents (default below)
+#
+# Run it with `pytest tests/e2e/hub`, which starts and stops the stack, or by hand with
+# `docker compose -f tests/e2e/hub/docker-compose.yml up --build --wait`.
+#
+# The project name differs from the one of tests/e2e, so that both stacks can exist side by side.
+name: qoffeeautomat-e2e-hub
+
+x-agent: &agent
+  # Both agents use the image of the agent end-to-end test (tests/e2e/agent.Dockerfile). The entry point
+  # takes the name of the PC from E2E_AGENT_NAME, so that the two PCs are told apart in the hub and in Home Assistant.
+  image: qoffeeautomat-e2e-hub-agent:local
+  build:
+    context: ../../..
+    dockerfile: tests/e2e/agent.Dockerfile
+  healthcheck:
+    test: ["CMD-SHELL", "test -f /tmp/ready && curl -fsS http://127.0.0.1:8480/healthz"]
+    interval: 3s
+    timeout: 5s
+    retries: 60
+    start_period: 5s
+  depends_on:
+    hub:
+      condition: service_healthy
+
+services:
+  hub:
+    build:
+      context: ../../..
+      dockerfile: packaging/hub/Dockerfile
+    image: qoffeeautomat-e2e-hub:local
+    environment:
+      QOFFEE_HUB_NAME: E2E Hub
+      QOFFEE_HUB_TLS: selfsigned
+      QOFFEE_HUB_LOG_FORMAT: text
+      # Collect every 5 seconds so that the stored metrics are there within the time the test waits.
+      QOFFEE_HUB_METRICS_INTERVAL: "5"
+    ports:
+      - "127.0.0.1:${E2E_HUB_PORT:-18490}:8490"
+    # The same hardening as packaging/hub/docker-compose.yml: the test runs what users run.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # The health check is the one of the image (GET /healthz); only the timing is tightened.
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/qoffeeautomat-healthcheck"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+      start_period: 5s
+
+  agent1:
+    <<: *agent
+    environment:
+      E2E_AGENT_PASSWORD: ${E2E_AGENT_PASSWORD:-e2e-Qoffee-Passw0rd-2026}
+      E2E_AGENT_PLATFORM: simulated
+      E2E_AGENT_NAME: E2E-PC-1
+    ports:
+      - "127.0.0.1:${E2E_HUB_AGENT1_PORT:-18491}:8481"
+
+  agent2:
+    <<: *agent
+    environment:
+      E2E_AGENT_PASSWORD: ${E2E_AGENT_PASSWORD:-e2e-Qoffee-Passw0rd-2026}
+      E2E_AGENT_PLATFORM: simulated
+      E2E_AGENT_NAME: E2E-PC-2
+    ports:
+      - "127.0.0.1:${E2E_HUB_AGENT2_PORT:-18492}:8481"
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:${HA_VERSION:-stable}
+    depends_on:
+      hub:
+        condition: service_healthy
+    environment:
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${E2E_HUB_HA_PORT:-18223}:8123"
+    volumes:
+      - ../ha/configuration.yaml:/config/configuration.yaml:ro
+      - ../../../custom_components/qoffeeautomat:/config/custom_components/qoffeeautomat:ro

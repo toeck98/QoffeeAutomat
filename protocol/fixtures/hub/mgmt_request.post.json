@@ -1,0 +1,8 @@
+{
+  "t": "mgmt_request",
+  "id": 22,
+  "method": "POST",
+  "path": "/api/v1/commands/set_display_profile/run",
+  "body": { "vars": { "Profile": "TV-Mode" }, "wait": true },
+  "principal": { "user": "bob", "role": "operator" }
+}

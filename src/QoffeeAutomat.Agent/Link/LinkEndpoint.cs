@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using QoffeeAutomat.Agent.Api;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Agent.Link.Pairing;
+using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Link;
 
 namespace QoffeeAutomat.Agent.Link;
@@ -72,11 +74,21 @@ public static class LinkEndpoint
         HttpContext context,
         LinkServer server,
         PairingService pairing,
+        IHubPolicy policy,
         ILogger<LinkServer> logger)
     {
         if (!context.Request.IsHttps)
         {
             await ApiResults.Problem(StatusCodes.Status403Forbidden, "https_required", "QoffeeLink is only available over HTTPS.")
+                .ExecuteAsync(context).ConfigureAwait(false);
+            return;
+        }
+
+        if (policy.DirectLinkDenied)
+        {
+            // The hub manages this PC and does not allow direct links (PLAN.md S20, D-029); the clients that are connected were closed when the policy took effect.
+            LinkLog.Refused(logger, "direct links are denied by the hub policy");
+            await ApiResults.Problem(StatusCodes.Status403Forbidden, HubConfigProblemCodes.DirectLinkDenied, "The hub that manages this PC does not allow direct links.")
                 .ExecuteAsync(context).ConfigureAwait(false);
             return;
         }

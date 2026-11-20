@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 
 namespace QoffeeAutomat.Contracts.Link;
 
@@ -30,6 +31,20 @@ public static class CanonicalJson
     public static byte[] SerializeToUtf8(JsonElement element, string? omittedRootMember = null)
     {
         return Encoding.UTF8.GetBytes(Serialize(element, omittedRootMember));
+    }
+
+    /// <summary>
+    /// Serializes a value with source-generated metadata and returns its canonical JSON as UTF-8 bytes. The hub uses it
+    /// for the signed desired state; the manifest revision uses the same canonical form (PLAN.md S07, S20).
+    /// </summary>
+    /// <typeparam name="T">The type of the value.</typeparam>
+    /// <param name="value">The value.</param>
+    /// <param name="typeInfo">The source-generated metadata of <typeparamref name="T"/>.</param>
+    /// <returns>The canonical UTF-8 bytes.</returns>
+    public static byte[] SerializeToUtf8<T>(T value, JsonTypeInfo<T> typeInfo)
+    {
+        ArgumentNullException.ThrowIfNull(typeInfo);
+        return SerializeToUtf8(JsonSerializer.SerializeToElement(value, typeInfo));
     }
 
     private static void Append(StringBuilder builder, JsonElement element, string? omittedMember)

@@ -43,6 +43,14 @@ public interface IAgentApi
     /// <returns>The status.</returns>
     Task<AgentStatus> GetStatusAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Reads what a hub configured on this agent (<c>GET /hub/config</c>, PLAN.md S20, T908): the policy, the documents of the hub layer, the local
+    /// documents that are kept but not used and the hub variables. The pages show the origin of a document and disable editing from it.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The state; for an agent that no hub manages, <see cref="HubConfigState.Active"/> is false and nothing is locked.</returns>
+    Task<HubConfigState> GetHubConfigAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Reads which global hotkeys are registered and which conflict (<c>GET /hotkeys</c>, T708).</summary>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The status of the hotkeys.</returns>

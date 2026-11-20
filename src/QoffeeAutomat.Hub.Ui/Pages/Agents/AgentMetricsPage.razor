@@ -1,0 +1,14 @@
+@page "/agents/{AgentId}/metrics"
+@using QoffeeAutomat.Ui.Components.Pages.Metrics
+
+@* The metric catalog of the agent (the component library, through the tunnel). The metrics that the hub collects from all agents are
+   a page of their own (T916); this one changes what the agent samples and offers to Home Assistant. *@
+<AgentPageFrame AgentId="@AgentId" Tab="metrics" MinRole="@HubRoleNames.Admin">
+  <MetricsPage />
+</AgentPageFrame>
+
+@code {
+  /// <summary>The id of the agent.</summary>
+  [Parameter]
+  public string AgentId { get; set; } = string.Empty;
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/unenroll.schema.json",
+  "title": "unenroll",
+  "description": "Hub to agent, always available on the agent link (PLAN.md S20). The agent is removed from the hub: it deletes the hub layer and its credential and the local layer becomes active again. reason is an open vocabulary, for example removed.",
+  "type": "object",
+  "required": ["t", "reason"],
+  "properties": {
+    "t": { "const": "unenroll" },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 256 }
+  }
+}

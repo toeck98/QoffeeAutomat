@@ -37,8 +37,9 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["custom_components"]
-# tests/e2e/e2e_driver.py is imported by its siblings as a top-level module.
-known-local-folder = ["e2e_driver"]
+# tests/e2e/e2e_driver.py and tests/e2e/hub/hub_driver.py are imported by their siblings as
+# top-level modules.
+known-local-folder = ["e2e_driver", "hub_driver"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests_integration/**" = ["S101"]

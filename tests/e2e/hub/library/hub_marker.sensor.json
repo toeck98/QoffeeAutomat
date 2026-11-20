@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "hub_marker",
+  "name": "Hub marker",
+  "description": "Published by the hub; a custom sensor that reports a constant (end-to-end test).",
+  "enabled": true,
+  "exposeToHa": true,
+  "kind": "sensor",
+  "valueType": "number",
+  "stateClass": "measurement",
+  "precision": 0,
+  "intervalSeconds": 2,
+  "source": {
+    "type": "powershell",
+    "source": "inline",
+    "code": "Write-Output 7",
+    "engine": "pwsh"
+  }
+}

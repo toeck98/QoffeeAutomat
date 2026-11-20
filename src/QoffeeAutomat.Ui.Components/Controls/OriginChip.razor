@@ -1,0 +1,39 @@
+@inherits LocalizedComponentBase
+
+@* Shows where a document comes from (PLAN.md S20, T908). It is silent for an agent that no hub manages, so the lists look as they always did. *@
+@if (Managed)
+{
+  @if (HubConfigAccess.IsHubDocument(Origin))
+  {
+    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Secondary"
+             title="@L["Hub.Origin.Hub.Help"]" data-testid="@TestId" data-origin="hub">@L["Hub.Origin.Hub"]</MudChip>
+  }
+  else if (ShadowReason is not null)
+  {
+    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
+             title="@(L["Hub.Shadow.Reason." + ShadowReason])" data-testid="@TestId" data-origin="local" data-shadowed="@ShadowReason">@L["Hub.Origin.Shadowed"]</MudChip>
+  }
+  else
+  {
+    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default"
+             title="@L["Hub.Origin.Local.Help"]" data-testid="@TestId" data-origin="local">@L["Hub.Origin.Local"]</MudChip>
+  }
+}
+
+@code {
+  /// <summary>True when a hub manages the agent; nothing is shown otherwise.</summary>
+  [Parameter]
+  public bool Managed { get; set; }
+
+  /// <summary>The <c>origin</c> member of the document.</summary>
+  [Parameter]
+  public string? Origin { get; set; }
+
+  /// <summary>Why the local document is not used (one of <c>HubShadowReasons</c>); null when it is in use.</summary>
+  [Parameter]
+  public string? ShadowReason { get; set; }
+
+  /// <summary>The <c>data-testid</c> of the chip.</summary>
+  [Parameter]
+  public string? TestId { get; set; }
+}

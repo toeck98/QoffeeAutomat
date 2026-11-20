@@ -1,3 +1,4 @@
+using QoffeeAutomat.Core.Commands;
 using QoffeeAutomat.Core.IO;
 
 namespace QoffeeAutomat.Core.Config;
@@ -34,4 +35,10 @@ public sealed class ConfigStoreOptions
 
     /// <summary>Called for every file that is skipped, also later when the watcher finds a bad edit.</summary>
     public Action<ConfigProblem>? ProblemReporter { get; init; }
+
+    /// <summary>
+    /// What this platform can run (T908): a hub document with an action or sensor type that it lacks is not stored but reported as
+    /// <c>skipped_unsupported</c>. Null supports everything.
+    /// </summary>
+    public CommandPlatformSupport? PlatformSupport { get; init; }
 }

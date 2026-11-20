@@ -21,7 +21,10 @@
   </MudDrawer>
   <MudMainContent>
     <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
-      <SessionGuard>@Body</SessionGuard>
+      <SessionGuard>
+        <HubConfigBanner />
+        @Body
+      </SessionGuard>
     </MudContainer>
   </MudMainContent>
 </MudLayout>

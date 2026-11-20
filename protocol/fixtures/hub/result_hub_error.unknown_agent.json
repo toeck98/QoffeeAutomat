@@ -1,0 +1,6 @@
+{
+  "t": "result",
+  "id": 3,
+  "ok": false,
+  "error": { "code": "unknown_agent", "message": "No agent with this id is in the scope of the token." }
+}

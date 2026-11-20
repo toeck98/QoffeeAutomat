@@ -1,0 +1,280 @@
+@page "/metrics"
+@using QoffeeAutomat.Hub.Ui.Pages.Metrics
+@inherits HubComponentBase
+@inject HubUiOptions Options
+
+@* The metrics that the hub collects (PLAN.md S20, D-032, T910, T916): one metric for several PCs in one chart, over a time range that the user
+   selects, with the values in a table. The query API of the hub chooses the resolution from the range (raw samples for hours, five minute buckets
+   for days, hourly buckets for longer), unless the user forces one. This is read-only, so every role may use it. The page of an agent has its own
+   metric catalog, which changes what that PC samples; this page shows what the hub has stored. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@H["Metrics.Title"]</MudText>
+  <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" Disabled="@(_selected.Count == 0 || _metric.Length == 0)" OnClick="QueryAsync" data-testid="metrics-refresh">@H["Fleet.Refresh"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@H["Metrics.Intro"]</MudText>
+
+<HubErrorDisplay Error="Error" OnRetry="QueryAsync" Class="mb-4" />
+
+@if (_loadingAgents)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_agents.Count == 0)
+{
+  if (Error is null)
+  {
+    <MudText Color="Color.Secondary" data-testid="metrics-no-agents">@H["Metrics.NoAgents"]</MudText>
+  }
+}
+else
+{
+  <MudPaper Class="pa-3 mb-3 qa-card" Elevation="1" data-testid="metrics-controls">
+    <MudText Typo="Typo.subtitle2" Class="mb-1">@H.Format("Metrics.Agents", _selected.Count, MaxAgents)</MudText>
+    <div class="qh-agent-checks" data-testid="metrics-agents">
+      @foreach (AgentSummary agent in _agents)
+      {
+        <label class="qh-check">
+          <input type="checkbox"
+                 checked="@_selected.Contains(agent.Id)"
+                 disabled="@(!_selected.Contains(agent.Id) && _selected.Count >= MaxAgents)"
+                 @onchange="@(args => OnAgentToggledAsync(agent.Id, args.Value is true))"
+                 data-testid="@($"metrics-agent-{agent.Id}")" />
+          @agent.Name
+        </label>
+      }
+    </div>
+    <MudGrid Spacing="2" Class="mt-1">
+      <MudItem xs="12" md="5">
+        <SelectBox Label="@H["Metrics.Metric"]" Value="@_metric" ValueChanged="OnMetricChangedAsync" Disabled="@(_metrics.Count == 0)" TestId="metrics-metric">
+          <option value="" selected="@(_metric.Length == 0)">@H["Metrics.Metric.Choose"]</option>
+          @foreach (LatestMetric metric in _metrics)
+          {
+            <option value="@metric.MetricId" selected="@(metric.MetricId == _metric)">@metric.MetricId@(string.IsNullOrEmpty(metric.Unit) ? string.Empty : " (" + metric.Unit + ")")</option>
+          }
+        </SelectBox>
+      </MudItem>
+      <MudItem xs="6" md="4">
+        <SelectBox Label="@H["Metrics.Range"]" Value="@_range" ValueChanged="OnRangeChangedAsync" TestId="metrics-range">
+          @foreach (string key in MetricRanges.All.Select(range => range.Key))
+          {
+            <option value="@key" selected="@(key == _range)">@H["Metrics.Range." + key]</option>
+          }
+        </SelectBox>
+      </MudItem>
+      <MudItem xs="6" md="3">
+        <SelectBox Label="@H["Metrics.Resolution"]" Value="@_resolution" ValueChanged="OnResolutionChangedAsync" TestId="metrics-resolution">
+          @foreach (string resolution in MetricRanges.Resolutions)
+          {
+            <option value="@resolution" selected="@(resolution == _resolution)">@H["Metrics.Resolution." + resolution]</option>
+          }
+        </SelectBox>
+      </MudItem>
+    </MudGrid>
+  </MudPaper>
+
+  @if (_selected.Count == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="metrics-select-agents">@H["Metrics.SelectAgents"]</MudText>
+  }
+  else if (_metrics.Count == 0 && !_loadingMetrics)
+  {
+    <MudText Color="Color.Secondary" data-testid="metrics-no-metrics">@H["Metrics.NoMetrics"]</MudText>
+  }
+  else if (_metric.Length == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="metrics-select-metric">@H["Metrics.SelectMetric"]</MudText>
+  }
+  else if (_querying && _chart is null)
+  {
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+  }
+  else if (_chart is not null)
+  {
+    <MudPaper Class="pa-4 mb-3 qa-card" Elevation="1" data-testid="metrics-result" data-resolution="@_chart.Resolution">
+      <MudText Typo="Typo.h6" Class="mb-1" data-testid="metrics-chart-title">@_shownMetric@(string.IsNullOrEmpty(_chart.Unit) ? string.Empty : " (" + _chart.Unit + ")")</MudText>
+      <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2" data-testid="metrics-resolution-used">@H.Format("Metrics.ResolutionUsed", H["Metrics.Resolution." + _chart.Resolution])</MudText>
+      @if (_chart.HasLines)
+      {
+        <MetricComparisonChart Model="_chart" Label="@H.Format("Metrics.ChartLabel", _shownMetric)" />
+      }
+      else
+      {
+        <MudText Color="Color.Secondary" data-testid="metrics-no-data">@H["Metrics.NoData"]</MudText>
+      }
+
+      <MudSimpleTable Dense="true" Hover="true" Class="mt-2" data-testid="metrics-table">
+        <thead>
+          <tr>
+            <th>@H["Fleet.Column.Name"]</th>
+            <th>@H["Metrics.Latest"]</th>
+            <th>@H["Metrics.Min"]</th>
+            <th>@H["Metrics.Avg"]</th>
+            <th>@H["Metrics.Max"]</th>
+            <th>@H["Metrics.Points"]</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (ChartSeries line in _chart.Series)
+          {
+            <tr @key="line.AgentId" data-testid="@($"metrics-row-{line.AgentId}")">
+              <td><span class="@($"qh-swatch qh-series-{line.Slot % 8}")"></span> @line.AgentName</td>
+              <td data-testid="@($"metrics-latest-{line.AgentId}")">@Value(line.Latest)</td>
+              <td>@Value(line.Minimum)</td>
+              <td>@Value(line.Average)</td>
+              <td>@Value(line.Maximum)</td>
+              <td>
+                @line.PointCount
+                @if (line.Truncated)
+                {
+                  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" data-testid="@($"metrics-truncated-{line.AgentId}")">@H["Metrics.Truncated"]</MudChip>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    </MudPaper>
+  }
+}
+
+@code {
+  /// <summary>The most PCs one query may name (the limit of the hub).</summary>
+  private const int MaxAgents = 50;
+
+  private readonly HashSet<string> _selected = new(StringComparer.Ordinal);
+  private IReadOnlyList<AgentSummary> _agents = [];
+  private IReadOnlyList<LatestMetric> _metrics = [];
+  private MetricChartModel? _chart;
+  private string _metric = string.Empty;
+  private string _shownMetric = string.Empty;
+  private string _range = MetricRanges.Default;
+  private string _resolution = "auto";
+  private bool _loadingAgents = true;
+  private bool _loadingMetrics;
+  private bool _querying;
+  private int _version;
+
+  /// <summary>A PC to select when the page opens (<c>?agent=</c>), for a link from the page of a PC.</summary>
+  [Parameter]
+  [SupplyParameterFromQuery(Name = "agent")]
+  public string? AgentId { get; set; }
+
+  /// <summary>A metric to select when the page opens (<c>?metric=</c>).</summary>
+  [Parameter]
+  [SupplyParameterFromQuery(Name = "metric")]
+  public string? MetricId { get; set; }
+
+  protected override async Task OnInitializedAsync()
+  {
+    AgentList? list = null;
+    if (await TryAsync(async () => list = await Api.GetAgentsAsync()) && list is not null)
+    {
+      _agents = [.. list.Agents.Where(agent => agent.Status == "enrolled").OrderBy(agent => agent.Name, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    _loadingAgents = false;
+    if (AgentId is { } preselected && _agents.Any(agent => agent.Id == preselected))
+    {
+      _selected.Add(preselected);
+      _metric = MetricId ?? string.Empty;
+      await LoadMetricsAsync();
+      await QueryAsync();
+    }
+  }
+
+  private string Value(double? value) => value is { } number ? number.ToString("0.##", L.Culture) : L["Common.Unavailable"];
+
+  private async Task OnAgentToggledAsync(string id, bool selected)
+  {
+    if (selected)
+    {
+      _selected.Add(id);
+    }
+    else
+    {
+      _selected.Remove(id);
+    }
+
+    await LoadMetricsAsync();
+    await QueryAsync();
+  }
+
+  private async Task OnMetricChangedAsync(string metric)
+  {
+    _metric = metric;
+    await QueryAsync();
+  }
+
+  private async Task OnRangeChangedAsync(string range)
+  {
+    _range = range;
+    await QueryAsync();
+  }
+
+  private async Task OnResolutionChangedAsync(string resolution)
+  {
+    _resolution = resolution;
+    await QueryAsync();
+  }
+
+  /// <summary>Offers the metrics that the hub has stored for the selected PCs: the numeric and boolean ones, which are the ones a chart can draw.</summary>
+  private async Task LoadMetricsAsync()
+  {
+    _loadingMetrics = true;
+    string[] ids = [.. _selected];
+    var found = new Dictionary<string, LatestMetric>(StringComparer.Ordinal);
+    bool ok = await TryAsync(async () =>
+    {
+      AgentMetricList[] lists = await Task.WhenAll(ids.Select(id => Api.GetAgentMetricsAsync(id)));
+      foreach (LatestMetric metric in lists.SelectMany(list => list.Metrics))
+      {
+        if (metric.ValueType is "number" or "bool")
+        {
+          found.TryAdd(metric.MetricId, metric);
+        }
+      }
+    });
+    if (ok)
+    {
+      _metrics = [.. found.Values.OrderBy(metric => metric.MetricId, StringComparer.Ordinal)];
+      if (_metric.Length > 0 && !found.ContainsKey(_metric))
+      {
+        _metric = string.Empty;
+        _chart = null;
+      }
+    }
+
+    _loadingMetrics = false;
+  }
+
+  private async Task QueryAsync()
+  {
+    if (_selected.Count == 0 || _metric.Length == 0)
+    {
+      _chart = null;
+      return;
+    }
+
+    // Answers can come back in another order than the questions were asked: only the newest question may show its answer.
+    int version = ++_version;
+    string metric = _metric;
+    (string Id, string Name)[] agents = [.. _agents.Where(agent => _selected.Contains(agent.Id)).Select(agent => (agent.Id, agent.Name))];
+    DateTimeOffset to = Options.Time.GetUtcNow();
+    DateTimeOffset from = to - MetricRanges.LengthOf(_range);
+    var query = new MetricQueryParameters([.. agents.Select(agent => agent.Id)], [metric], from, to, _resolution == "auto" ? null : _resolution);
+    MetricQueryResult? result = null;
+    _querying = true;
+    bool ok = await TryAsync(async () => result = await Api.QueryMetricsAsync(query));
+    if (version != _version)
+    {
+      return;
+    }
+
+    _querying = false;
+    if (ok && result is not null)
+    {
+      _chart = MetricChartModel.Build(result, metric, agents);
+      _shownMetric = metric;
+    }
+  }
+}

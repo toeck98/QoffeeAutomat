@@ -637,7 +637,7 @@ async def test_the_flow_shows_the_enrollment_string_and_creates_the_entry(
     flow = hass.config_entries.flow
     result = await flow.async_init(DOMAIN, context={"source": "user"})
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["manual", "reverse"]
+    assert result["menu_options"] == ["manual", "reverse", "hub"]
     result = await flow.async_configure(result["flow_id"], {"next_step_id": "reverse"})
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "reverse"

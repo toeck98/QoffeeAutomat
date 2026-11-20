@@ -1,0 +1,49 @@
+# QoffeeAutomat hub with Docker Compose (PLAN.md S20, task T918). Documentation: docs/user/hub/docker.md.
+#
+#   cp .env.example .env        # optional: change the version, the name, the port, the TLS mode
+#   docker compose up -d
+#   docker compose logs hub     # the one-time setup token of the first run is printed here
+#
+# The hub then listens on https://<host>:8490 with a self-signed certificate. Agents, Home Assistant and the
+# browser connect to that port. All state (database, keys, certificate) lives in the volume "hub-data".
+
+name: qoffeeautomat-hub
+
+services:
+  hub:
+    # Pin a release (for example 0.2.0) in .env for production; "latest" follows the newest stable release.
+    image: ghcr.io/toeck98/qoffeeautomat-hub:${QOFFEE_HUB_VERSION:-latest}
+    # To build the image from a checkout of the repository instead, use:
+    # build:
+    #   context: ../..
+    #   dockerfile: packaging/hub/Dockerfile
+    container_name: qoffeeautomat-hub
+    restart: unless-stopped
+    stop_grace_period: 40s
+    ports:
+      - "${QOFFEE_HUB_PUBLISHED_PORT:-8490}:8490"
+    environment:
+      QOFFEE_HUB_NAME: ${QOFFEE_HUB_NAME:-QoffeeAutomat Hub}
+      # selfsigned (default) | certificate | none. "none" serves plain HTTP and needs QOFFEE_HUB_TRUSTED_PROXIES.
+      QOFFEE_HUB_TLS: ${QOFFEE_HUB_TLS:-selfsigned}
+      QOFFEE_HUB_TRUSTED_PROXIES: ${QOFFEE_HUB_TRUSTED_PROXIES:-}
+      QOFFEE_HUB_LOG_FORMAT: ${QOFFEE_HUB_LOG_FORMAT:-json}
+      QOFFEE_HUB_METRICS_INTERVAL: ${QOFFEE_HUB_METRICS_INTERVAL:-60}
+      QOFFEE_HUB_RETENTION_RAW_HOURS: ${QOFFEE_HUB_RETENTION_RAW_HOURS:-48}
+      QOFFEE_HUB_RETENTION_5M_DAYS: ${QOFFEE_HUB_RETENTION_5M_DAYS:-30}
+      QOFFEE_HUB_RETENTION_1H_DAYS: ${QOFFEE_HUB_RETENTION_1H_DAYS:-730}
+    volumes:
+      - hub-data:/data
+      # Own certificate (QOFFEE_HUB_TLS=certificate): mount it read-only and set QOFFEE_HUB_TLS_CERT and
+      # QOFFEE_HUB_TLS_KEY (or QOFFEE_HUB_TLS_PASSWORD_FILE for a PKCS#12 file) to the paths in the container.
+      # - ./certs:/certs:ro
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # The image defines the health check (GET /healthz); override it here only to tune the timing.
+    # healthcheck:
+    #   interval: 30s
+
+volumes:
+  hub-data:

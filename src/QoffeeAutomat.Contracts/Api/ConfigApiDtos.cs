@@ -202,6 +202,7 @@ public sealed record HardwareSensorStatus(
 /// <param name="ActiveRuns">The number of runs that have not finished.</param>
 /// <param name="ManifestRev">The revision of the manifest.</param>
 /// <param name="ConfigProblems">The number of configuration files that are skipped because they are invalid.</param>
+/// <param name="Hub">The hub link (T905); absent from an agent without hub support.</param>
 public sealed record AgentStatus(
     string Version,
     string AgentId,
@@ -214,4 +215,5 @@ public sealed record AgentStatus(
     bool Paused,
     int ActiveRuns,
     string ManifestRev,
-    int ConfigProblems);
+    int ConfigProblems,
+    HubLinkStatus? Hub = null);

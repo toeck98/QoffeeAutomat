@@ -29,6 +29,22 @@ public enum AgentVerb
     /// PLAN.md S17, T803).
     /// </summary>
     SessionHost,
+
+    /// <summary>Joins or leaves the central hub, or reports the hub link of the running agent: <c>hub join &lt;string&gt;</c>, <c>hub leave</c>, <c>hub status</c> (PLAN.md S20, T905). Needs a local administrator or root.</summary>
+    Hub,
+}
+
+/// <summary>What the verb <c>hub</c> does.</summary>
+public enum HubAction
+{
+    /// <summary><c>hub join &lt;enrollment string&gt;</c>.</summary>
+    Join,
+
+    /// <summary><c>hub leave [--documents convert|remove]</c>.</summary>
+    Leave,
+
+    /// <summary><c>hub status</c>.</summary>
+    Status,
 }
 
 /// <summary>What the verb <c>state</c> does.</summary>
@@ -56,6 +72,9 @@ public enum StateAction
 /// <param name="StateAction">Whether the verb <c>state</c> sets or reads a value.</param>
 /// <param name="StateSensorId">The sensor id of the verb <c>state</c>.</param>
 /// <param name="StateValue">The value of <c>state set</c>, as typed (the agent converts it to the type of the sensor).</param>
+/// <param name="HubAction">Whether the verb <c>hub</c> joins, leaves or reports.</param>
+/// <param name="HubEnrollment">The enrollment string of <c>hub join</c>, or <c>-</c> to read it from standard input (it contains a token, which a process list would show).</param>
+/// <param name="HubDocuments">The value of <c>--documents</c> of <c>hub leave</c>: <c>convert</c> or <c>remove</c>.</param>
 public sealed record AgentOptions(
     AgentVerb Verb = AgentVerb.Run,
     string? DataDir = null,
@@ -70,7 +89,10 @@ public sealed record AgentOptions(
     string? EventData = null,
     StateAction? StateAction = null,
     string? StateSensorId = null,
-    string? StateValue = null)
+    string? StateValue = null,
+    HubAction? HubAction = null,
+    string? HubEnrollment = null,
+    string? HubDocuments = null)
 {
     /// <summary>The platforms that <c>--platform</c> accepts.</summary>
     public static readonly IReadOnlyList<string> KnownPlatforms = ["auto", "simulated", "windows", "linux"];
@@ -86,7 +108,7 @@ public static class CommandLine
 {
     /// <summary>The usage text.</summary>
     public const string Usage = """
-        Usage: qoffeeautomat [run|version|service|emit|state|reset-password|session-host] [options]
+        Usage: qoffeeautomat [run|version|service|emit|state|hub|reset-password|session-host] [options]
 
         Verbs:
           run                  Run the agent (default).
@@ -102,6 +124,13 @@ public static class CommandLine
                                checked against the value type and the options of the sensor and published
                                at once. A value that starts with '-' goes after '--'.
           state get <id>       Print the value of a sensor of type 'state'.
+          hub join <string>    Join the central hub with the enrollment string (qahub1.<code>) that the hub shows. This
+                               gives the hub full control over this PC. Use '-' as the string to read it from
+                               standard input. Needs a local administrator (Windows) or root (Linux).
+          hub leave [--documents convert|remove]
+                               Leave the hub; the credential is deleted and the hub link stops.
+          hub status           Print the state of the hub link: not_joined, pending, connected, disconnected or
+                               revoked.
           reset-password      Write a new setup token file so that a new password can be set in the
                                UI. Needs a local administrator (Windows) or root (Linux).
           session-host         Run the session helper of the logged-in user (Linux build). It is started by
@@ -134,6 +163,9 @@ public static class CommandLine
         StateAction? stateAction = null;
         string? stateSensorId = null;
         string? stateValue = null;
+        HubAction? hubAction = null;
+        string? hubEnrollment = null;
+        string? hubDocuments = null;
         bool onlyPositional = false;
         var verbArguments = new List<string>();
         var passThrough = new List<string>();
@@ -173,6 +205,18 @@ public static class CommandLine
                 }
 
                 eventName = argument;
+                continue;
+            }
+
+            // hub <join|leave|status> [<string>]: the enrollment string may be '-' (standard input).
+            if (verbSeen && verb == AgentVerb.Hub && (!argument.StartsWith('-') || argument == "-"))
+            {
+                string? problem = TakeHubArgument(argument, ref hubAction, ref hubEnrollment);
+                if (problem is not null)
+                {
+                    return Fail(problem);
+                }
+
                 continue;
             }
 
@@ -231,6 +275,19 @@ public static class CommandLine
                     }
 
                     break;
+                case "--documents":
+                    if (verb != AgentVerb.Hub || hubAction != HubAction.Leave)
+                    {
+                        return Fail("--documents belongs to the hub leave verb: hub leave --documents convert|remove.");
+                    }
+
+                    if (!TryTakeValue(args, ref index, inlineValue, out hubDocuments)
+                        || hubDocuments is not ("convert" or "remove"))
+                    {
+                        return Fail("--documents must be convert or remove.");
+                    }
+
+                    break;
                 case "--data":
                     if (verb != AgentVerb.Emit)
                     {
@@ -277,6 +334,19 @@ public static class CommandLine
             }
         }
 
+        if (verb == AgentVerb.Hub && !showHelp)
+        {
+            if (hubAction is null)
+            {
+                return Fail("hub needs an action: hub join <string>, hub leave or hub status.");
+            }
+
+            if (hubAction == HubAction.Join && hubEnrollment is null)
+            {
+                return Fail("hub join needs the enrollment string: hub join <string>.");
+            }
+        }
+
         return new AgentOptions(
             verb,
             dataDir,
@@ -291,7 +361,10 @@ public static class CommandLine
             eventData,
             stateAction,
             stateSensorId,
-            stateValue);
+            stateValue,
+            hubAction,
+            hubEnrollment,
+            hubDocuments);
     }
 
     private static AgentOptions Fail(string message) => new(Error: message);
@@ -332,10 +405,45 @@ public static class CommandLine
         return $"state {StateActionName(action.Value)} takes {(action == StateAction.Set ? "an id and a value" : "one id")}; '{argument}' is extra. Try --help.";
     }
 
+    /// <summary>Takes the next positional argument of the verb <c>hub</c>: the action, then (for <c>join</c>) the enrollment string.</summary>
+    /// <returns>A message when the argument is not allowed; null otherwise.</returns>
+    private static string? TakeHubArgument(string argument, ref HubAction? action, ref string? enrollment)
+    {
+        if (action is null)
+        {
+            switch (argument.ToLowerInvariant())
+            {
+                case "join":
+                    action = HubAction.Join;
+                    return null;
+                case "leave":
+                    action = HubAction.Leave;
+                    return null;
+                case "status":
+                    action = HubAction.Status;
+                    return null;
+                default:
+                    return $"Unknown hub action '{argument}'; use 'join', 'leave' or 'status'. Try --help.";
+            }
+        }
+
+        if (action == HubAction.Join && enrollment is null)
+        {
+            enrollment = argument;
+            return null;
+        }
+
+        // The argument is not echoed: it may be an enrollment string with a token.
+        return $"hub {action.Value.ToString().ToLowerInvariant()} takes {(action == HubAction.Join ? "one enrollment string" : "no argument")}; there is an extra argument. Try --help.";
+    }
+
     private static bool TryParseVerb(string text, out AgentVerb verb)
     {
         switch (text.ToLowerInvariant())
         {
+            case "hub":
+                verb = AgentVerb.Hub;
+                return true;
             case "run":
                 verb = AgentVerb.Run;
                 return true;

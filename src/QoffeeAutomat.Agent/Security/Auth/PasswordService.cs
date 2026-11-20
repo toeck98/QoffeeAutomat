@@ -1,5 +1,6 @@
 using System.Globalization;
 using QoffeeAutomat.Core.Secrets;
+using QoffeeAutomat.Core.Security;
 
 namespace QoffeeAutomat.Agent.Security.Auth;
 

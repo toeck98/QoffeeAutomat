@@ -1,0 +1,176 @@
+@page "/profiles"
+@using QoffeeAutomat.Hub.Ui.Pages.Library
+@using QoffeeAutomat.Hub.Ui.Pages.Profiles
+@inherits HubComponentBase
+
+@* The profiles (PLAN.md S20, T916): named sets of library documents, variables and policy, with a draft and published revisions. Everybody may look at
+   them; creating and deleting one needs an administrator. A profile reaches PCs only through an assignment and only after it was published. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@H["Profiles.Title"]</MudText>
+  <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" data-testid="profiles-refresh">@H["Fleet.Refresh"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@H["Profiles.Intro"]</MudText>
+
+<HubErrorDisplay Error="Error" OnRetry="LoadAsync" Class="mb-4" />
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="profiles-notice">@_notice</MudAlert>
+}
+
+@if (Can(HubRoleNames.Admin))
+{
+  <MudPaper Class="pa-4 mb-3 qa-card" Elevation="1" data-testid="profile-create-form">
+    <MudText Typo="Typo.h6" Class="mb-2">@H["Profiles.New"]</MudText>
+    <MudGrid Spacing="2">
+      <MudItem xs="12" md="4">
+        <div data-testid="profile-new-id">
+          <MudTextField T="string" @bind-Value="_newId" Immediate="true" Label="@H["Profiles.Id"]" HelperText="@H["Profiles.IdHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="12" md="5">
+        <div data-testid="profile-new-name">
+          <MudTextField T="string" @bind-Value="_newName" Immediate="true" Label="@H["Profiles.Name"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+      </MudItem>
+      <MudItem xs="12" md="3" Class="d-flex align-center">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="Busy" OnClick="CreateAsync" data-testid="profile-create">@H["Profiles.Create"]</MudButton>
+      </MudItem>
+    </MudGrid>
+  </MudPaper>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_profiles.Count == 0)
+{
+  if (Error is null)
+  {
+    <MudText Color="Color.Secondary" data-testid="profiles-none">@H["Profiles.None"]</MudText>
+  }
+}
+else
+{
+  <MudPaper Class="qa-card mb-2" Elevation="1">
+    <MudSimpleTable Dense="true" Hover="true" data-testid="profiles-table">
+      <thead>
+        <tr>
+          <th>@H["Profiles.Column.Name"]</th>
+          <th>@H["Profiles.Column.Priority"]</th>
+          <th>@H["Profiles.Column.Os"]</th>
+          <th>@H["Profiles.Column.Documents"]</th>
+          <th>@H["Profiles.Column.Policy"]</th>
+          <th>@H["Profiles.Column.Revision"]</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (ProfileInfo profile in _profiles)
+        {
+          <tr @key="profile.Id" data-testid="@($"profile-row-{profile.Id}")">
+            <td>
+              <MudLink Href="@("profiles/" + Uri.EscapeDataString(profile.Id))" data-testid="@($"profile-open-{profile.Id}")">@profile.Draft.Name</MudLink>
+              <MudText Typo="Typo.caption" Color="Color.Secondary"><code>@profile.Id</code></MudText>
+            </td>
+            <td>@profile.Draft.Priority</td>
+            <td>@(string.IsNullOrEmpty(profile.Draft.OsFilter) ? H["Profile.Os.any"] : profile.Draft.OsFilter)</td>
+            <td>@profile.Draft.Items.Count</td>
+            <td>
+              <span>@H["Profile.LocalConfig"]: @H[ProfileDraft.PolicyKey(profile.Draft.Policy.LocalConfig)]</span><br />
+              <span>@H["Profile.DirectLink"]: @H[ProfileDraft.PolicyKey(profile.Draft.Policy.DirectLink)]</span>
+            </td>
+            <td>
+              @if (profile.ActiveRevision is { } active)
+              {
+                <span data-testid="@($"profile-active-{profile.Id}")">@H.Format("Profiles.Active", active)</span>
+              }
+              else
+              {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" data-testid="@($"profile-unpublished-{profile.Id}")">@H["Profiles.NotPublished"]</MudChip>
+              }
+              @if (profile.HasUnpublishedChanges && profile.ActiveRevision is not null)
+              {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" data-testid="@($"profile-changes-{profile.Id}")">@H["Profiles.Changes"]</MudChip>
+              }
+            </td>
+            <td class="qa-row-actions">
+              @if (Can(HubRoleNames.Admin))
+              {
+                if (_deleting == profile.Id)
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" Disabled="Busy" OnClick="@(() => DeleteAsync(profile))" data-testid="@($"profile-delete-confirm-{profile.Id}")">@H["Common.Confirm"]</MudButton>
+                  <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _deleting = null)">@H["Common.Cancel"]</MudButton>
+                }
+                else
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => _deleting = profile.Id)" data-testid="@($"profile-delete-{profile.Id}")">@H["Library.Delete"]</MudButton>
+                }
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  </MudPaper>
+  @if (_deleting is not null)
+  {
+    <MudText Typo="Typo.caption" Color="Color.Warning" data-testid="profile-delete-warning">@H["Profiles.DeleteWarning"]</MudText>
+  }
+}
+
+@code {
+  private IReadOnlyList<ProfileInfo> _profiles = [];
+  private string? _newId;
+  private string? _newName;
+  private string? _deleting;
+  private string? _notice;
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    ProfileList? list = null;
+    if (await TryAsync(async () => list = await Api.GetProfilesAsync()) && list is not null)
+    {
+      _profiles = [.. list.Profiles.OrderBy(profile => profile.Id, StringComparer.Ordinal)];
+    }
+
+    _loading = false;
+  }
+
+  private async Task CreateAsync()
+  {
+    _notice = null;
+    string id = _newId?.Trim() ?? string.Empty;
+    string name = _newName?.Trim() ?? string.Empty;
+    if (!LibraryKinds.IsValidDocumentId(id) || name.Length == 0)
+    {
+      Error = new ApiException(422, new ApiProblem("about:blank", "Invalid", 422, H["Profiles.CreateInvalid"], "validation_failed"));
+      return;
+    }
+
+    ProfileInfo? created = null;
+    if (await TryAsync(async () => created = await Api.CreateProfileAsync(ProfileDraft.ToCreateRequest(id, name))) && created is not null)
+    {
+      _newId = null;
+      _newName = null;
+      Navigation.NavigateTo("profiles/" + Uri.EscapeDataString(created.Id));
+    }
+  }
+
+  private async Task DeleteAsync(ProfileInfo profile)
+  {
+    _notice = null;
+    _deleting = null;
+    if (await TryAsync(() => Api.DeleteProfileAsync(profile.Id)))
+    {
+      _notice = H.Format("Profiles.Deleted", profile.Draft.Name);
+      await LoadAsync();
+    }
+  }
+}
