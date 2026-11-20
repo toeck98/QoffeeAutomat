@@ -11,6 +11,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Protocol
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
@@ -126,10 +127,20 @@ def _configuration_url(ui_url: str | None) -> str | None:
 
 @callback
 def register_device(
-    hass: HomeAssistant, config_entry_id: str, agent: AgentInfo
+    hass: HomeAssistant,
+    config_entry_id: str,
+    agent: AgentInfo,
+    *,
+    via_identifier: tuple[str, str] | None = None,
 ) -> dr.DeviceEntry:
-    """Create or update the device of the PC (PLAN.md S10)."""
-    return dr.async_get(hass).async_get_or_create(
+    """Create or update the device of the PC (PLAN.md S10).
+
+    ``via_identifier`` is the identifier of the device that the PC is reached through:
+    the hub device of a PC on the hub route (S20). Without one the device has no parent,
+    which also removes the parent that a hub route left behind.
+    """
+    registry = dr.async_get(hass)
+    device = registry.async_get_or_create(
         config_entry_id=config_entry_id,
         identifiers={(DOMAIN, agent.id)},
         connections={
@@ -138,21 +149,70 @@ def register_device(
         name=agent.name,
         manufacturer=MANUFACTURER,
         model=MODEL,
-        sw_version=agent.version,
+        sw_version=agent.version or None,
         configuration_url=_configuration_url(agent.ui_url),
     )
+    parent = (
+        registry.async_get_device_by_identifier(via_identifier, config_entry_id)
+        if via_identifier is not None
+        else None
+    )
+    wanted = parent.id if parent is not None else None
+    if device.via_device_id != wanted:
+        device = registry.async_update_device(device.id, via_device_id=wanted) or device
+    return device
+
+
+class MacStore(Protocol):
+    """Where the MAC addresses of one PC are kept between runs (T703)."""
+
+    def get(self) -> list[str]:
+        """Return the stored addresses."""
+
+    def put(self, macs: list[str]) -> None:
+        """Store other addresses."""
+
+
+class _EntryMacStore:
+    """The MAC addresses in the data of the config entry of a directly reached PC."""
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self._hass = hass
+        self._entry = entry
+
+    def get(self) -> list[str]:
+        return list(self._entry.data.get(CONF_MACS, ()))
+
+    def put(self, macs: list[str]) -> None:
+        self._hass.config_entries.async_update_entry(
+            self._entry, data={**self._entry.data, CONF_MACS: macs}
+        )
 
 
 class ManifestManager:
     """Fetch, cache and diff the manifest of one agent."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, client: LinkClient
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        client: LinkClient,
+        *,
+        macs: MacStore | None = None,
+        via_identifier: tuple[str, str] | None = None,
     ) -> None:
-        """Create the manager; call :meth:`async_load` once the client is connected."""
+        """Create the manager; call :meth:`async_load` once the client is connected.
+
+        The defaults are those of a PC with an entry of its own: its MAC addresses are
+        kept in the entry and its device has no parent. A PC on the hub route passes its
+        own store and the identifier of the hub device.
+        """
         self._hass = hass
         self._entry = entry
         self._client = client
+        self._macs: MacStore = macs or _EntryMacStore(hass, entry)
+        self._via_identifier = via_identifier
+        self._device_id: str | None = None
         self._manifest: Manifest | None = None
         self._listeners: list[DiffListener] = []
         self._lock = asyncio.Lock()
@@ -242,7 +302,12 @@ class ManifestManager:
             if previous is not None and previous.rev == fetched.rev:
                 return False
             self._manifest = fetched
-            register_device(self._hass, self._entry.entry_id, fetched.agent)
+            self._device_id = register_device(
+                self._hass,
+                self._entry.entry_id,
+                fetched.agent,
+                via_identifier=self._via_identifier,
+            ).id
             self._store_macs(fetched.agent.macs)
             # The first manifest of a direct entry arrives before any platform listens;
             # for a deferred one the platforms are waiting for it.
@@ -260,12 +325,10 @@ class ManifestManager:
         missing from the list, and the stored addresses are still the ones to wake.
         """
         normalized = list(dict.fromkeys(normalize_mac(mac) for mac in macs))
-        previous = list(self._entry.data.get(CONF_MACS, ()))
+        previous = self._macs.get()
         if not normalized or normalized == previous:
             return
-        self._hass.config_entries.async_update_entry(
-            self._entry, data={**self._entry.data, CONF_MACS: normalized}
-        )
+        self._macs.put(normalized)
         if not previous and self._entry.state is ConfigEntryState.LOADED:
             # The button only exists once there are addresses; the platforms are
             # already set up, so load them again.
@@ -295,6 +358,14 @@ class ManifestManager:
             er.async_entries_for_config_entry(registry, self._entry.entry_id)
         ):
             if not registered.unique_id.startswith(prefix):
+                continue
+            if (
+                self._device_id is not None
+                and registered.device_id is not None
+                and registered.device_id != self._device_id
+            ):
+                # An entry of a hub holds the PCs of several devices, and the id of one
+                # PC can be the beginning of the id of another.
                 continue
             key = registered.unique_id[len(prefix) :]
             if key.startswith(RESERVED_KEY_PREFIX):

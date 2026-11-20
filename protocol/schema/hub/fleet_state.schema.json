@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/fleet_state.schema.json",
+  "title": "state (agent-scoped)",
+  "description": "Hub to client, fleet link (PLAN.md S20): state of S07 plus the agent id a.",
+  "allOf": [
+    { "$ref": "../state.schema.json" },
+    {
+      "type": "object",
+      "required": ["a"],
+      "properties": { "a": { "$ref": "defs.schema.json#/$defs/agent_id" } }
+    }
+  ]
+}

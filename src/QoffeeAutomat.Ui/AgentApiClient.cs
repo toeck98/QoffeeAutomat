@@ -18,9 +18,9 @@ namespace QoffeeAutomat.Ui;
 /// anti-forgery header; bodies are read and written with the source-generated <see cref="ApiJsonContext"/> (no
 /// reflection); and every error answer becomes an <see cref="ApiException"/> that carries the problem details.
 /// </summary>
-public sealed class AgentApiClient : IAgentApi
+public class AgentApiClient : IAgentApi
 {
-    private const string ApiBase = "api/v1/";
+    private const string DefaultApiBase = "api/v1/";
     private const string EventStreamMediaType = "text/event-stream";
 
     private readonly HttpClient _http;
@@ -34,8 +34,14 @@ public sealed class AgentApiClient : IAgentApi
         _http = http;
     }
 
+    /// <summary>
+    /// The path below the base address that every call starts with; it ends with a slash. A derived client that reaches the
+    /// management API of an agent by another route (the tunnel of the hub, PLAN.md S20) overrides it.
+    /// </summary>
+    protected virtual string ApiBase => DefaultApiBase;
+
     /// <inheritdoc />
-    public async Task<SetupState?> GetSetupStateAsync(CancellationToken cancellationToken = default)
+    public virtual async Task<SetupState?> GetSetupStateAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -48,7 +54,7 @@ public sealed class AgentApiClient : IAgentApi
     }
 
     /// <inheritdoc />
-    public Task<AuthMeResponse> SetUpAsync(SetupRequest request, CancellationToken cancellationToken = default)
+    public virtual Task<AuthMeResponse> SetUpAsync(SetupRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -56,7 +62,7 @@ public sealed class AgentApiClient : IAgentApi
     }
 
     /// <inheritdoc />
-    public Task<AuthMeResponse> LogInAsync(LoginRequest request, CancellationToken cancellationToken = default)
+    public virtual Task<AuthMeResponse> LogInAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -64,13 +70,13 @@ public sealed class AgentApiClient : IAgentApi
     }
 
     /// <inheritdoc />
-    public async Task LogOutAsync(CancellationToken cancellationToken = default)
+    public virtual async Task LogOutAsync(CancellationToken cancellationToken = default)
     {
         using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "auth/logout", null, HttpCompletionOption.ResponseContentRead, streaming: false, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<AuthMeResponse?> GetMeAsync(CancellationToken cancellationToken = default)
+    public virtual async Task<AuthMeResponse?> GetMeAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -86,6 +92,12 @@ public sealed class AgentApiClient : IAgentApi
     public Task<AgentStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
         return GetAsync("status", ApiJsonContext.Default.AgentStatus, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<HubConfigState> GetHubConfigAsync(CancellationToken cancellationToken = default)
+    {
+        return GetAsync("hub/config", ApiJsonContext.Default.HubConfigState, cancellationToken);
     }
 
     /// <inheritdoc />

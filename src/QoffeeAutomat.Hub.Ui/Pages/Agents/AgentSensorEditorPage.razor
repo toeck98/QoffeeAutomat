@@ -1,0 +1,18 @@
+@page "/agents/{AgentId}/sensors/new"
+@page "/agents/{AgentId}/sensors/{SensorId}"
+@using QoffeeAutomat.Ui.Components.Pages.Sensors
+
+@* The sensor editor of the component library, for a sensor of the agent. *@
+<AgentPageFrame AgentId="@AgentId" Tab="sensors" MinRole="@HubRoleNames.Admin">
+  <SensorEditorPage Id="@SensorId" />
+</AgentPageFrame>
+
+@code {
+  /// <summary>The id of the agent.</summary>
+  [Parameter]
+  public string AgentId { get; set; } = string.Empty;
+
+  /// <summary>The id of the sensor; <c>null</c> on the page of a new sensor.</summary>
+  [Parameter]
+  public string? SensorId { get; set; }
+}

@@ -1,0 +1,7 @@
+{
+  "t": "mgmt_request",
+  "id": 21,
+  "method": "GET",
+  "path": "/api/v1/commands",
+  "principal": { "user": "alice", "role": "root" }
+}

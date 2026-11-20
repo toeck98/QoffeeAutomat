@@ -1,0 +1,9 @@
+{
+  "t": "config_documents",
+  "id": 12,
+  "generation": 7,
+  "documents": [
+    { "kind": "script", "id": "set_display_profile.ps1", "hash": "4444444444444444444444444444444444444444444444444444444444444444", "body": { "code": "Write-Output 1" } }
+  ],
+  "final": true
+}

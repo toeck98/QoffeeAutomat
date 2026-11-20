@@ -1,0 +1,302 @@
+@using System.Text.Json
+@using QoffeeAutomat.Hub.Ui.Pages.Fleet
+@inherits HubComponentBase
+
+@* What the hub knows about one agent (PLAN.md S20, T915): the registry record, whether and since when it is connected, its tags (an administrator
+   edits them), the generation of the configuration that it applied, the latest values and events, and the actions on the agent itself. *@
+@if (Context is { } context)
+{
+  AgentSummary agent = context.Detail.Agent;
+  AgentPresenceInfo presence = context.Detail.Presence;
+
+  <HubErrorDisplay Error="Error" Class="mb-4" />
+  if (_notice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="agent-notice">@_notice</MudAlert>
+  }
+
+  <MudGrid>
+    <MudItem xs="12" md="6">
+      <MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="agent-info">
+        <MudText Typo="Typo.h6" Class="mb-2">@H["Agent.Info"]</MudText>
+        <MudSimpleTable Dense="true">
+          <tbody>
+            <tr><th>@H["Agent.Hostname"]</th><td>@agent.Hostname</td></tr>
+            <tr><th>@H["Agent.System"]</th><td>@agent.Os @agent.OsVersion (@agent.Arch)</td></tr>
+            <tr><th>@H["Agent.Version"]</th><td>@agent.Version</td></tr>
+            <tr><th>@H["Agent.Macs"]</th><td>@string.Join(", ", agent.Macs)</td></tr>
+            <tr><th>@H["Agent.UiUrl"]</th><td>@(agent.UiUrl ?? L["Common.Unavailable"])</td></tr>
+            <tr><th>@H["Agent.EnrolledAt"]</th><td>@Time(agent.EnrolledAt)</td></tr>
+            <tr><th>@H["Agent.ApprovedAt"]</th><td>@Time(agent.ApprovedAt)</td></tr>
+            <tr><th>@H["Agent.LastSeen"]</th><td>@Time(agent.LastSeenAt)</td></tr>
+            <tr>
+              <th>@H["Agent.Credential"]</th>
+              <td>
+                @Time(agent.CredentialIssuedAt)
+                @if (agent.RotationPending)
+                {
+                  <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined" data-testid="rotation-pending">@H["Agent.RotationPending"]</MudChip>
+                }
+              </td>
+            </tr>
+          </tbody>
+        </MudSimpleTable>
+      </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+      <MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="agent-presence-card">
+        <MudText Typo="Typo.h6" Class="mb-2">@H["Agent.Connection"]</MudText>
+        <MudSimpleTable Dense="true">
+          <tbody>
+            <tr><th>@H["Agent.State"]</th><td>@(presence.Online ? H["Fleet.State.online"] : H["Fleet.State.offline"])</td></tr>
+            <tr><th>@H["Agent.ConnectedAt"]</th><td>@Time(presence.ConnectedAt)</td></tr>
+            <tr><th>@H["Agent.PowerState"]</th><td>@(H.Find("Agent.Power." + presence.PowerState) ?? presence.PowerState)</td></tr>
+            <tr><th>@H["Agent.Features"]</th><td>@string.Join(", ", presence.Features)</td></tr>
+          </tbody>
+        </MudSimpleTable>
+      </MudPaper>
+
+      <MudPaper Class="pa-4 qa-card mt-4" Elevation="1" data-testid="agent-tags">
+        <MudText Typo="Typo.h6" Class="mb-2">@H["Agent.Tags"]</MudText>
+        <span class="qh-tags mb-2">
+          @foreach (string tag in agent.Tags)
+          {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@tag</MudChip>
+          }
+          @if (agent.Tags.Count == 0)
+          {
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@H["Agent.NoTags"]</MudText>
+          }
+        </span>
+        @if (Can(HubRoleNames.Admin))
+        {
+          <MudTextField T="string" @bind-Value="_tags" Immediate="true" Label="@H["Agent.TagsEdit"]" HelperText="@H["Agent.TagsHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" data-testid="tags-input" />
+          <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="mt-2" Disabled="Busy" OnClick="SaveTagsAsync" data-testid="tags-save">@H["Agent.TagsSave"]</MudButton>
+        }
+      </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12">
+      <MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="agent-config">
+        <div class="qa-card-header">
+          <MudText Typo="Typo.h6">@H["Agent.Config"]</MudText>
+          @if (Can(HubRoleNames.Operator) && _config is not null)
+          {
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Disabled="Busy" OnClick="PushAsync" data-testid="config-push">@H["Agent.ConfigPush"]</MudButton>
+          }
+        </div>
+        @if (_config is null)
+        {
+          <MudText Color="Color.Secondary" data-testid="config-none">@H["Agent.ConfigNone"]</MudText>
+        }
+        else
+        {
+          <MudText data-testid="config-generation">
+            @H.Format("Agent.ConfigGenerations", _config.AppliedGeneration, _config.DesiredGeneration, _config.PushedGeneration)
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" data-rollout="@_config.State">@H["Rollout.State." + _config.State]</MudChip>
+          </MudText>
+          @if (_config.DeliveryError is not null)
+          {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-2" data-testid="config-delivery-error">@_config.DeliveryError</MudAlert>
+          }
+          @if (_config.Errors.Count > 0)
+          {
+            <ul class="qa-error-list" data-testid="config-errors">
+              @foreach (string line in _config.Errors)
+              {
+                <li>@line</li>
+              }
+            </ul>
+          }
+          @if (_config.Documents.Count > 0)
+          {
+            <MudSimpleTable Dense="true" Class="mt-2" data-testid="config-documents">
+              <thead><tr><th>@H["Agent.Document"]</th><th>@H["Agent.DocumentState"]</th></tr></thead>
+              <tbody>
+                @foreach (DocumentRollout document in _config.Documents)
+                {
+                  <tr><td>@document.Kind/@document.Id</td><td>@document.State</td></tr>
+                }
+              </tbody>
+            </MudSimpleTable>
+          }
+        }
+      </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+      <MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="agent-values">
+        <MudText Typo="Typo.h6" Class="mb-2">@H["Agent.Values"]</MudText>
+        @if (context.Detail.State is { } state && state.Values.Count > 0)
+        {
+          <MudSimpleTable Dense="true">
+            <tbody>
+              @foreach (KeyValuePair<string, JsonElement> value in state.Values.OrderBy(pair => pair.Key, StringComparer.Ordinal).Take(MaxValues))
+              {
+                <tr><th>@value.Key</th><td>@ValueText(value.Value)</td></tr>
+              }
+            </tbody>
+          </MudSimpleTable>
+        }
+        else
+        {
+          <MudText Color="Color.Secondary">@H["Agent.ValuesNone"]</MudText>
+        }
+      </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+      <MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="agent-events">
+        <MudText Typo="Typo.h6" Class="mb-2">@H["Agent.Events"]</MudText>
+        @if (context.Detail.Events.Count > 0)
+        {
+          <MudSimpleTable Dense="true">
+            <tbody>
+              @foreach (AgentEventInfo item in context.Detail.Events.Take(MaxEvents))
+              {
+                <tr><td>@Time(item.At)</td><td>@item.Type</td></tr>
+              }
+            </tbody>
+          </MudSimpleTable>
+        }
+        else
+        {
+          <MudText Color="Color.Secondary">@H["Agent.EventsNone"]</MudText>
+        }
+      </MudPaper>
+    </MudItem>
+
+    @if (Can(HubRoleNames.Admin))
+    {
+      <MudItem xs="12">
+        <MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="agent-admin">
+          <MudText Typo="Typo.h6" Class="mb-2">@H["Agent.Admin"]</MudText>
+          @if (_confirm is null)
+          {
+            <MudButton Variant="Variant.Outlined" Class="mr-2" Disabled="Busy" OnClick="@(() => _confirm = RotateAction)" data-testid="rotate">@H["Agent.Rotate"]</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="Busy" OnClick="@(() => _confirm = RemoveAction)" data-testid="remove">@H["Agent.Remove"]</MudButton>
+          }
+          else
+          {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-2" data-testid="confirm-text">@H.Format("Agent.Confirm." + _confirm, agent.Name)</MudAlert>
+            <MudButton Variant="Variant.Filled" Color="Color.Error" Class="mr-2" Disabled="Busy" OnClick="ConfirmAsync" data-testid="confirm-yes">@H["Common.Confirm"]</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => _confirm = null)" data-testid="confirm-no">@H["Common.Cancel"]</MudButton>
+          }
+        </MudPaper>
+      </MudItem>
+    }
+  </MudGrid>
+}
+
+@code {
+  private const string RotateAction = "rotate";
+  private const string RemoveAction = "remove";
+  private const int MaxValues = 12;
+  private const int MaxEvents = 10;
+
+  private AgentConfigStatusInfo? _config;
+  private string _tags = string.Empty;
+  private string? _confirm;
+  private string? _notice;
+  private string? _shownAgent;
+
+  /// <summary>The agent, from the frame.</summary>
+  [CascadingParameter]
+  public AgentContext? Context { get; set; }
+
+  protected override async Task OnParametersSetAsync()
+  {
+    if (Context is not { } context || _shownAgent == context.Detail.Agent.Id)
+    {
+      return;
+    }
+
+    _shownAgent = context.Detail.Agent.Id;
+    _tags = string.Join(", ", context.Detail.Agent.Tags);
+    await LoadConfigAsync(context.Detail.Agent.Id);
+  }
+
+  private static string ValueText(JsonElement value) => value.ValueKind == JsonValueKind.Null ? "n/a" : value.ToString();
+
+  private async Task LoadConfigAsync(string id)
+  {
+    // The roll-out is a nicety next to the registry data: when it cannot be read the card says so and the rest still shows.
+    try
+    {
+      RolloutOverview rollouts = await Api.GetRolloutsAsync();
+      _config = rollouts.Agents.FirstOrDefault(item => item.AgentId == id);
+    }
+    catch (ApiException exception) when (exception.IsUnauthorized)
+    {
+      HubSession.MarkSignedOut();
+    }
+    catch (ApiException)
+    {
+      _config = null;
+    }
+  }
+
+  private async Task SaveTagsAsync()
+  {
+    if (Context is not { } context)
+    {
+      return;
+    }
+
+    _notice = null;
+    string id = context.Detail.Agent.Id;
+    if (await TryAsync(() => Api.UpdateAgentTagsAsync(id, FleetFilter.ParseTags(_tags))))
+    {
+      _notice = H["Agent.TagsSaved"];
+      await context.ReloadAsync();
+      _shownAgent = null;
+    }
+  }
+
+  private async Task PushAsync()
+  {
+    if (Context is not { } context)
+    {
+      return;
+    }
+
+    _notice = null;
+    string id = context.Detail.Agent.Id;
+    AgentConfigStatusInfo? status = null;
+    if (await TryAsync(async () => status = await Api.PushConfigAsync(id)))
+    {
+      _config = status;
+      _notice = H["Agent.ConfigPushed"];
+    }
+  }
+
+  private async Task ConfirmAsync()
+  {
+    if (Context is not { } context || _confirm is null)
+    {
+      return;
+    }
+
+    string id = context.Detail.Agent.Id;
+    string action = _confirm;
+    _confirm = null;
+    _notice = null;
+    bool ok = action == RemoveAction
+        ? await TryAsync(() => Api.RemoveAgentAsync(id))
+        : await TryAsync(() => Api.RotateCredentialAsync(id));
+    if (!ok)
+    {
+      return;
+    }
+
+    if (action == RemoveAction)
+    {
+      Navigation.NavigateTo("agents");
+      return;
+    }
+
+    _notice = H["Agent.Rotated"];
+    await context.ReloadAsync();
+  }
+}

@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using QoffeeAutomat.Agent.Hosting;
 using QoffeeAutomat.Agent.Security.Tls;
 using QoffeeAutomat.Core.Secrets;
+using QoffeeAutomat.Core.Security;
 using QoffeeAutomat.Platform.Simulated;
 
 namespace QoffeeAutomat.Agent.Tests.Pairing;

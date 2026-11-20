@@ -1,0 +1,85 @@
+name: ci-hub-image
+
+# Builds the hub container image and the Home Assistant app image on both architectures and checks that they
+# start as a non-root user and pass their health check (PLAN.md S20, task T918). Each architecture runs on a runner
+# of its own architecture. The release workflow (release.yml, job hub-images) builds and publishes the same files.
+# Not a required check: it only runs when hub or packaging files change.
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "packaging/hub/**"
+      - "global.json"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - ".dockerignore"
+      - ".github/workflows/ci-hub-image.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "packaging/hub/**"
+      - "global.json"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - ".dockerignore"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-hub-image-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  image:
+    name: hub image (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the hub image
+        run: docker build --file packaging/hub/Dockerfile --tag qoffeeautomat-hub:ci .
+      - name: Test the hub image (non-root, /data volume, health check)
+        run: bash packaging/hub/test-image.sh qoffeeautomat-hub:ci
+      - name: Build the Home Assistant app image
+        run: >-
+          docker build --file packaging/hub/ha-app/Dockerfile
+          --build-arg BUILD_FROM=qoffeeautomat-hub:ci
+          --tag qoffeeautomat-hub-app:ci packaging/hub/ha-app
+      - name: Test the Home Assistant app image
+        run: bash packaging/hub/test-app-image.sh qoffeeautomat-hub-app:ci
+      - name: Check the Compose file
+        env:
+          QOFFEE_HUB_VERSION: ci
+        run: docker compose --file packaging/hub/docker-compose.yml config --quiet
+
+  result:
+    name: hub image ci passed
+    needs: [image]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate results
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "Job results: $RESULTS"
+          if echo "$RESULTS" | grep -Eq '"(failure|cancelled)"'; then
+            echo "A job failed or was cancelled." >&2
+            exit 1
+          fi

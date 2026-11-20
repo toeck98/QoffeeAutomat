@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Component tests of the hub UI with bUnit (PLAN.md S14, T915): the tunnel to an agent (TunnelAgentApi), the hub API client, the role gating of
+       pages and menus, setup and sign-in, the fleet overview, the pages of an agent, enrollment, and the use of the UI below a path prefix. The pages
+       run against a fake IHubApi; the tunnel and the hub API client run against a stub HTTP handler. -->
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Hub.Ui\QoffeeAutomat.Hub.Ui.csproj" />
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Ui.Components\QoffeeAutomat.Ui.Components.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using QoffeeAutomat.Agent.Api.OpenApi;
 using QoffeeAutomat.Agent.Hosting;
+using QoffeeAutomat.Agent.Hub;
 using QoffeeAutomat.Agent.Link;
 using QoffeeAutomat.Agent.Link.Pairing;
 using QoffeeAutomat.Contracts.Api;
@@ -97,6 +98,7 @@ public static class SettingsAndStatusEndpoints
         IConfigStore config,
         PlatformSelection platform,
         IPlatformInfo info,
+        HubLinkService hub,
         CancellationToken cancellationToken)
     {
         AgentInfo agent = identity.Current();
@@ -115,7 +117,8 @@ public static class SettingsAndStatusEndpoints
             pause.IsPaused,
             engine.ActiveRuns.Count,
             manifest.Current.Rev,
-            config.Problems.Count);
+            config.Problems.Count,
+            await hub.GetStatusAsync(cancellationToken).ConfigureAwait(false));
         return ApiResults.Json(status, ApiJsonContext.Default.AgentStatus);
     }
 

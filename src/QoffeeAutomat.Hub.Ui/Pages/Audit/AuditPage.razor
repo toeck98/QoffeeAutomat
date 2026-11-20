@@ -1,0 +1,136 @@
+@page "/audit"
+@inherits HubComponentBase
+@inject HubUiOptions Options
+
+@* The audit log (PLAN.md S20 "Hub security" item 2, T915): every change, publish and command run with user, time and affected agents, newest first,
+   with filters and a button for the next page. Administrators only. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@H["Audit.Title"]</MudText>
+</div>
+
+<RoleGate Role="@HubRoleNames.Admin">
+  <MudPaper Class="pa-3 mb-3 qa-card" Elevation="1" data-testid="audit-filters">
+    <MudGrid Spacing="2" Class="align-center">
+      <MudItem xs="6" md="3">
+        <MudTextField T="string" @bind-Value="_user" Immediate="true" Clearable="true" Label="@H["Audit.Filter.User"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="6" md="3">
+        <MudTextField T="string" @bind-Value="_action" Immediate="true" Clearable="true" Label="@H["Audit.Filter.Action"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="6" md="2">
+        <MudTextField T="string" @bind-Value="_agent" Immediate="true" Clearable="true" Label="@H["Audit.Filter.Agent"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="6" md="2">
+        <SelectBox Label="@H["Audit.Filter.Result"]" Value="@_result" ValueChanged="@(value => _result = value)" TestId="audit-result">
+          <option value="" selected="@(_result.Length == 0)">@H["Audit.Result.any"]</option>
+          @foreach (string result in Results)
+          {
+            <option value="@result" selected="@(result == _result)">@H["Audit.Result." + result]</option>
+          }
+        </SelectBox>
+      </MudItem>
+      <MudItem xs="12" md="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyAsync" data-testid="audit-apply">@H["Audit.Apply"]</MudButton>
+      </MudItem>
+    </MudGrid>
+  </MudPaper>
+
+  <HubErrorDisplay Error="Error" OnRetry="ApplyAsync" Class="mb-3" />
+  @if (_loading)
+  {
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+  }
+  else if (_entries.Count == 0)
+  {
+    if (Error is null)
+    {
+      <MudPaper Class="pa-4 qa-card" Elevation="1">
+        <MudText Color="Color.Secondary" data-testid="audit-none">@H["Audit.None"]</MudText>
+      </MudPaper>
+    }
+  }
+  else
+  {
+    <MudPaper Class="qa-card mb-2" Elevation="1">
+      <MudSimpleTable Dense="true" Hover="true" data-testid="audit-table">
+        <thead>
+          <tr>
+            <th>@H["Audit.Column.Time"]</th>
+            <th>@H["Audit.Column.User"]</th>
+            <th>@H["Audit.Column.Action"]</th>
+            <th>@H["Audit.Column.Target"]</th>
+            <th>@H["Audit.Column.Agents"]</th>
+            <th>@H["Audit.Column.Result"]</th>
+            <th>@H["Audit.Column.Address"]</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (AuditEntryInfo entry in _entries)
+          {
+            <tr @key="entry.Id" data-testid="@($"audit-{entry.Id}")" data-result="@entry.Result">
+              <td>@Time(entry.At)</td>
+              <td>@(entry.Role is null ? entry.User : entry.User + " (" + entry.Role + ")")</td>
+              <td>@entry.Method @entry.Action</td>
+              <td>@entry.Target</td>
+              <td>@string.Join(", ", entry.Agents)</td>
+              <td>@(H.Find("Audit.Result." + entry.Result) ?? entry.Result) (@entry.Status)</td>
+              <td>@entry.RemoteAddress</td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    </MudPaper>
+    if (_next is not null)
+    {
+      <MudButton Variant="Variant.Outlined" Disabled="Busy" OnClick="MoreAsync" data-testid="audit-more">@H["Audit.More"]</MudButton>
+    }
+  }
+</RoleGate>
+
+@code {
+  private static readonly string[] Results = ["success", "failure", "denied"];
+
+  private readonly List<AuditEntryInfo> _entries = [];
+  private bool _loading = true;
+  private long? _next;
+  private string? _user;
+  private string? _action;
+  private string? _agent;
+  private string _result = string.Empty;
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (Can(HubRoleNames.Admin))
+    {
+      await ApplyAsync();
+    }
+  }
+
+  private async Task ApplyAsync()
+  {
+    _entries.Clear();
+    _next = null;
+    _loading = true;
+    await LoadAsync(before: null);
+    _loading = false;
+  }
+
+  private Task MoreAsync() => LoadAsync(_next);
+
+  private async Task LoadAsync(long? before)
+  {
+    var query = new AuditQueryParameters(
+        _user,
+        _action,
+        _result.Length == 0 ? null : _result,
+        _agent,
+        before,
+        Options.AuditPageSize);
+    QoffeeAutomat.Hub.Api.AuditPage? page = null;
+    if (await TryAsync(async () => page = await Api.GetAuditAsync(query)) && page is not null)
+    {
+      _entries.AddRange(page.Entries);
+      _next = page.NextBefore;
+    }
+  }
+}

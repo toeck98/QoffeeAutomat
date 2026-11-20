@@ -1,0 +1,149 @@
+@inherits HubComponentBase
+@inject AgentSelection Selection
+@inject SessionState ComponentSession
+
+@* The frame of every page of one agent (PLAN.md S20, D-033, T915): the name and state of the agent, the tabs that the role may open, and the page
+   itself. It selects the agent first, so the tunnel (TunnelAgentApi) and the links of the component library (AgentScopedLinks) know which agent they
+   serve, and it renders the page only when the role may use it and, for a page that talks to the agent, when the agent is connected. *@
+<div class="d-flex align-center mb-2">
+  <MudButton Variant="Variant.Text" Href="agents" StartIcon="@Icons.Material.Filled.ArrowBack" data-testid="agent-back">@H["Agent.Back"]</MudButton>
+</div>
+
+<HubErrorDisplay Error="Error" OnRetry="LoadAsync" Class="mb-4" />
+
+@if (_detail is not null)
+{
+  <div class="qa-card-header">
+    <MudText Typo="Typo.h4" GutterBottom="true" data-testid="agent-title">@_detail.Agent.Name</MudText>
+    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@(_detail.Presence.Online ? Color.Success : Color.Default)" data-testid="agent-presence" data-online="@(_detail.Presence.Online ? "true" : "false")">
+      @(_detail.Presence.Online ? H["Fleet.State.online"] : H["Fleet.State.offline"])
+    </MudChip>
+  </div>
+
+  <nav class="qh-agent-tabs" aria-label="@H["Agent.Tabs"]" data-testid="agent-tabs">
+    @foreach (AgentTab item in AgentTab.All)
+    {
+      if (Can(item.MinRole))
+      {
+        <MudButton Size="Size.Small"
+                   Variant="@(item.Key == Tab ? Variant.Filled : Variant.Text)"
+                   Color="@(item.Key == Tab ? Color.Primary : Color.Default)"
+                   Href="@item.Href(AgentId)"
+                   data-testid="@($"agent-tab-{item.Key}")">@H["Agent.Tab." + item.Key]</MudButton>
+      }
+    }
+  </nav>
+
+  if (!Can(MinRole))
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" data-testid="role-required">@H.Format("Role.Required", H["Role." + MinRole])</MudAlert>
+  }
+  else if (RequireOnline && !_detail.Presence.Online)
+  {
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" data-testid="agent-offline">
+      @H["Agent.Offline"]
+      <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="LoadAsync" Class="ml-2">@L["Common.Retry"]</MudButton>
+    </MudAlert>
+  }
+  else
+  {
+    <CascadingValue Value="_context">
+      <div @key="AgentId" data-testid="agent-content">
+        @ChildContent
+      </div>
+    </CascadingValue>
+  }
+}
+else if (Error is null)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+
+@code {
+  private InventoryDetail? _detail;
+  private AgentContext? _context;
+  private string? _loadedId;
+
+  /// <summary>The id of the agent whose page this is.</summary>
+  [Parameter]
+  public string AgentId { get; set; } = string.Empty;
+
+  /// <summary>The key of the tab that is open (<see cref="AgentTab"/>).</summary>
+  [Parameter]
+  public string Tab { get; set; } = AgentTab.Overview;
+
+  /// <summary>The role that may see the page: one of <see cref="HubRoleNames"/>.</summary>
+  [Parameter]
+  public string MinRole { get; set; } = HubRoleNames.Viewer;
+
+  /// <summary>True when the page talks to the agent through the tunnel, so the agent must be connected.</summary>
+  [Parameter]
+  public bool RequireOnline { get; set; } = true;
+
+  /// <summary>The page.</summary>
+  [Parameter]
+  public RenderFragment? ChildContent { get; set; }
+
+  protected override async Task OnInitializedAsync()
+  {
+    // The pages of the component library tell their SessionState when the answer was 401. Its "who am I" is the hub's (TunnelAgentApi), so
+    // when it says "signed out" the hub session has ended, and the hub guard shows the login page.
+    ComponentSession.Changed += OnComponentSessionChanged;
+    if (ComponentSession.Status != SignInStatus.SignedIn)
+    {
+      try
+      {
+        await ComponentSession.RefreshAsync();
+      }
+      catch (ApiException)
+      {
+        // The hub cannot be reached just now: the load of the agent below reports it.
+      }
+    }
+  }
+
+  protected override ValueTask OnDisposeAsync()
+  {
+    ComponentSession.Changed -= OnComponentSessionChanged;
+    return base.OnDisposeAsync();
+  }
+
+  private void OnComponentSessionChanged(object? sender, EventArgs e)
+  {
+    if (ComponentSession.Status == SignInStatus.SignedOut)
+    {
+      HubSession.MarkSignedOut();
+    }
+  }
+
+  protected override async Task OnParametersSetAsync()
+  {
+    if (AgentId == _loadedId)
+    {
+      return;
+    }
+
+    // The agent is selected before anything is rendered below, and the page of the previous agent is gone. The selection is not cleared when the
+    // frame goes away: the frame of the next page of the same agent is created before this one is disposed, and has selected it already.
+    _loadedId = AgentId;
+    _detail = null;
+    _context = null;
+    Selection.Select(AgentId);
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    string id = AgentId;
+    InventoryDetail? loaded = null;
+    bool ok = await TryAsync(async () => loaded = await Api.GetInventoryDetailAsync(id));
+    if (!ok || loaded is null || id != AgentId)
+    {
+      return;
+    }
+
+    _detail = loaded;
+    _context = new AgentContext(loaded, LoadAsync);
+    Selection.Select(id, loaded.Agent.Name);
+  }
+}

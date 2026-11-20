@@ -22,6 +22,9 @@ public enum ConfigKind
 
     /// <summary>A mode group document, <c>config/modes/&lt;id&gt;.json</c> (T717).</summary>
     Mode,
+
+    /// <summary>Something of the hub layer (T908) that is no effective document: a variables document, or the layer's own state file under <c>config/hub/</c>.</summary>
+    Hub,
 }
 
 /// <summary>The fixed ids of the documents that exist only once.</summary>
@@ -58,6 +61,9 @@ public enum ConfigChangeSource
 
     /// <summary>Somebody edited a file outside the agent; the file watcher noticed.</summary>
     External,
+
+    /// <summary>The hub layer changed: a generation of the hub was applied, or the layer was removed or its lock changed what the local layer shows (T908).</summary>
+    Hub,
 }
 
 /// <summary>A change of one item, published on the change stream.</summary>

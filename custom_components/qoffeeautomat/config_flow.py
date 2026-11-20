@@ -9,6 +9,14 @@ A roaming PC that cannot be dialled is added the other way round (D-043, ADR 000
 Home Assistant creates a reverse token, shows the enrollment string for the agent and
 waits for the agent to dial in; the entry then has no host or link token, only the hash
 of the reverse token. Reconfiguring such an entry creates a new token.
+
+The third way is a hub (PLAN.md S20, T914): host and port of the hub, the certificate
+fingerprint for the user to compare, then the pairing code that an administrator
+created in the hub for Home Assistant. The entry (``hub: true``, unique id is the id of
+the hub) stores host, port, fleet token and pinned fingerprint like an agent entry and
+serves all PCs of the hub. Reauthentication and reconfiguration work for it as well.
+Pairing a PC directly that a hub entry serves asks for confirmation first: the PC then
+moves to the direct route, and its entities keep their ids (``routes.py``).
 """
 
 import asyncio
@@ -33,12 +41,15 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from .client import (
     AuthenticationError,
     CannotConnectError,
+    DirectLinkDeniedError,
+    FleetClient,
     PairingCodeExpiredError,
     PairingCodeInvalidError,
     QoffeeLinkClient,
     QoffeeLinkError,
     UnsupportedProtocolError,
     async_fetch_fingerprint,
+    async_hub_pair,
     async_pair,
     normalize_fingerprint,
 )
@@ -46,16 +57,18 @@ from .const import (
     CONF_BROADCAST,
     CONF_CODE,
     CONF_FINGERPRINT,
+    CONF_HUB,
     CONF_REVERSE,
     CONF_REVERSE_TOKEN_HASH,
     CONF_REVERSE_URL,
     CONF_TOKEN,
     DEFAULT_BROADCAST,
+    DEFAULT_HUB_PORT,
     DEFAULT_PORT,
     DOMAIN,
     REVERSE_ENROLL_TIMEOUT_SECONDS,
 )
-from .protocol import PROTOCOL_VERSION, Hello
+from .protocol import PROTOCOL_VERSION, FleetHello, Hello
 from .reverse import (
     async_ensure_view,
     async_get_reverse_links,
@@ -64,6 +77,7 @@ from .reverse import (
     hash_token,
     websocket_url,
 )
+from .routes import hub_entry_knowing
 from .wol import validate_broadcast
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,6 +86,14 @@ USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=65535)
+        ),
+    }
+)
+HUB_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_HOST): str,
+        vol.Required(CONF_PORT, default=DEFAULT_HUB_PORT): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=65535)
         ),
     }
@@ -104,6 +126,9 @@ def _error_key(error: QoffeeLinkError) -> str:
             return "unsupported_protocol"
         case AuthenticationError():
             return "invalid_auth"
+        case DirectLinkDeniedError():
+            # The hub of the PC forbids direct links (S20): it has to be added as a hub.
+            return "direct_link_denied"
         case CannotConnectError():
             return "cannot_connect"
         case _:
@@ -126,6 +151,21 @@ async def _probe(
 ) -> Hello:
     """Connect once with a token and pinned fingerprint and return the ``hello``."""
     client = QoffeeLinkClient(
+        async_get_clientsession(hass),
+        host,
+        port,
+        token,
+        fingerprint,
+        client_name=hass.config.location_name,
+    )
+    return await client.probe()
+
+
+async def _probe_hub(
+    hass: HomeAssistant, host: str, port: int, token: str, fingerprint: str
+) -> FleetHello:
+    """Open the fleet link once with a token and the pinned fingerprint."""
+    client = FleetClient(
         async_get_clientsession(hass),
         host,
         port,
@@ -180,6 +220,11 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
         self._reverse_hash = ""
         self._reverse_task: asyncio.Task[Hello] | None = None
         self._reverse_hello: Hello | None = None
+        # A PC that was paired directly while a hub serves it: the entry waits for the
+        # confirmation that the PC moves to the direct route.
+        self._pending_title = ""
+        self._pending_data: dict[str, Any] = {}
+        self._hub_title = ""
 
     @staticmethod
     @callback
@@ -200,8 +245,10 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Ask whether Home Assistant dials the PC or the PC dials Home Assistant."""
-        return self.async_show_menu(step_id="user", menu_options=["manual", "reverse"])
+        """Ask how the PC is reached: dialled, dialling in, or through a hub."""
+        return self.async_show_menu(
+            step_id="user", menu_options=["manual", "reverse", "hub"]
+        )
 
     async def async_step_manual(
         self, user_input: dict[str, Any] | None = None
@@ -331,9 +378,122 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured(
                     updates={CONF_HOST: self._host, CONF_PORT: self._port}
                 )
+                data = {
+                    CONF_HOST: self._host,
+                    CONF_PORT: self._port,
+                    CONF_TOKEN: paired.token,
+                    CONF_FINGERPRINT: self._fingerprint,
+                }
+                hub = hub_entry_knowing(self.hass, paired.agent_id)
+                if hub is None:
+                    return self.async_create_entry(title=paired.agent_name, data=data)
+                # A hub serves the PC: one route per PC (D-031), so ask first.
+                self._pending_title = paired.agent_name
+                self._pending_data = data
+                self._hub_title = hub.title
+                return await self.async_step_switch_route()
+        return self.async_show_form(
+            step_id="pair",
+            data_schema=PAIR_SCHEMA,
+            errors=errors,
+            description_placeholders=_placeholders(
+                self._name, self._host, self._port, self._fingerprint
+            ),
+        )
+
+    async def async_step_switch_route(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm that a PC that a hub serves moves to the direct link."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title=self._pending_title, data=self._pending_data
+            )
+        return self.async_show_form(
+            step_id="switch_route",
+            description_placeholders={
+                "name": self._pending_title,
+                "hub": self._hub_title,
+            },
+        )
+
+    # -- a hub (the fleet link) -------------------------------------------------
+
+    async def async_step_hub(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for host and port of the hub."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            port = user_input[CONF_PORT]
+            self._async_abort_entries_match({CONF_HOST: host, CONF_PORT: port})
+            try:
+                fingerprint = await _call(async_fetch_fingerprint(host, port))
+            except _StepError as err:
+                errors["base"] = err.key
+            else:
+                self._host, self._port, self._name = host, port, host
+                self._fingerprint = fingerprint
+                return await self.async_step_hub_confirm()
+        return self.async_show_form(
+            step_id="hub",
+            data_schema=self.add_suggested_values_to_schema(HUB_SCHEMA, user_input),
+            errors=errors,
+        )
+
+    async def async_step_hub_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show the certificate fingerprint of the hub for the user to compare."""
+        if user_input is not None:
+            return await self.async_step_hub_pair()
+        self.context["title_placeholders"] = {"name": self._name}
+        return self.async_show_form(
+            step_id="hub_confirm",
+            description_placeholders=_placeholders(
+                self._name, self._host, self._port, self._fingerprint
+            ),
+        )
+
+    async def async_step_hub_pair(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for the pairing code of the hub, pair, and create the entry."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                paired = await _call(
+                    async_hub_pair(
+                        async_get_clientsession(self.hass),
+                        self._host,
+                        self._port,
+                        self._fingerprint,
+                        user_input[CONF_CODE].strip(),
+                        client_name=self.hass.config.location_name,
+                    )
+                )
+                # The token has to open the fleet link; the hello names the hub.
+                hello = await _call(
+                    _probe_hub(
+                        self.hass,
+                        self._host,
+                        self._port,
+                        paired.token,
+                        self._fingerprint,
+                    )
+                )
+            except _StepError as err:
+                errors["base"] = err.key
+            else:
+                await self.async_set_unique_id(hello.hub.id)
+                self._abort_if_unique_id_configured(
+                    updates={CONF_HOST: self._host, CONF_PORT: self._port}
+                )
                 return self.async_create_entry(
-                    title=paired.agent_name,
+                    title=hello.hub.name,
                     data={
+                        CONF_HUB: True,
                         CONF_HOST: self._host,
                         CONF_PORT: self._port,
                         CONF_TOKEN: paired.token,
@@ -341,7 +501,7 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
                     },
                 )
         return self.async_show_form(
-            step_id="pair",
+            step_id="hub_pair",
             data_schema=PAIR_SCHEMA,
             errors=errors,
             description_placeholders=_placeholders(
@@ -490,7 +650,9 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:
-        """Start reauthentication after the agent rejected the link token."""
+        """Start reauthentication after the agent or the hub rejected the token."""
+        if entry_data.get(CONF_HUB):
+            return await self.async_step_reauth_hub()
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
@@ -531,6 +693,44 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
         )
 
+    async def async_step_reauth_hub(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Pair with the hub again with a new code; the fingerprint stays."""
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                paired = await _call(
+                    async_hub_pair(
+                        async_get_clientsession(self.hass),
+                        entry.data[CONF_HOST],
+                        entry.data[CONF_PORT],
+                        entry.data[CONF_FINGERPRINT],
+                        user_input[CONF_CODE].strip(),
+                        client_name=self.hass.config.location_name,
+                    )
+                )
+            except _StepError as err:
+                errors["base"] = err.key
+            else:
+                await self.async_set_unique_id(paired.hub_id)
+                self._abort_if_unique_id_mismatch(reason="wrong_hub")
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_TOKEN: paired.token}
+                )
+        return self.async_show_form(
+            step_id="reauth_hub",
+            data_schema=PAIR_SCHEMA,
+            errors=errors,
+            description_placeholders=_placeholders(
+                entry.title,
+                entry.data[CONF_HOST],
+                entry.data[CONF_PORT],
+                entry.data[CONF_FINGERPRINT],
+            ),
+        )
+
     # -- reconfiguration --------------------------------------------------------
 
     async def async_step_reconfigure(
@@ -541,6 +741,8 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
         if entry.data.get(CONF_REVERSE):
             # There is no address to change; the way to a new start is a new token.
             return await self.async_step_reverse_rotate()
+        if entry.data.get(CONF_HUB):
+            return await self.async_step_reconfigure_hub()
         errors: dict[str, str] = {}
         if user_input is not None:
             host = user_input[CONF_HOST].strip()
@@ -567,6 +769,41 @@ class QoffeeAutomatConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             data_schema=self.add_suggested_values_to_schema(
                 USER_SCHEMA, user_input or entry.data
+            ),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure_hub(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change host and port of a hub; it must still be the same hub."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            port = user_input[CONF_PORT]
+            try:
+                hello = await _call(
+                    _probe_hub(
+                        self.hass,
+                        host,
+                        port,
+                        entry.data[CONF_TOKEN],
+                        entry.data[CONF_FINGERPRINT],
+                    )
+                )
+            except _StepError as err:
+                errors["base"] = err.key
+            else:
+                await self.async_set_unique_id(hello.hub.id)
+                self._abort_if_unique_id_mismatch(reason="wrong_hub")
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_HOST: host, CONF_PORT: port}
+                )
+        return self.async_show_form(
+            step_id="reconfigure_hub",
+            data_schema=self.add_suggested_values_to_schema(
+                HUB_SCHEMA, user_input or entry.data
             ),
             errors=errors,
         )

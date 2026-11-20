@@ -1,0 +1,140 @@
+@using QoffeeAutomat.Hub.Ui.Pages.Profiles
+@inherits HubComponentBase
+
+@* The confirmation of a publish or a roll-back (PLAN.md S20 "Hub security" item 7, T916). It shows what the hub's preview says: the agents whose desired
+   state would change, per agent the documents that are added, changed or removed, the policy that differs and the warnings about overrides, and which
+   system scripts the content contains. Nothing is sent before the user confirms. Content with system scripts needs an administrator: the hub refuses
+   it for an operator (403 admin_required), so the button is off and the reason is shown. *@
+<MudPaper Class="pa-4 mb-3 qa-card" Elevation="2" role="alertdialog" aria-label="@Title" data-testid="publish-confirmation" data-new-revision="@(Preview.NewRevision ? "true" : "false")">
+  <MudText Typo="Typo.h6" Class="mb-2" data-testid="publish-title">@Title</MudText>
+
+  @if (Preview.Unchanged)
+  {
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-2" data-testid="publish-unchanged">@H["Publish.Unchanged"]</MudAlert>
+  }
+
+  <MudText Typo="Typo.body2" Class="mb-2" data-testid="publish-summary">
+    @(Preview.NewRevision ? H.Format("Publish.Summary.New", Preview.Revision) : H.Format("Publish.Summary.Existing", Preview.Revision))
+    @H.Format("Publish.Affected", Preview.Agents.Count)
+  </MudText>
+
+  @if (Preview.ContainsSystemScripts)
+  {
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-2" data-testid="publish-system-scripts">
+      <div>@H["Publish.SystemScripts"]</div>
+      <ul class="qa-error-list">
+        @foreach (string script in Preview.SystemScripts)
+        {
+          <li><code>@script</code></li>
+        }
+      </ul>
+    </MudAlert>
+  }
+
+  @if (Preview.RequiresAdmin && !Can(HubRoleNames.Admin))
+  {
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-2" data-testid="publish-admin-required">@H["Publish.AdminRequired"]</MudAlert>
+  }
+
+  @if (Preview.Agents.Count == 0)
+  {
+    <MudText Color="Color.Secondary" Class="mb-2" data-testid="publish-no-agents">@H["Publish.NoAgents"]</MudText>
+  }
+  else
+  {
+    <div data-testid="publish-agents">
+      @foreach (AgentChange change in Preview.Agents)
+      {
+        <MudPaper Class="pa-3 mb-2" Outlined="true" data-testid="@($"publish-agent-{change.AgentId}")">
+          <MudText Typo="Typo.subtitle2">
+            @change.AgentName
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Inline="true">@H.Format("Publish.Generation", change.CurrentGeneration, change.NewGeneration)</MudText>
+          </MudText>
+          @if (change.Documents.Count > 0)
+          {
+            <ul class="qa-error-list" data-testid="@($"publish-documents-{change.AgentId}")">
+              @foreach (DocumentChange document in change.Documents)
+              {
+                <li data-change="@document.Change"><MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@ChangeColor(document.Change)">@H["Publish.Change." + document.Change]</MudChip> <code>@document.Kind/@document.Id</code></li>
+              }
+            </ul>
+          }
+          @foreach (PolicyDifference difference in change.Policy)
+          {
+            <div data-testid="@($"publish-policy-{change.AgentId}")">@H.Format("Publish.Policy", difference.Name, difference.From, difference.To)</div>
+          }
+          @foreach (ConfigWarningInfo warning in change.Warnings)
+          {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Text" Dense="true" data-testid="@($"publish-warning-{change.AgentId}")" data-code="@warning.Code">@warning.Message</MudAlert>
+          }
+        </MudPaper>
+      }
+    </div>
+  }
+
+  @if (AllowNote)
+  {
+    <div data-testid="publish-note">
+      <MudTextField T="string" Value="Note" ValueChanged="OnNoteInputAsync" Immediate="true" Label="@H["Publish.Note"]" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+    </div>
+  }
+
+  <MudButton Variant="Variant.Filled"
+             Color="Color.Primary"
+             Disabled="@(Working || (Preview.RequiresAdmin && !Can(HubRoleNames.Admin)))"
+             OnClick="OnConfirm"
+             data-testid="publish-confirm">@ConfirmText</MudButton>
+  <MudButton Variant="Variant.Text" OnClick="OnCancel" Class="ml-2" data-testid="publish-cancel">@H["Common.Cancel"]</MudButton>
+</MudPaper>
+
+@code {
+  /// <summary>What the hub says would happen.</summary>
+  [Parameter]
+  [EditorRequired]
+  public PublishPreview Preview { get; set; } = null!;
+
+  /// <summary>The headline: publish or roll back.</summary>
+  [Parameter]
+  public string Title { get; set; } = string.Empty;
+
+  /// <summary>The text of the confirm button.</summary>
+  [Parameter]
+  public string ConfirmText { get; set; } = string.Empty;
+
+  /// <summary>True when the user may add a note to the revision (a publish; a roll-back takes none from this dialog).</summary>
+  [Parameter]
+  public bool AllowNote { get; set; }
+
+  /// <summary>The note.</summary>
+  [Parameter]
+  public string? Note { get; set; }
+
+  /// <summary>Raised with the note when it changes.</summary>
+  [Parameter]
+  public EventCallback<string?> NoteChanged { get; set; }
+
+  /// <summary>True while the publish runs: the confirm button is off.</summary>
+  [Parameter]
+  public bool Working { get; set; }
+
+  /// <summary>Raised when the user confirms.</summary>
+  [Parameter]
+  public EventCallback OnConfirm { get; set; }
+
+  /// <summary>Raised when the user backs out.</summary>
+  [Parameter]
+  public EventCallback OnCancel { get; set; }
+
+  private Task OnNoteInputAsync(string? value)
+  {
+    Note = value;
+    return NoteChanged.InvokeAsync(value);
+  }
+
+  private static Color ChangeColor(string change) => change switch
+  {
+    "added" => Color.Success,
+    "removed" => Color.Error,
+    _ => Color.Info,
+  };
+}

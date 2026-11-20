@@ -1,0 +1,248 @@
+@page "/enrollment"
+@using QoffeeAutomat.Hub.Ui.Pages.Fleet
+@inherits HubComponentBase
+@inject TimeProvider Clock
+
+@* Enrollment (PLAN.md S20 "Enrollment and trust", D-026, T915): the agents that wait for approval, the creation of an enrollment token with the
+   string and the installer command line to copy, and the tokens that exist. Administrators only. *@
+<MudText Typo="Typo.h4" GutterBottom="true">@H["Enrollment.Title"]</MudText>
+
+<RoleGate Role="@HubRoleNames.Admin">
+  <HubErrorDisplay Error="Error" Class="mb-4" />
+  @if (_notice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="enrollment-notice">@_notice</MudAlert>
+  }
+
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="pending-agents">
+    <MudText Typo="Typo.h6" Class="mb-2">@H["Enrollment.Pending"]</MudText>
+    @if (_pending.Count == 0)
+    {
+      <MudText Color="Color.Secondary" data-testid="pending-none">@H["Enrollment.PendingNone"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Hover="true">
+        <thead>
+          <tr>
+            <th>@H["Fleet.Column.Name"]</th>
+            <th>@H["Fleet.Column.System"]</th>
+            <th>@H["Fleet.Column.Version"]</th>
+            <th>@H["Fleet.Column.Tags"]</th>
+            <th>@H["Enrollment.Column.RequestedAt"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (AgentSummary agent in _pending)
+          {
+            <tr @key="agent.Id" data-testid="@($"pending-{agent.Id}")">
+              <td>@agent.Name<MudText Typo="Typo.caption" Color="Color.Secondary">@agent.Hostname</MudText></td>
+              <td>@agent.Os @agent.Arch</td>
+              <td>@agent.Version</td>
+              <td>@string.Join(", ", agent.Tags)</td>
+              <td>@Time(agent.EnrolledAt)</td>
+              <td class="qa-row-actions">
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Disabled="Busy" OnClick="@(() => ApproveAsync(agent.Id))" data-testid="@($"approve-{agent.Id}")">@H["Enrollment.Approve"]</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" Disabled="Busy" OnClick="@(() => RejectAsync(agent.Id))" data-testid="@($"reject-{agent.Id}")">@H["Enrollment.Reject"]</MudButton>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+  </MudPaper>
+
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="token-form">
+    <MudText Typo="Typo.h6" Class="mb-2">@H["Enrollment.Create"]</MudText>
+    <MudGrid Spacing="2">
+      <MudItem xs="12" md="6">
+        <MudTextField T="string" @bind-Value="_name" Immediate="true" Label="@H["Enrollment.Name"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <MudTextField T="string" @bind-Value="_tags" Immediate="true" Label="@H["Enrollment.Tags"]" HelperText="@H["Agent.TagsHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="6" md="3">
+        <MudNumericField T="int" @bind-Value="_maxUses" Min="1" Max="10000" Label="@H["Enrollment.MaxUses"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="6" md="3">
+        <MudNumericField T="int" @bind-Value="_expiresDays" Min="0" Max="3650" Label="@H["Enrollment.ExpiresDays"]" HelperText="@H["Enrollment.ExpiresHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <MudTextField T="string" @bind-Value="_hubUrl" Immediate="true" Label="@H["Enrollment.HubUrl"]" HelperText="@H["Enrollment.HubUrlHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="12">
+        <MudSwitch T="bool" @bind-Value="_requiresApproval" Color="Color.Primary" Label="@H["Enrollment.RequiresApproval"]" />
+      </MudItem>
+    </MudGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled="Busy" OnClick="CreateAsync" data-testid="token-create">@H["Enrollment.CreateButton"]</MudButton>
+  </MudPaper>
+
+  @if (_created is { } created)
+  {
+    <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="token-created">
+      <MudText Typo="Typo.h6" Class="mb-2">@H["Enrollment.Created"]</MudText>
+      <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3">@H["Enrollment.CreatedWarning"]</MudAlert>
+
+      <MudText Typo="Typo.subtitle2">@H["Enrollment.String"]</MudText>
+      <code class="qh-secret mb-1" data-testid="enrollment-string">@created.EnrollmentString</code>
+      <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="@(() => CopyTextAsync(created.EnrollmentString))" data-testid="copy-string">@H["Common.Copy"]</MudButton>
+
+      <MudText Typo="Typo.subtitle2" Class="mt-4">@H["Enrollment.Installer"]</MudText>
+      <code class="qh-secret mb-1" data-testid="installer-command">@EnrollmentCommands.Installer(created.EnrollmentString)</code>
+      <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="@(() => CopyTextAsync(EnrollmentCommands.Installer(created.EnrollmentString)))" data-testid="copy-installer">@H["Common.Copy"]</MudButton>
+
+      <MudText Typo="Typo.subtitle2" Class="mt-4">@H["Enrollment.Join"]</MudText>
+      <code class="qh-secret mb-1" data-testid="join-command">@EnrollmentCommands.Join(created.EnrollmentString)</code>
+      <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="@(() => CopyTextAsync(EnrollmentCommands.Join(created.EnrollmentString)))" data-testid="copy-join">@H["Common.Copy"]</MudButton>
+
+      <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-4">@H["Enrollment.TrustNote"]</MudText>
+    </MudPaper>
+  }
+
+  <MudPaper Class="qa-card mb-2" Elevation="1" data-testid="token-list">
+    <MudText Typo="Typo.h6" Class="pa-4 pb-0">@H["Enrollment.Tokens"]</MudText>
+    @if (_tokens.Count == 0)
+    {
+      <MudText Color="Color.Secondary" Class="pa-4" data-testid="tokens-none">@H["Enrollment.TokensNone"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Hover="true">
+        <thead>
+          <tr>
+            <th>@H["Enrollment.Name"]</th>
+            <th>@H["Fleet.Column.Tags"]</th>
+            <th>@H["Enrollment.Column.Uses"]</th>
+            <th>@H["Enrollment.Column.Expires"]</th>
+            <th>@H["Enrollment.Column.Approval"]</th>
+            <th>@H["Fleet.Column.State"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (EnrollmentTokenSummary token in _tokens)
+          {
+            string status = EnrollmentCommands.StatusOf(token, Clock.GetUtcNow());
+            <tr @key="token.Id" data-testid="@($"token-{token.Id}")" data-status="@status">
+              <td>@token.Name<MudText Typo="Typo.caption" Color="Color.Secondary">@token.Prefix…</MudText></td>
+              <td>@string.Join(", ", token.Tags)</td>
+              <td>@token.Uses / @token.MaxUses</td>
+              <td>@(token.ExpiresAt is null ? H["Enrollment.NeverExpires"] : Time(token.ExpiresAt))</td>
+              <td>@(token.RequiresApproval ? L["Common.On"] : L["Common.Off"])</td>
+              <td>@H["Enrollment.Status." + status]</td>
+              <td class="qa-row-actions">
+                @if (token.RevokedAt is null)
+                {
+                  if (_revoking == token.Id)
+                  {
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" Disabled="Busy" OnClick="@(() => RevokeAsync(token.Id))" data-testid="@($"revoke-confirm-{token.Id}")">@H["Common.Confirm"]</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _revoking = null)">@H["Common.Cancel"]</MudButton>
+                  }
+                  else
+                  {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => _revoking = token.Id)" data-testid="@($"revoke-{token.Id}")">@H["Enrollment.Revoke"]</MudButton>
+                  }
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+  </MudPaper>
+</RoleGate>
+
+@code {
+  private IReadOnlyList<EnrollmentTokenSummary> _tokens = [];
+  private IReadOnlyList<AgentSummary> _pending = [];
+  private CreatedEnrollmentToken? _created;
+  private string? _notice;
+  private string? _revoking;
+  private string? _name;
+  private string? _tags;
+  private string? _hubUrl;
+  private int _maxUses = 1;
+  private int _expiresDays;
+  private bool _requiresApproval;
+
+  protected override async Task OnInitializedAsync()
+  {
+    // Only an administrator may read these lists; the gate shows a notice to everybody else and the hub would answer 403 anyway.
+    if (Can(HubRoleNames.Admin))
+    {
+      await LoadAsync();
+    }
+  }
+
+  private async Task LoadAsync()
+  {
+    EnrollmentTokenList? tokens = null;
+    AgentList? agents = null;
+    bool ok = await TryAsync(async () =>
+    {
+      tokens = await Api.GetEnrollmentTokensAsync();
+      agents = await Api.GetAgentsAsync();
+    });
+    if (ok && tokens is not null && agents is not null)
+    {
+      _tokens = tokens.Tokens;
+      _pending = [.. agents.Agents.Where(agent => agent.Status == "pending")];
+    }
+  }
+
+  private async Task CreateAsync()
+  {
+    _notice = null;
+    DateTimeOffset? expires = _expiresDays > 0 ? Clock.GetUtcNow().AddDays(_expiresDays) : null;
+    var request = new CreateEnrollmentTokenRequest(
+        string.IsNullOrWhiteSpace(_name) ? null : _name.Trim(),
+        FleetFilter.ParseTags(_tags),
+        _requiresApproval,
+        _maxUses,
+        expires,
+        string.IsNullOrWhiteSpace(_hubUrl) ? null : _hubUrl.Trim());
+    CreatedEnrollmentToken? created = null;
+    if (await TryAsync(async () => created = await Api.CreateEnrollmentTokenAsync(request)))
+    {
+      _created = created;
+      await LoadAsync();
+    }
+  }
+
+  private async Task RevokeAsync(string id)
+  {
+    _notice = null;
+    _revoking = null;
+    if (await TryAsync(() => Api.RevokeEnrollmentTokenAsync(id)))
+    {
+      _notice = H["Enrollment.Revoked"];
+      await LoadAsync();
+    }
+  }
+
+  private async Task ApproveAsync(string id)
+  {
+    _notice = null;
+    if (await TryAsync(() => Api.ApproveAgentAsync(id)))
+    {
+      _notice = H["Enrollment.Approved"];
+      await LoadAsync();
+    }
+  }
+
+  private async Task RejectAsync(string id)
+  {
+    _notice = null;
+    if (await TryAsync(() => Api.RejectAgentAsync(id)))
+    {
+      _notice = H["Enrollment.Rejected"];
+      await LoadAsync();
+    }
+  }
+
+  private async Task CopyTextAsync(string text)
+  {
+    _notice = await CopyAsync(text) ? H["Common.Copied"] : H["Common.CopyFailed"];
+  }
+}

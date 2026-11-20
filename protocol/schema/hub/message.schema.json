@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/message.schema.json",
+  "title": "QoffeeLink hub message",
+  "description": "Top-level schema of the frames that the hub features add to QoffeeLink v1 (PLAN.md S20): the config_sync and mgmt_tunnel messages on the agent link and the fleet link messages. It dispatches on the field t. The agent-scoped variants of the S07 messages are recognised by the member a, the fleet hello by the member hub. Frames of other types are valid here (forward compatibility); S07 frames are checked by ../message.schema.json.",
+  "type": "object",
+  "required": ["t"],
+  "properties": {
+    "t": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    { "if": { "properties": { "t": { "const": "config_desired" } }, "required": ["t"] }, "then": { "$ref": "config_desired.schema.json" } },
+    { "if": { "properties": { "t": { "const": "config_documents" } }, "required": ["t"] }, "then": { "$ref": "config_documents.schema.json" } },
+    { "if": { "properties": { "t": { "const": "config_status" } }, "required": ["t"] }, "then": { "$ref": "config_status.schema.json" } },
+    { "if": { "properties": { "t": { "const": "mgmt_request" } }, "required": ["t"] }, "then": { "$ref": "mgmt_request.schema.json" } },
+    { "if": { "properties": { "t": { "const": "mgmt_stream_open" } }, "required": ["t"] }, "then": { "$ref": "mgmt_stream_open.schema.json" } },
+    { "if": { "properties": { "t": { "const": "mgmt_stream_data" } }, "required": ["t"] }, "then": { "$ref": "mgmt_stream_data.schema.json" } },
+    { "if": { "properties": { "t": { "const": "mgmt_stream_close" } }, "required": ["t"] }, "then": { "$ref": "mgmt_stream_close.schema.json" } },
+    { "if": { "properties": { "t": { "const": "credential_rotate" } }, "required": ["t"] }, "then": { "$ref": "credential_rotate.schema.json" } },
+    { "if": { "properties": { "t": { "const": "unenroll" } }, "required": ["t"] }, "then": { "$ref": "unenroll.schema.json" } },
+    { "if": { "properties": { "t": { "const": "get_agents" } }, "required": ["t"] }, "then": { "$ref": "get_agents.schema.json" } },
+    { "if": { "properties": { "t": { "const": "agent_added" } }, "required": ["t"] }, "then": { "$ref": "agent_added.schema.json" } },
+    { "if": { "properties": { "t": { "const": "agent_removed" } }, "required": ["t"] }, "then": { "$ref": "agent_removed.schema.json" } },
+    { "if": { "properties": { "t": { "const": "agent_status" } }, "required": ["t"] }, "then": { "$ref": "agent_status.schema.json" } },
+    { "if": { "properties": { "t": { "const": "hello" } }, "required": ["t", "hub"] }, "then": { "$ref": "fleet_hello.schema.json" } },
+    { "if": { "properties": { "t": { "const": "get_manifest" } }, "required": ["t", "a"] }, "then": { "$ref": "fleet_get_manifest.schema.json" } },
+    { "if": { "properties": { "t": { "const": "subscribe" } }, "required": ["t", "a"] }, "then": { "$ref": "fleet_subscribe.schema.json" } },
+    { "if": { "properties": { "t": { "const": "run" } }, "required": ["t", "a"] }, "then": { "$ref": "fleet_run.schema.json" } },
+    { "if": { "properties": { "t": { "const": "manifest_changed" } }, "required": ["t", "a"] }, "then": { "$ref": "fleet_manifest_changed.schema.json" } },
+    { "if": { "properties": { "t": { "const": "state" } }, "required": ["t", "a"] }, "then": { "$ref": "fleet_state.schema.json" } },
+    { "if": { "properties": { "t": { "const": "event" } }, "required": ["t", "a"] }, "then": { "$ref": "fleet_event.schema.json" } }
+  ]
+}

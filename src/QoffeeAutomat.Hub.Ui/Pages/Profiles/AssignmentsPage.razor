@@ -1,0 +1,220 @@
+@page "/assignments"
+@using QoffeeAutomat.Hub.Ui.Pages.Profiles
+@inherits HubComponentBase
+
+@* The assignments (PLAN.md S20, D-030, T916): which profile reaches which PCs. A target is all PCs, the PCs with a tag, or one PC; the more specific
+   target overrides the less specific one, and between equal targets the higher priority of the profile wins. An assignment takes effect at once
+   (the hub gives the PCs it changes a new generation), but only the published revision of a profile is ever delivered. Everybody may look;
+   assigning and unassigning needs an administrator. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@H["Assignments.Title"]</MudText>
+  <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" data-testid="assignments-refresh">@H["Fleet.Refresh"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@H["Assignments.Intro"]</MudText>
+
+<HubErrorDisplay Error="Error" OnRetry="LoadAsync" Class="mb-4" />
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="assignments-notice">@_notice</MudAlert>
+}
+
+@if (Can(HubRoleNames.Admin))
+{
+  <MudPaper Class="pa-4 mb-3 qa-card" Elevation="1" data-testid="assignment-form">
+    <MudText Typo="Typo.h6" Class="mb-2">@H["Assignments.New"]</MudText>
+    <MudGrid Spacing="2" Class="align-end">
+      <MudItem xs="12" md="3">
+        <SelectBox Label="@H["Assignments.Profile"]" Value="@_profileId" ValueChanged="@(value => _profileId = value)" TestId="assignment-profile">
+          <option value="" selected="@(_profileId.Length == 0)">@H["Assignments.Profile.Choose"]</option>
+          @foreach (ProfileInfo profile in _profiles)
+          {
+            <option value="@profile.Id" selected="@(profile.Id == _profileId)">@profile.Draft.Name</option>
+          }
+        </SelectBox>
+      </MudItem>
+      <MudItem xs="12" md="3">
+        <SelectBox Label="@H["Assignments.Target"]" Value="@_kind" ValueChanged="OnKindChanged" TestId="assignment-kind">
+          @foreach (string kind in AssignmentTargets.Kinds)
+          {
+            <option value="@kind" selected="@(kind == _kind)">@H["Assignments.Target." + kind]</option>
+          }
+        </SelectBox>
+      </MudItem>
+      <MudItem xs="12" md="4">
+        @if (_kind == AssignmentTargets.Tag)
+        {
+          <SelectBox Label="@H["Assignments.Target.tag"]" Value="@_value" ValueChanged="@(value => _value = value)" TestId="assignment-tag">
+            <option value="" selected="@(_value.Length == 0)">@H["Assignments.Tag.Choose"]</option>
+            @foreach (string tag in KnownTags)
+            {
+              <option value="@tag" selected="@(tag == _value)">@tag</option>
+            }
+          </SelectBox>
+        }
+        else if (_kind == AssignmentTargets.Agent)
+        {
+          <SelectBox Label="@H["Assignments.Target.agent"]" Value="@_value" ValueChanged="@(value => _value = value)" TestId="assignment-agent">
+            <option value="" selected="@(_value.Length == 0)">@H["Assignments.Agent.Choose"]</option>
+            @foreach (AgentSummary agent in EnrolledAgents)
+            {
+              <option value="@agent.Id" selected="@(agent.Id == _value)">@agent.Name</option>
+            }
+          </SelectBox>
+        }
+      </MudItem>
+      <MudItem xs="12" md="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(Busy || _profileId.Length == 0 || AssignmentTargets.Build(_kind, _value) is null)" OnClick="CreateAsync" data-testid="assignment-create">@H["Assignments.Assign"]</MudButton>
+      </MudItem>
+    </MudGrid>
+  </MudPaper>
+}
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_assignments.Count == 0)
+{
+  if (Error is null)
+  {
+    <MudText Color="Color.Secondary" data-testid="assignments-none">@H["Assignments.None"]</MudText>
+  }
+}
+else
+{
+  <MudPaper Class="qa-card mb-2" Elevation="1">
+    <MudSimpleTable Dense="true" Hover="true" data-testid="assignments-table">
+      <thead>
+        <tr>
+          <th>@H["Assignments.Target"]</th>
+          <th>@H["Assignments.Profile"]</th>
+          <th>@H["Profiles.Column.Priority"]</th>
+          <th>@H["Library.Column.By"]</th>
+          <th>@H["Library.Column.Updated"]</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (AssignmentInfo assignment in _assignments)
+        {
+          (string kind, string value) = AssignmentTargets.Split(assignment.Target);
+          ProfileInfo? profile = _profiles.FirstOrDefault(candidate => candidate.Id == assignment.ProfileId);
+          <tr @key="assignment.Id" data-testid="@($"assignment-row-{assignment.Id}")" data-target="@assignment.Target">
+            <td>
+              <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@H["Assignments.Target." + kind]</MudChip>
+              @(kind == AssignmentTargets.Agent ? AgentName(value) : value)
+            </td>
+            <td>
+              <MudLink Href="@("profiles/" + Uri.EscapeDataString(assignment.ProfileId))">@(profile?.Draft.Name ?? assignment.ProfileId)</MudLink>
+              @if (profile is { ActiveRevision: null })
+              {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" data-testid="@($"assignment-unpublished-{assignment.Id}")">@H["Assignments.NotPublished"]</MudChip>
+              }
+            </td>
+            <td>@profile?.Draft.Priority</td>
+            <td>@assignment.CreatedBy</td>
+            <td>@Time(assignment.CreatedAt)</td>
+            <td class="qa-row-actions">
+              @if (Can(HubRoleNames.Admin))
+              {
+                if (_deleting == assignment.Id)
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" Disabled="Busy" OnClick="@(() => DeleteAsync(assignment))" data-testid="@($"assignment-delete-confirm-{assignment.Id}")">@H["Common.Confirm"]</MudButton>
+                  <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _deleting = null)">@H["Common.Cancel"]</MudButton>
+                }
+                else
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => _deleting = assignment.Id)" data-testid="@($"assignment-delete-{assignment.Id}")">@H["Assignments.Remove"]</MudButton>
+                }
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </MudSimpleTable>
+  </MudPaper>
+}
+
+@code {
+  private IReadOnlyList<AssignmentInfo> _assignments = [];
+  private IReadOnlyList<ProfileInfo> _profiles = [];
+  private IReadOnlyList<AgentSummary> _agents = [];
+  private string _profileId = string.Empty;
+  private string _kind = AssignmentTargets.Tag;
+  private string _value = string.Empty;
+  private string? _deleting;
+  private string? _notice;
+  private bool _loading = true;
+
+  private IEnumerable<AgentSummary> EnrolledAgents => _agents.Where(agent => agent.Status == "enrolled").OrderBy(agent => agent.Name, StringComparer.OrdinalIgnoreCase);
+
+  private IEnumerable<string> KnownTags => _agents.SelectMany(agent => agent.Tags).Distinct(StringComparer.Ordinal).OrderBy(tag => tag, StringComparer.Ordinal);
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+  }
+
+  private string AgentName(string id) => _agents.FirstOrDefault(agent => agent.Id == id)?.Name ?? id;
+
+  private void OnKindChanged(string kind)
+  {
+    _kind = kind;
+    _value = string.Empty;
+  }
+
+  private async Task LoadAsync()
+  {
+    AssignmentList? assignments = null;
+    ProfileList? profiles = null;
+    AgentList? agents = null;
+    bool ok = await TryAsync(async () =>
+    {
+      assignments = await Api.GetAssignmentsAsync();
+      profiles = await Api.GetProfilesAsync();
+      agents = await Api.GetAgentsAsync();
+    });
+    if (ok && assignments is not null && profiles is not null && agents is not null)
+    {
+      _profiles = [.. profiles.Profiles.OrderBy(profile => profile.Draft.Name, StringComparer.OrdinalIgnoreCase)];
+      _agents = agents.Agents;
+      _assignments = [.. assignments.Assignments
+        .OrderBy(assignment => AssignmentTargets.Specificity(assignment.Target))
+        .ThenBy(assignment => assignment.Target, StringComparer.Ordinal)
+        .ThenBy(assignment => assignment.ProfileId, StringComparer.Ordinal)];
+    }
+
+    _loading = false;
+  }
+
+  private async Task CreateAsync()
+  {
+    _notice = null;
+    string? target = AssignmentTargets.Build(_kind, _value);
+    if (target is null || _profileId.Length == 0)
+    {
+      return;
+    }
+
+    CreatedAssignment? created = null;
+    if (await TryAsync(async () => created = await Api.CreateAssignmentAsync(new CreateAssignmentRequest(_profileId, target))) && created is not null)
+    {
+      _notice = created.Agents.Count == 0
+        ? H["Assignments.Created.None"]
+        : H.Format("Assignments.Created", created.Agents.Count, string.Join(", ", created.Agents.Select(agent => agent.AgentName)));
+      _value = string.Empty;
+      await LoadAsync();
+    }
+  }
+
+  private async Task DeleteAsync(AssignmentInfo assignment)
+  {
+    _notice = null;
+    _deleting = null;
+    if (await TryAsync(() => Api.DeleteAssignmentAsync(assignment.Id)))
+    {
+      _notice = H["Assignments.Removed"];
+      await LoadAsync();
+    }
+  }
+}

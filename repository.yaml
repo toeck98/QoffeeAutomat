@@ -1,0 +1,6 @@
+# Home Assistant app repository definition (PLAN.md S20, D-034, task T918).
+# Add https://github.com/toeck98/QoffeeAutomat as an app repository in Home Assistant
+# (Settings, Apps, App store, menu, Repositories). The one app is in packaging/hub/ha-app/.
+name: QoffeeAutomat
+url: https://github.com/toeck98/QoffeeAutomat
+maintainer: toeck98

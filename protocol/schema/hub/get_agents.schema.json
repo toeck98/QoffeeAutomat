@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/get_agents.schema.json",
+  "title": "get_agents",
+  "description": "Client to hub (request), fleet link (PLAN.md S20). Lists the agents in the scope of the fleet token. The result data has the shape get_agents_result_data in defs.schema.json.",
+  "type": "object",
+  "required": ["t", "id"],
+  "properties": {
+    "t": { "const": "get_agents" },
+    "id": { "$ref": "defs.schema.json#/$defs/request_id" }
+  }
+}

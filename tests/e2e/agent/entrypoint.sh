@@ -6,6 +6,7 @@
 # simulated platform, sets the password through the first-run setup (the setup token never leaves
 # the container) and reports readiness by creating /tmp/ready, which the container health check
 # waits for. Restarting the container keeps the data directory, so the pairing survives.
+# E2E_AGENT_NAME (optional, first start only) replaces the agent name of the seed.
 
 set -euo pipefail
 
@@ -17,6 +18,17 @@ rm -f /tmp/ready
 if [ ! -e "$DATA_DIR/config/settings.json" ]; then
   mkdir -p "$DATA_DIR/config"
   cp -r /seed/. "$DATA_DIR/config/"
+  # The hub scenario (tests/e2e/hub, T919) runs two agents and names them through E2E_AGENT_NAME.
+  if [ -n "${E2E_AGENT_NAME:-}" ]; then
+    case "$E2E_AGENT_NAME" in
+      *[!A-Za-z0-9._-]*)
+        echo "e2e: E2E_AGENT_NAME may contain only letters, digits, '.', '_' and '-'" >&2
+        exit 1
+        ;;
+      *) ;;
+    esac
+    sed -i "s/\"name\": \"E2E-PC\"/\"name\": \"$E2E_AGENT_NAME\"/" "$DATA_DIR/config/settings.json"
+  fi
 fi
 
 # E2E_AGENT_PLATFORM=linux runs the real Linux platform (T804); the default is the simulated platform.

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/mgmt_stream_data.schema.json",
+  "title": "mgmt_stream_data",
+  "description": "Agent to hub, feature mgmt_tunnel (PLAN.md S20). One Server-Sent-Event of an open stream.",
+  "type": "object",
+  "required": ["t", "sid", "event", "data"],
+  "properties": {
+    "t": { "const": "mgmt_stream_data" },
+    "sid": { "$ref": "defs.schema.json#/$defs/stream_id" },
+    "event": { "type": "string", "minLength": 1 },
+    "data": { "description": "The data field of the event, as text.", "type": "string" }
+  }
+}

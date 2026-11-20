@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/config_desired.schema.json",
+  "title": "config_desired",
+  "description": "Hub to agent (request), feature config_sync (PLAN.md S20, D-027). The signed desired state: generation, policy and the item list. The signature covers the canonical JSON of {agent_id, generation, policy, items}; the agent id is not in the frame because it is the agent's own id. The result data has the shape config_desired_result_data in defs.schema.json.",
+  "type": "object",
+  "required": ["t", "id", "generation", "policy", "items", "sig"],
+  "properties": {
+    "t": { "const": "config_desired" },
+    "id": { "$ref": "defs.schema.json#/$defs/request_id" },
+    "generation": { "$ref": "defs.schema.json#/$defs/generation" },
+    "policy": { "$ref": "defs.schema.json#/$defs/policy" },
+    "items": {
+      "description": "The documents of the effective configuration, sorted by kind and id (ordinal order). The order is part of the signature.",
+      "type": "array",
+      "items": { "$ref": "defs.schema.json#/$defs/desired_item" },
+      "uniqueItems": true
+    },
+    "sig": { "$ref": "defs.schema.json#/$defs/signature" }
+  }
+}

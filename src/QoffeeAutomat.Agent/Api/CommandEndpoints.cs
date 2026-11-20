@@ -1,4 +1,5 @@
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Core.Commands;
@@ -30,6 +31,7 @@ public static class CommandEndpoints
             .Describe(Tag, "listCommands", "Lists all commands.")
             .Returns<CommandList>();
         api.MapPost("/commands", CreateCommandAsync)
+            .GuardsLocalConfig(LocalConfigArea.Command)
             .Describe(Tag, "createCommand", "Creates a command; the id must not exist yet.")
             .Takes<CommandDocument>()
             .Returns<CommandDocument>(StatusCodes.Status201Created)
@@ -44,18 +46,21 @@ public static class CommandEndpoints
             .Returns<CommandDocument>()
             .Fails(StatusCodes.Status404NotFound);
         api.MapPut("/commands/{id}", ReplaceCommandAsync)
+            .GuardsLocalConfig(LocalConfigArea.Command)
             .Describe(Tag, "replaceCommand", "Replaces a command.")
             .Takes<CommandDocument>()
             .Returns<CommandDocument>()
             .HonoursIfMatch()
             .Fails(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, ApiResults.UnprocessableContent);
         api.MapPatch("/commands/{id}", PatchCommandAsync)
+            .GuardsLocalConfig(LocalConfigArea.Command)
             .Describe(Tag, "patchCommand", "Changes enabled and exposeToHa of a command.")
             .Takes<CommandPatch>()
             .Returns<CommandDocument>()
             .HonoursIfMatch()
             .Fails(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict, ApiResults.UnprocessableContent);
         api.MapDelete("/commands/{id}", DeleteCommandAsync)
+            .GuardsLocalConfig(LocalConfigArea.Command)
             .Describe(Tag, "deleteCommand", "Deletes a command; its earlier revisions are kept.")
             .ReturnsNothing()
             .HonoursIfMatch()

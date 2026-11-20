@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/defs.schema.json",
+  "title": "QoffeeAutomat hub shared definitions",
+  "description": "Definitions shared by the hub schemas: enrollment, the hub link extensions config_sync and mgmt_tunnel, and the fleet link (PLAN.md S20, task T901). Field names are snake_case like all QoffeeLink frames.",
+  "$defs": {
+    "agent_id": {
+      "description": "The stable id of an agent (the same constraint as agent_info.id of S07).",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "request_id": {
+      "description": "Integer id chosen by the sender of a request (S07).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "document_kind": {
+      "description": "Kind of a hub document in config_sync (S20).",
+      "enum": ["command", "sensor", "script", "mode", "metric_overrides", "variables"]
+    },
+    "document_id": {
+      "description": "Id of a hub document: a command, sensor or mode id, the file name of a script, or any other identifier that is unique for its kind.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,126}$"
+    },
+    "sha256_hex": {
+      "description": "Lower-case hex SHA-256: of the canonical JSON of a document body, for scripts of the UTF-8 text (S20).",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "signature": {
+      "description": "Base64 (standard alphabet, with padding) of the 64 byte ECDSA P-256 signature in IEEE P1363 form (r followed by s) over the SHA-256 of the canonical JSON of {agent_id, generation, policy, items} (S20, D-027).",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{86}==$"
+    },
+    "public_key": {
+      "description": "Base64 (standard alphabet, with padding) of the DER SubjectPublicKeyInfo of an ECDSA P-256 public key (91 bytes).",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{122}==$"
+    },
+    "fingerprint": {
+      "description": "SHA-256 fingerprint of a TLS certificate: 32 upper-case hex bytes separated by colons.",
+      "type": "string",
+      "pattern": "^([0-9A-F]{2}:){31}[0-9A-F]{2}$"
+    },
+    "hub_url": {
+      "description": "Base URL of the hub, for example https://hub.example.org:8490.",
+      "type": "string",
+      "pattern": "^https?://[^ ]+$"
+    },
+    "enrollment_token": {
+      "description": "One-time or limited-use token created in the hub UI (base64url characters).",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{16,128}$"
+    },
+    "credential": {
+      "description": "Per-agent credential: 32 random bytes as base64url without padding.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    },
+    "generation": {
+      "description": "Generation of the desired state of one agent; increases per agent, the first one is 1.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "applied_generation": {
+      "description": "The last applied generation; 0 means that no generation was applied yet.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "local_config_policy": {
+      "enum": ["allow", "locked"]
+    },
+    "direct_link_policy": {
+      "enum": ["allow", "deny"]
+    },
+    "policy": {
+      "description": "The effective policy of an agent (D-029). The hub resolves 'inherit' before it signs.",
+      "type": "object",
+      "required": ["local_config", "direct_link"],
+      "properties": {
+        "local_config": { "$ref": "#/$defs/local_config_policy" },
+        "direct_link": { "$ref": "#/$defs/direct_link_policy" }
+      }
+    },
+    "document_ref": {
+      "description": "Names a document without its content.",
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/document_kind" },
+        "id": { "$ref": "#/$defs/document_id" }
+      }
+    },
+    "desired_item": {
+      "description": "An entry of the signed item list: a document and its hash.",
+      "type": "object",
+      "required": ["kind", "id", "hash"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/document_kind" },
+        "id": { "$ref": "#/$defs/document_id" },
+        "hash": { "$ref": "#/$defs/sha256_hex" }
+      }
+    },
+    "hub_document": {
+      "description": "A document with its body. The body of a script is the script text, the body of every other kind is a JSON object in the agent's document format (S06); variables is an object of name to string.",
+      "type": "object",
+      "required": ["kind", "id", "hash", "body"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/document_kind" },
+        "id": { "$ref": "#/$defs/document_id" },
+        "hash": { "$ref": "#/$defs/sha256_hex" },
+        "body": { "type": ["object", "string"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "script" } }, "required": ["kind"] },
+          "then": { "properties": { "body": { "type": "string" } } },
+          "else": { "properties": { "body": { "type": "object" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "command" } }, "required": ["kind"] },
+          "then": { "properties": { "body": { "$ref": "../config/command.schema.json" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "sensor" } }, "required": ["kind"] },
+          "then": { "properties": { "body": { "$ref": "../config/sensor.schema.json" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "mode" } }, "required": ["kind"] },
+          "then": { "properties": { "body": { "$ref": "../config/mode.schema.json" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "metric_overrides" } }, "required": ["kind"] },
+          "then": { "properties": { "body": { "$ref": "../config/metrics.schema.json" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "variables" } }, "required": ["kind"] },
+          "then": { "properties": { "body": { "$ref": "#/$defs/variables_body" } } }
+        }
+      ]
+    },
+    "variables_body": {
+      "description": "Body of a variables document: key/value pairs exposed to every run as QA_HUBVAR_<NAME> environment variables, never spliced into text (S20, D-012).",
+      "type": "object",
+      "propertyNames": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$" },
+      "additionalProperties": { "type": "string" }
+    },
+    "config_item_state": {
+      "enum": ["applied", "skipped_unsupported", "invalid"]
+    },
+    "config_item_result": {
+      "description": "Outcome of one document in config_status.",
+      "type": "object",
+      "required": ["kind", "id", "state"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/document_kind" },
+        "id": { "$ref": "#/$defs/document_id" },
+        "state": { "$ref": "#/$defs/config_item_state" },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "tunnel_role": {
+      "description": "Role of the hub user on whose behalf a tunnelled request is made (S20).",
+      "enum": ["viewer", "operator", "admin"]
+    },
+    "principal": {
+      "description": "The hub user behind a tunnelled request; the agent writes it to its audit log.",
+      "type": "object",
+      "required": ["user", "role"],
+      "properties": {
+        "user": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "role": { "$ref": "#/$defs/tunnel_role" }
+      }
+    },
+    "api_path": {
+      "description": "A path of the agent's management API (S08). It must start with /api/v1/ and carries no query string or fragment; the agent additionally rejects dot segments and encoded separators.",
+      "type": "string",
+      "pattern": "^/api/v1/[^?#]*$",
+      "maxLength": 2048
+    },
+    "stream_id": {
+      "description": "Id of a tunnelled Server-Sent-Events stream, chosen by the agent.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "power_state": {
+      "description": "The last bye reason (S07) of an agent, or unknown.",
+      "enum": ["sleep", "hibernate", "shutdown", "restart", "service_stop", "update", "unknown"]
+    },
+    "hub_info": {
+      "description": "Identity of a hub, in the fleet hello.",
+      "type": "object",
+      "required": ["id", "name", "version"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "agent_entry": {
+      "description": "An agent as listed by get_agents. manifest_rev and agent are absent for an agent that never connected.",
+      "type": "object",
+      "required": ["id", "name", "online", "power_state"],
+      "properties": {
+        "id": { "$ref": "#/$defs/agent_id" },
+        "name": { "type": "string", "minLength": 1 },
+        "online": { "type": "boolean" },
+        "power_state": { "$ref": "#/$defs/power_state" },
+        "manifest_rev": { "$ref": "../defs.schema.json#/$defs/manifest_rev" },
+        "agent": { "$ref": "../defs.schema.json#/$defs/agent_info" }
+      }
+    },
+    "hub_error_code": {
+      "description": "Error codes that the hub adds to the codes of S07 (S20). revoked is only used in the HTTP response of the agent link (status 401).",
+      "enum": ["unknown_agent", "agent_offline", "forbidden", "revoked"]
+    },
+    "config_desired_result_data": {
+      "description": "Data of the result of config_desired: the documents the agent lacks.",
+      "type": "object",
+      "required": ["need"],
+      "properties": {
+        "need": { "type": "array", "items": { "$ref": "#/$defs/document_ref" } }
+      }
+    },
+    "mgmt_request_result_data": {
+      "description": "Data of the result of mgmt_request: the HTTP status and body of the tunnelled API call.",
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "body": { "description": "Any JSON value; absent when the response has no body." }
+      }
+    },
+    "mgmt_stream_open_result_data": {
+      "description": "Data of the result of mgmt_stream_open.",
+      "type": "object",
+      "required": ["sid"],
+      "properties": {
+        "sid": { "$ref": "#/$defs/stream_id" }
+      }
+    },
+    "get_agents_result_data": {
+      "description": "Data of the result of get_agents, limited to the scope of the token.",
+      "type": "object",
+      "required": ["agents"],
+      "properties": {
+        "agents": { "type": "array", "items": { "$ref": "#/$defs/agent_entry" } }
+      }
+    }
+  }
+}

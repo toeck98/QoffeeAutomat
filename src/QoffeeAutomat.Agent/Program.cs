@@ -48,6 +48,8 @@ public sealed class Program
                 return await EmitCommand.RunAsync(options, Console.Out, Console.Error, Environment.GetEnvironmentVariable).ConfigureAwait(false);
             case AgentVerb.State:
                 return await StateCommand.RunAsync(options, Console.Out, Console.Error, Environment.GetEnvironmentVariable).ConfigureAwait(false);
+            case AgentVerb.Hub:
+                return await HubCommand.RunAsync(options, Console.Out, Console.Error, Console.In).ConfigureAwait(false);
             case AgentVerb.ResetPassword:
                 return await ResetPasswordCommand.RunAsync(options, Console.Out, Console.Error, ResetPasswordCommand.IsPrivileged).ConfigureAwait(false);
             case AgentVerb.SessionHost:

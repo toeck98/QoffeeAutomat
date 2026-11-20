@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/pair_response.schema.json",
+  "title": "hub pair response",
+  "description": "Response of a successful POST /hub/v1/pair (PLAN.md S07 pairing, S20 Fleet link, T913). The request is the pair_request of S07 with the client kind homeassistant or tool. The token is the fleet token: 32 random bytes as base64url without padding, shown exactly once, stored by the hub only as a hash. scope says what the token may see and control: every agent (type all) or the agents that carry at least one of the tags (type tags). fingerprint is the SHA-256 fingerprint of the hub certificate for pinning; it is absent when the hub is served without TLS. Failures use HTTP status codes with the body {error: {code, message}}: 400 bad_request, 401 unauthorized (wrong or expired code), 429 rate_limited.",
+  "type": "object",
+  "required": ["token", "hub", "scope"],
+  "properties": {
+    "token": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
+    "hub": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["all", "tags"] },
+        "tags": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "tags" } }, "required": ["type"] },
+          "then": { "required": ["tags"] }
+        }
+      ]
+    },
+    "fingerprint": { "$ref": "defs.schema.json#/$defs/fingerprint" }
+  }
+}

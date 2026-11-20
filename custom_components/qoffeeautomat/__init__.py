@@ -1,9 +1,9 @@
-"""The QoffeeAutomat integration (docs/plan/PLAN.md S07, S10)."""
+"""The QoffeeAutomat integration (docs/plan/PLAN.md S07, S10, S20)."""
 
 from functools import partial
 
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import (
     ConfigEntryAuthFailed,
     ConfigEntryError,
@@ -16,6 +16,7 @@ from homeassistant.loader import async_get_integration
 
 from .client import (
     AuthenticationError,
+    DirectLinkDeniedError,
     QoffeeLinkClient,
     QoffeeLinkError,
     ReverseLinkClient,
@@ -23,6 +24,7 @@ from .client import (
 )
 from .const import (
     CONF_FINGERPRINT,
+    CONF_HUB,
     CONF_LAST_BOOT_ID,
     CONF_REVERSE,
     CONF_REVERSE_TOKEN_HASH,
@@ -30,18 +32,25 @@ from .const import (
     DOMAIN,
 )
 from .entity import async_load_translation_keys
+from .fleet import async_setup_hub_entry
 from .manifest_manager import ManifestManager
 from .protocol import ProtocolError
 from .repairs import (
+    async_create_direct_link_denied_issue,
     async_create_protocol_mismatch_issue,
+    async_delete_direct_link_denied_issue,
+    async_delete_direct_route_issues,
     async_delete_protocol_mismatch_issue,
 )
 from .reverse import async_ensure_view, async_get_reverse_links
+from .routes import async_adopt_agent, loaded_fleets
 from .runtime import (
     ConnectionState,
     QoffeeAutomatConfigEntry,
     QoffeeAutomatRuntimeData,
     SubscriptionManager,
+    entry_broadcast,
+    entry_macs,
 )
 from .services import async_setup_services
 
@@ -89,10 +98,25 @@ def _store_boot_id(
     )
 
 
+@callback
+def _on_direct_link_denied(
+    hass: HomeAssistant, entry: QoffeeAutomatConfigEntry, denied: bool
+) -> None:
+    """Show or remove the issue of a direct link that the hub of the PC forbids."""
+    if denied and entry.unique_id:
+        async_create_direct_link_denied_issue(
+            hass, entry.entry_id, entry.unique_id, entry.title
+        )
+    else:
+        async_delete_direct_link_denied_issue(hass, entry.entry_id)
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: QoffeeAutomatConfigEntry
 ) -> bool:
     """Set up QoffeeAutomat from a config entry."""
+    if entry.data.get(CONF_HUB):
+        return await async_setup_hub_entry(hass, entry, PLATFORMS)
     if entry.data.get(CONF_REVERSE):
         return await _async_setup_reverse_entry(hass, entry)
     integration = await async_get_integration(hass, DOMAIN)
@@ -124,6 +148,14 @@ async def async_setup_entry(
         raise ConfigEntryError(
             translation_domain=DOMAIN, translation_key="unsupported_protocol"
         ) from err
+    except DirectLinkDeniedError as err:
+        # The hub that manages the PC forbids direct links (D-029, S20).
+        _on_direct_link_denied(hass, entry, True)
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="direct_link_denied",
+            translation_placeholders=placeholders,
+        ) from err
     except QoffeeLinkError as err:
         raise ConfigEntryNotReady(
             translation_domain=DOMAIN,
@@ -131,6 +163,7 @@ async def async_setup_entry(
             translation_placeholders=placeholders,
         ) from err
     async_delete_protocol_mismatch_issue(hass, entry.entry_id)
+    async_delete_direct_link_denied_issue(hass, entry.entry_id)
 
     manager = ManifestManager(hass, entry, client)
     connection = ConnectionState(
@@ -146,6 +179,11 @@ async def async_setup_entry(
     entry.async_on_unload(connection.close)
     entry.async_on_unload(manager.close)
     entry.async_on_unload(subscriptions.async_shutdown)
+    entry.async_on_unload(
+        client.add_direct_link_denied_listener(
+            partial(_on_direct_link_denied, hass, entry)
+        )
+    )
 
     client.start()
     try:
@@ -160,6 +198,9 @@ async def async_setup_entry(
         raise ConfigEntryAuthFailed(
             translation_domain=DOMAIN, translation_key="invalid_auth"
         )
+    # The connection works: a hub that served the PC lets go of it, and the device and
+    # the registry entries come over (before the manager registers the device).
+    await async_adopt_agent(hass, entry)
     try:
         manifest = await manager.async_load()
     except (QoffeeLinkError, ProtocolError) as err:
@@ -174,6 +215,9 @@ async def async_setup_entry(
         subscriptions=subscriptions,
         agent_id=manifest.agent.id,
         translation_keys=await async_load_translation_keys(hass),
+        name=entry.title,
+        macs=partial(entry_macs, entry),
+        broadcast=partial(entry_broadcast, entry),
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -230,6 +274,8 @@ async def _async_setup_reverse_entry(
     entry.async_on_unload(subscriptions.async_shutdown)
 
     manager.start_following()
+    # A hub that served the PC lets go of it; the registry entries come over.
+    await async_adopt_agent(hass, entry)
     entry.runtime_data = QoffeeAutomatRuntimeData(
         client=client,
         manifest_manager=manager,
@@ -237,6 +283,9 @@ async def _async_setup_reverse_entry(
         subscriptions=subscriptions,
         agent_id=agent_id,
         translation_keys=await async_load_translation_keys(hass),
+        name=entry.title,
+        macs=partial(entry_macs, entry),
+        broadcast=partial(entry_broadcast, entry),
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -252,6 +301,13 @@ async def async_unload_entry(
 async def async_remove_entry(
     hass: HomeAssistant, entry: QoffeeAutomatConfigEntry
 ) -> None:
-    """Remove the repair issue of a deleted config entry and forget its token."""
+    """Remove the repair issues of a deleted config entry and forget its token."""
     async_delete_protocol_mismatch_issue(hass, entry.entry_id)
+    async_delete_direct_link_denied_issue(hass, entry.entry_id)
     async_get_reverse_links(hass).forget(entry.entry_id)
+    if entry.data.get(CONF_HUB):
+        async_delete_direct_route_issues(hass, entry.entry_id)
+    else:
+        # A PC that had an entry of its own may belong to a hub now.
+        for fleet in loaded_fleets(hass):
+            fleet.async_schedule_resync(entry.entry_id)

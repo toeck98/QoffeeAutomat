@@ -133,8 +133,12 @@ public sealed class ClientWebSocketConnector : IOutboundWebSocketConnector
         options.KeepAliveInterval = _options.PingInterval;
         options.CollectHttpResponseDetails = true;
 
-        // permessage-deflate is safe here: no frame contains a credential (S07).
-        options.DangerousDeflateOptions = new WebSocketDeflateOptions();
+        // permessage-deflate is safe on the reverse link: no frame contains a credential (S07). The hub link does not offer it, because
+        // credential_rotate carries one; without the offer the server cannot compress in either direction.
+        if (endpoint.AllowCompression)
+        {
+            options.DangerousDeflateOptions = new WebSocketDeflateOptions();
+        }
 
         // A peer that does not answer a ping within the rest of the idle time is dropped (S07); the property exists on newer runtimes.
         PropertyInfo? keepAliveTimeout = typeof(ClientWebSocketOptions).GetProperty("KeepAliveTimeout", BindingFlags.Public | BindingFlags.Instance);

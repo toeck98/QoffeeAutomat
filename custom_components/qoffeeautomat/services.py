@@ -72,7 +72,7 @@ from collections.abc import Callable
 from enum import StrEnum
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_DEVICE_ID
 from homeassistant.core import (
     HomeAssistant,
@@ -88,9 +88,6 @@ from homeassistant.helpers import device_registry as dr
 from .commands import async_run_command
 from .const import (
     COMMAND_NOTIFY,
-    CONF_BROADCAST,
-    CONF_MACS,
-    DEFAULT_BROADCAST,
     DEFAULT_READY_TIMEOUT,
     DEFAULT_RUN_TIMEOUT,
     DOMAIN,
@@ -103,7 +100,8 @@ from .const import (
 )
 from .notifications import async_send_notification
 from .protocol import MetricValue, RunResultData
-from .runtime import QoffeeAutomatRuntimeData
+from .routes import fleet_of
+from .runtime import QoffeeAutomatRuntimeData, agent_runtime_of
 from .wol import async_send_magic_packets
 
 _LOGGER = logging.getLogger(__name__)
@@ -190,10 +188,14 @@ def build_response(result: RunResultData, *, wait: bool) -> ServiceResponse:
     }
 
 
-def _entry_of_device(
+def _runtime_of_device(
     hass: HomeAssistant, device_ids: list[str], command: str
-) -> ConfigEntry[QoffeeAutomatRuntimeData]:
-    """Return the loaded config entry of the agent behind the target device."""
+) -> QoffeeAutomatRuntimeData:
+    """Return the runtime data of the PC behind the target device.
+
+    The PC is reached through an entry of its own or through the entry of a hub; the
+    caller cannot tell which (S20).
+    """
     if len(device_ids) != 1:
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="single_device_required"
@@ -206,7 +208,7 @@ def _entry_of_device(
             if candidate is not None and candidate.domain == DOMAIN:
                 entry = candidate
                 break
-    if entry is None:
+    if device is None or entry is None:
         raise ServiceValidationError(
             translation_domain=DOMAIN,
             translation_key="device_not_found",
@@ -219,7 +221,22 @@ def _entry_of_device(
             translation_key="agent_offline",
             translation_placeholders={"command": command, "message": entry.title},
         )
-    return entry
+    fleet = fleet_of(entry)
+    if fleet is None:
+        return agent_runtime_of(entry)
+    agent_ids = [key for domain, key in device.identifiers if domain == DOMAIN]
+    runtime = next(
+        (found for key in agent_ids if (found := fleet.runtime_of(key)) is not None),
+        None,
+    )
+    if runtime is None:
+        # The device of the hub itself, or of a PC that the hub entry does not serve.
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="not_a_served_pc",
+            translation_placeholders={"device_id": device_ids[0]},
+        )
+    return runtime
 
 
 class Stage(StrEnum):
@@ -253,16 +270,15 @@ class PcWaiter:
 
     def __init__(
         self,
-        entry: ConfigEntry[QoffeeAutomatRuntimeData],
+        runtime: QoffeeAutomatRuntimeData,
         command: str,
         *,
         wake: bool,
         wait_for: str,
         ready_timeout: float,
     ) -> None:
-        """Prepare the wait of a call for the PC of ``entry``."""
-        self._entry = entry
-        self._runtime: QoffeeAutomatRuntimeData = entry.runtime_data
+        """Prepare the wait of a call for the PC of ``runtime``."""
+        self._runtime = runtime
         self._command = command
         self._wake = wake
         self._wait_for = wait_for
@@ -292,7 +308,7 @@ class PcWaiter:
 
     def _placeholders(self) -> dict[str, str]:
         return {
-            "name": self._entry.title,
+            "name": self._runtime.name,
             "command": self._command,
             "timeout": f"{self._ready_timeout:g}",
         }
@@ -334,12 +350,12 @@ class PcWaiter:
         client = self._runtime.client
         if not client.fast_retry_active:
             # Otherwise a button press or an earlier call woke the PC a moment ago.
-            macs = list(self._entry.data.get(CONF_MACS, ()))
+            macs = self._runtime.macs()
             if not macs:
                 raise ServiceValidationError(
                     translation_domain=DOMAIN, translation_key="wol_no_mac"
                 )
-            broadcast = self._entry.options.get(CONF_BROADCAST, DEFAULT_BROADCAST)
+            broadcast = self._runtime.broadcast()
             try:
                 sent = await async_send_magic_packets(macs, broadcast)
             except (OSError, ValueError) as err:
@@ -389,8 +405,7 @@ async def _async_run_command(call: ServiceCall) -> ServiceResponse:
     """Handle ``qoffeeautomat.run_command``."""
     command: str = call.data[ATTR_COMMAND]
     wait: bool = call.data[ATTR_WAIT]
-    entry = _entry_of_device(call.hass, call.data[ATTR_DEVICE_ID], command)
-    runtime: QoffeeAutomatRuntimeData = entry.runtime_data
+    runtime = _runtime_of_device(call.hass, call.data[ATTR_DEVICE_ID], command)
     # The values may be secret: only the names are logged.
     _LOGGER.debug(
         "Running %s with variables %s", command, sorted(call.data[ATTR_VARIABLES])
@@ -398,7 +413,7 @@ async def _async_run_command(call: ServiceCall) -> ServiceResponse:
     waiter: PcWaiter | None = None
     if call.data[ATTR_WAKE] or call.data[ATTR_WAIT_FOR] != WAIT_FOR_NONE:
         waiter = PcWaiter(
-            entry,
+            runtime,
             command,
             wake=call.data[ATTR_WAKE],
             wait_for=call.data[ATTR_WAIT_FOR],
@@ -424,13 +439,13 @@ async def _async_run_command(call: ServiceCall) -> ServiceResponse:
 
 async def _async_send_notification(call: ServiceCall) -> None:
     """Handle ``qoffeeautomat.send_notification``."""
-    entry = _entry_of_device(call.hass, call.data[ATTR_DEVICE_ID], COMMAND_NOTIFY)
+    runtime = _runtime_of_device(call.hass, call.data[ATTR_DEVICE_ID], COMMAND_NOTIFY)
     # The texts may be private: only what was asked for is logged, not the values.
     _LOGGER.debug(
         "Sending a notification with %s buttons", len(call.data[ATTR_ACTIONS])
     )
     await async_send_notification(
-        entry.runtime_data,
+        runtime,
         message=call.data[ATTR_MESSAGE],
         title=call.data.get(ATTR_TITLE),
         image_url=call.data.get(ATTR_IMAGE_URL),

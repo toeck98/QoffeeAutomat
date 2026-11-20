@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/mgmt_stream_open.schema.json",
+  "title": "mgmt_stream_open",
+  "description": "Hub to agent (request), feature mgmt_tunnel (PLAN.md S20). Opens a Server-Sent-Events endpoint of the management API. The result data has the shape mgmt_stream_open_result_data in defs.schema.json (sid).",
+  "type": "object",
+  "required": ["t", "id", "path", "principal"],
+  "properties": {
+    "t": { "const": "mgmt_stream_open" },
+    "id": { "$ref": "defs.schema.json#/$defs/request_id" },
+    "path": { "$ref": "defs.schema.json#/$defs/api_path" },
+    "query": {
+      "description": "Decoded query parameters of the endpoint, name to value. Optional; added in T912 without a version change because receivers ignore unknown members.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "principal": { "$ref": "defs.schema.json#/$defs/principal" }
+  }
+}

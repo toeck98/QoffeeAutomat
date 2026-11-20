@@ -41,6 +41,7 @@ Silent (elevated):
 |--------|--------|
 | `/LINKPORT=<port>` | QoffeeLink port in the service command line and the firewall rule (default 8481). |
 | `/UIPORT=<port>` | Loopback UI port (default 8480); also used by the Start menu shortcut. |
+| `/HUBENROLL=<string>` | Enrollment string of the central hub (`qahub1.…`); the installer runs `qoffeeautomat hub join` once the service runs (T905). A failed join does not fail the installation. |
 
 Without a port option an upgrade keeps the existing service and firewall rule untouched. An explicit port
 re-registers the service and rewrites the rule. If you change the ports later in the settings, adjust the firewall rule

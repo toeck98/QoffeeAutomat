@@ -1,0 +1,134 @@
+@page "/settings"
+@inherits HubComponentBase
+
+@* The hub itself (PLAN.md S20, T915): who it is (name, id, version, how TLS is terminated, the fingerprint of its certificate and its signing key,
+   which are what an agent pins at enrollment), the signed-in account with the change of its own password, and the language. *@
+<MudText Typo="Typo.h4" GutterBottom="true">@H["Settings.Title"]</MudText>
+
+<HubErrorDisplay Error="Error" OnRetry="LoadAsync" Class="mb-4" />
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="settings-notice">@_notice</MudAlert>
+}
+
+<MudGrid>
+  <MudItem xs="12" md="6">
+    <MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="hub-info">
+      <MudText Typo="Typo.h6" Class="mb-2">@H["Settings.Hub"]</MudText>
+      @if (_hub is null)
+      {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+      }
+      else
+      {
+        <MudSimpleTable Dense="true">
+          <tbody>
+            <tr><th>@H["Settings.Name"]</th><td data-testid="hub-name">@_hub.Name</td></tr>
+            <tr><th>@H["Settings.Id"]</th><td>@_hub.Id</td></tr>
+            <tr><th>@H["Agent.Version"]</th><td>@_hub.Version</td></tr>
+            <tr><th>@H["Settings.Tls"]</th><td>@(H.Find("Settings.Tls." + _hub.TlsMode) ?? _hub.TlsMode)</td></tr>
+          </tbody>
+        </MudSimpleTable>
+        @if (_hub.Fingerprint is not null)
+        {
+          <MudText Typo="Typo.subtitle2" Class="mt-3">@H["Settings.Fingerprint"]</MudText>
+          <code class="qh-secret mb-1" data-testid="hub-fingerprint">@_hub.Fingerprint</code>
+          <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="@(() => CopyTextAsync(_hub.Fingerprint))">@H["Common.Copy"]</MudButton>
+        }
+        <MudText Typo="Typo.subtitle2" Class="mt-3">@H["Settings.SigningKey"]</MudText>
+        <code class="qh-secret mb-1" data-testid="hub-signing-key">@_hub.SigningKey</code>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="@(() => CopyTextAsync(_hub.SigningKey))">@H["Common.Copy"]</MudButton>
+      }
+    </MudPaper>
+  </MudItem>
+
+  <MudItem xs="12" md="6">
+    <MudPaper Class="pa-4 qa-card" Elevation="1" data-testid="account">
+      <MudText Typo="Typo.h6" Class="mb-2">@H["Settings.Account"]</MudText>
+      @if (HubSession.Me is { } me)
+      {
+        <MudSimpleTable Dense="true">
+          <tbody>
+            <tr><th>@H["Users.Username"]</th><td data-testid="account-name">@me.Name</td></tr>
+            <tr><th>@H["Users.Role"]</th><td data-testid="account-role">@H["Role." + me.Role]</td></tr>
+          </tbody>
+        </MudSimpleTable>
+
+        @* A token has no password, and the hub accepts a password change only in a session. *@
+        @if (me.Method == "session")
+        {
+          <MudText Typo="Typo.subtitle2" Class="mt-3 mb-1">@H["Settings.ChangePassword"]</MudText>
+          <MudTextField T="string" @bind-Value="_current" Immediate="true" Label="@H["Settings.CurrentPassword"]" InputType="InputType.Password" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+          <MudTextField T="string" @bind-Value="_new" Immediate="true" Label="@H["Users.NewPassword"]" HelperText="@H["Users.PasswordHelp"]" InputType="InputType.Password" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+          <MudTextField T="string" @bind-Value="_confirm" Immediate="true" Label="@H["Setup.PasswordConfirm"]" InputType="InputType.Password" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" />
+          @if (_validation is not null)
+          {
+            <MudText Color="Color.Error" Typo="Typo.caption" data-testid="validation-message">@_validation</MudText>
+          }
+          <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="Busy" OnClick="ChangePasswordAsync" data-testid="password-change">@H["Settings.ChangePasswordButton"]</MudButton>
+        }
+      }
+    </MudPaper>
+
+    <MudPaper Class="pa-4 qa-card mt-4" Elevation="1">
+      <MudText Typo="Typo.h6" Class="mb-2">@L["Nav.Language"]</MudText>
+      <LanguageSwitch />
+    </MudPaper>
+  </MudItem>
+</MudGrid>
+
+@code {
+  private HubInfo? _hub;
+  private string? _notice;
+  private string? _validation;
+  private string? _current;
+  private string? _new;
+  private string? _confirm;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    HubInfo? info = null;
+    if (await TryAsync(async () => info = await Api.GetHubAsync()))
+    {
+      _hub = info;
+    }
+  }
+
+  private async Task ChangePasswordAsync()
+  {
+    _notice = null;
+    _validation = null;
+    if (string.IsNullOrEmpty(_current) || string.IsNullOrEmpty(_new))
+    {
+      _validation = H["Setup.Required"];
+      return;
+    }
+
+    if (!string.Equals(_new, _confirm, StringComparison.Ordinal))
+    {
+      _validation = H["Setup.Mismatch"];
+      return;
+    }
+
+    if (await TryAsync(() => Api.ChangeOwnPasswordAsync(new ChangeOwnPasswordRequest(_current, _new))))
+    {
+      _current = null;
+      _new = null;
+      _confirm = null;
+      _notice = H["Settings.PasswordChanged"];
+    }
+  }
+
+  private async Task CopyTextAsync(string? text)
+  {
+    if (!string.IsNullOrEmpty(text))
+    {
+      _notice = await CopyAsync(text) ? H["Common.Copied"] : H["Common.CopyFailed"];
+    }
+  }
+}

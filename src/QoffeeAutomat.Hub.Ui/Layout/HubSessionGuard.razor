@@ -1,0 +1,91 @@
+@inherits HubComponentBase
+
+@* Shows its content only to a signed-in user. Anybody else is sent to the setup page (no account yet) or the login page. The addresses are relative to
+   the base address of the app, and the page that the user wanted travels as a relative path too. *@
+@if (Error is not null)
+{
+  <HubErrorDisplay Error="Error" OnRetry="CheckAsync" />
+}
+else if (HubSession.Status == SignInStatus.SignedIn)
+{
+  @ChildContent
+}
+else
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Session.Checking"]" />
+}
+
+@code {
+  /// <summary>The pages that need a session.</summary>
+  [Parameter]
+  public RenderFragment? ChildContent { get; set; }
+
+  protected override async Task OnInitializedAsync()
+  {
+    HubSession.Changed += OnSessionChanged;
+    await CheckAsync();
+  }
+
+  protected override ValueTask OnDisposeAsync()
+  {
+    HubSession.Changed -= OnSessionChanged;
+    return base.OnDisposeAsync();
+  }
+
+  private async Task CheckAsync()
+  {
+    Error = null;
+    if (HubSession.Status == SignInStatus.Unknown)
+    {
+      try
+      {
+        await HubSession.RefreshAsync();
+      }
+      catch (ApiException exception)
+      {
+        // For example a hub that is not running.
+        Error = exception;
+        return;
+      }
+    }
+
+    Redirect();
+  }
+
+  private void OnSessionChanged(object? sender, EventArgs e)
+  {
+    _ = InvokeAsync(() =>
+    {
+      Redirect();
+      StateHasChanged();
+    });
+  }
+
+  private void Redirect()
+  {
+    if (IsDisposed)
+    {
+      return;
+    }
+
+    switch (HubSession.Status)
+    {
+      case SignInStatus.SetupRequired:
+        Navigation.NavigateTo("setup", replace: true);
+        break;
+      case SignInStatus.SignedOut:
+        string back = Navigation.ToBaseRelativePath(Navigation.Uri);
+
+        // The check and the change event of the session can both ask for the redirect; once the browser is on the login page there is nothing
+        // left to do (and the login page must never become its own return target).
+        string path = back.Split('?', '#')[0];
+        if (string.Equals(path, "login", StringComparison.OrdinalIgnoreCase))
+        {
+          break;
+        }
+
+        Navigation.NavigateTo(HubReturnTarget.LoginPath(back), replace: true);
+        break;
+    }
+  }
+}

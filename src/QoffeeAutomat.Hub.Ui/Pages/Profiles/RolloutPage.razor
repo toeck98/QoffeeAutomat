@@ -1,0 +1,320 @@
+@page "/rollouts"
+@using Microsoft.AspNetCore.Components.Routing
+@using QoffeeAutomat.Hub.Ui.Pages.Profiles
+@inherits HubComponentBase
+@inject HubUiOptions Options
+
+@* The roll-out (PLAN.md S20, D-027, T909, T916): how the desired configuration has reached the PCs. For every PC the generation that the hub wants it
+   to have, the one it applied, the state of every document and the errors that the PC reported or that the delivery had; or, for one profile, the PCs
+   that its published revision reaches. A PC that refused a generation keeps working with the previous one. An operator can push the desired state to
+   a PC again (the hub sends a generation at most once per connection, so a push is how to try again). The page reads again while it is open. *@
+<div class="qa-card-header">
+  <MudText Typo="Typo.h4" GutterBottom="true">@H["Rollout.Title"]</MudText>
+  <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="ReloadAsync" data-testid="rollout-refresh">@H["Fleet.Refresh"]</MudButton>
+</div>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@H["Rollout.Intro"]</MudText>
+
+<HubErrorDisplay Error="Error" OnRetry="ReloadAsync" Class="mb-4" />
+@if (_notice is not null)
+{
+  <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="rollout-notice">@_notice</MudAlert>
+}
+
+<MudPaper Class="pa-3 mb-3 qa-card" Elevation="1">
+  <SelectBox Label="@H["Rollout.Scope"]" Value="@(ProfileId ?? string.Empty)" ValueChanged="OnScopeChangedAsync" TestId="rollout-scope">
+    <option value="" selected="@(string.IsNullOrEmpty(ProfileId))">@H["Rollout.Scope.All"]</option>
+    @foreach (ProfileInfo profile in _profiles)
+    {
+      <option value="@profile.Id" selected="@(profile.Id == ProfileId)">@profile.Draft.Name</option>
+    }
+  </SelectBox>
+</MudPaper>
+
+@if (_loading)
+{
+  <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="@L["Common.Loading"]" />
+}
+else if (_profileRollout is not null)
+{
+  <MudText Typo="Typo.h6" Class="mb-1" data-testid="rollout-profile-title">@H.Format("Rollout.ProfileRevision", ProfileName, _profileRollout.Revision)</MudText>
+  <RolloutCountsBar Value="_profileRollout.Counts" />
+  @if (_profileRollout.Agents.Count == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="rollout-none">@H["Rollout.None"]</MudText>
+  }
+  else
+  {
+    <MudPaper Class="qa-card mb-2" Elevation="1">
+      <MudSimpleTable Dense="true" Hover="true" data-testid="rollout-profile-table">
+        <thead>
+          <tr>
+            <th>@H["Fleet.Column.Name"]</th>
+            <th>@H["Fleet.Column.State"]</th>
+            <th>@H["Fleet.Column.Generation"]</th>
+            <th>@H["Rollout.Documents"]</th>
+            <th>@H["Rollout.Errors"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (ProfileRolloutAgent agent in _profileRollout.Agents)
+          {
+            <tr @key="agent.AgentId" data-testid="@($"rollout-agent-{agent.AgentId}")" data-state="@agent.State">
+              <td>
+                @agent.AgentName
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@(agent.Online ? Color.Success : Color.Default)">@(agent.Online ? H["Fleet.State.online"] : H["Fleet.State.offline"])</MudChip>
+              </td>
+              <td><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@StateColor(agent.State)">@H["Rollout.State." + agent.State]</MudChip></td>
+              <td>@agent.AppliedGeneration / @agent.DesiredGeneration</td>
+              <td>
+                @foreach (DocumentRollout document in agent.Documents)
+                {
+                  <div data-document-state="@document.State"><code>@document.Kind/@document.Id</code> @H["Rollout.Document." + document.State]</div>
+                }
+              </td>
+              <td data-testid="@($"rollout-errors-{agent.AgentId}")">
+                @foreach (string error in agent.Errors)
+                {
+                  <div class="qh-error-line">@error</div>
+                }
+              </td>
+              <td class="qa-row-actions">
+                @if (Can(HubRoleNames.Operator))
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="Busy" OnClick="@(() => PushAsync(agent.AgentId))" data-testid="@($"rollout-push-{agent.AgentId}")">@H["Rollout.Push"]</MudButton>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    </MudPaper>
+  }
+}
+else if (_overview is not null)
+{
+  <RolloutCountsBar Value="_overview.Counts" />
+  @if (_overview.Agents.Count == 0)
+  {
+    <MudText Color="Color.Secondary" data-testid="rollout-none">@H["Rollout.None"]</MudText>
+  }
+  else
+  {
+    <MudPaper Class="qa-card mb-2" Elevation="1">
+      <MudSimpleTable Dense="true" Hover="true" data-testid="rollout-table">
+        <thead>
+          <tr>
+            <th>@H["Fleet.Column.Name"]</th>
+            <th>@H["Fleet.Column.State"]</th>
+            <th>@H["Fleet.Column.Generation"]</th>
+            <th>@H["Rollout.Pushed"]</th>
+            <th>@H["Rollout.Errors"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (AgentConfigStatusInfo agent in _overview.Agents)
+          {
+            <tr @key="agent.AgentId" data-testid="@($"rollout-agent-{agent.AgentId}")" data-state="@agent.State">
+              <td>
+                <MudLink Href="@("agents/" + Uri.EscapeDataString(agent.AgentId))">@agent.AgentName</MudLink>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@(agent.Online ? Color.Success : Color.Default)">@(agent.Online ? H["Fleet.State.online"] : H["Fleet.State.offline"])</MudChip>
+              </td>
+              <td><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@StateColor(agent.State)">@H["Rollout.State." + agent.State]</MudChip></td>
+              <td>@agent.AppliedGeneration / @agent.DesiredGeneration</td>
+              <td>@(agent.PushedGeneration == 0 ? H["Common.Never"] : H.Format("Rollout.PushedAt", agent.PushedGeneration, Time(agent.PushedAt)))</td>
+              <td data-testid="@($"rollout-errors-{agent.AgentId}")">
+                @if (!string.IsNullOrEmpty(agent.DeliveryError))
+                {
+                  <div class="qh-error-line" data-testid="@($"rollout-delivery-error-{agent.AgentId}")">@H["Rollout.DeliveryError"]: @agent.DeliveryError</div>
+                }
+                @foreach (string error in agent.Errors)
+                {
+                  <div class="qh-error-line">@error</div>
+                }
+              </td>
+              <td class="qa-row-actions">
+                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ToggleDetailsAsync(agent.AgentId))" data-testid="@($"rollout-details-{agent.AgentId}")">@(_details == agent.AgentId ? H["Rollout.HideDetails"] : H["Rollout.Details"])</MudButton>
+                @if (Can(HubRoleNames.Operator))
+                {
+                  <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="Busy" OnClick="@(() => PushAsync(agent.AgentId))" data-testid="@($"rollout-push-{agent.AgentId}")">@H["Rollout.Push"]</MudButton>
+                }
+              </td>
+            </tr>
+            @if (_details == agent.AgentId)
+            {
+              <tr data-testid="@($"rollout-detail-{agent.AgentId}")">
+                <td colspan="6">
+                  <MudText Typo="Typo.subtitle2">@H["Rollout.DocumentsOfAgent"]</MudText>
+                  @if (agent.Documents.Count == 0)
+                  {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@H["Rollout.NoDocuments"]</MudText>
+                  }
+                  @foreach (DocumentRollout document in agent.Documents)
+                  {
+                    <div data-document-state="@document.State"><code>@document.Kind/@document.Id</code> @H["Rollout.Document." + document.State]@(document.Errors.Count > 0 ? ": " + string.Join(" ", document.Errors) : string.Empty)</div>
+                  }
+                  @if (_desired is not null)
+                  {
+                    <MudText Typo="Typo.subtitle2" Class="mt-2">@H["Rollout.DesiredState"]</MudText>
+                    <div data-testid="rollout-desired-profiles">@H["Rollout.Profiles"]: @(_desired.Profiles.Count == 0 ? H["Common.None"] : string.Join(", ", _desired.Profiles))</div>
+                    <div>@H["Profile.LocalConfig"]: @H[ProfileDraft.PolicyKey(_desired.Policy.LocalConfig)] · @H["Profile.DirectLink"]: @H[ProfileDraft.PolicyKey(_desired.Policy.DirectLink)]</div>
+                    @foreach (ConfigWarningInfo warning in _desired.Warnings)
+                    {
+                      <MudAlert Severity="Severity.Warning" Variant="Variant.Text" Dense="true" data-code="@warning.Code">@warning.Message</MudAlert>
+                    }
+                  }
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </MudSimpleTable>
+    </MudPaper>
+  }
+}
+
+@code {
+  private readonly CancellationTokenSource _stop = new();
+  private IReadOnlyList<ProfileInfo> _profiles = [];
+  private RolloutOverview? _overview;
+  private ProfileRolloutInfo? _profileRollout;
+  private AgentDesiredInfo? _desired;
+  private string? _details;
+  private string? _notice;
+  private bool _loading = true;
+
+  /// <summary>The profile whose roll-out is shown; <c>null</c> shows every PC.</summary>
+  [Parameter]
+  [SupplyParameterFromQuery(Name = "profile")]
+  public string? ProfileId { get; set; }
+
+  private string ProfileName => _profiles.FirstOrDefault(profile => profile.Id == ProfileId)?.Draft.Name ?? ProfileId ?? string.Empty;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+    _ = RefreshLoopAsync(_stop.Token);
+  }
+
+  protected override ValueTask OnDisposeAsync()
+  {
+    _stop.Cancel();
+    _stop.Dispose();
+    return base.OnDisposeAsync();
+  }
+
+  private static Color StateColor(string state) => state switch
+  {
+    "up_to_date" or "applied" => Color.Success,
+    "failed" or "invalid" => Color.Error,
+    "pending" => Color.Warning,
+    _ => Color.Default,
+  };
+
+  private async Task ReloadAsync()
+  {
+    _notice = null;
+    await LoadAsync();
+  }
+
+  private async Task OnScopeChangedAsync(string profile)
+  {
+    ProfileId = profile.Length == 0 ? null : profile;
+    _details = null;
+    _desired = null;
+    _loading = true;
+    await LoadAsync();
+  }
+
+  private async Task RefreshLoopAsync(CancellationToken stop)
+  {
+    using var timer = new PeriodicTimer(Options.RefreshInterval);
+    try
+    {
+      while (await timer.WaitForNextTickAsync(stop))
+      {
+        await InvokeAsync(async () =>
+        {
+          if (!IsDisposed)
+          {
+            await LoadAsync();
+            StateHasChanged();
+          }
+        });
+      }
+    }
+    catch (OperationCanceledException)
+    {
+      // The page was left.
+    }
+  }
+
+  private async Task LoadAsync()
+  {
+    ProfileList? profiles = null;
+    RolloutOverview? overview = null;
+    ProfileRolloutInfo? rollout = null;
+    string? profileId = ProfileId;
+    bool ok = await TryAsync(async () =>
+    {
+      profiles = await Api.GetProfilesAsync();
+      if (profileId is null)
+      {
+        overview = await Api.GetRolloutsAsync();
+      }
+      else
+      {
+        rollout = await Api.GetProfileRolloutAsync(profileId);
+      }
+    });
+    if (profiles is not null)
+    {
+      _profiles = [.. profiles.Profiles.OrderBy(profile => profile.Draft.Name, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    if (ok && profiles is not null)
+    {
+      _overview = overview;
+      _profileRollout = rollout;
+    }
+    else if (Error is { StatusCode: 404 } && profileId is not null)
+    {
+      // A profile that was never published has no roll-out: the page says so instead of failing.
+      _overview = null;
+      _profileRollout = null;
+      _notice = H["Rollout.NotPublished"];
+      Error = null;
+    }
+
+    _loading = false;
+  }
+
+  private async Task ToggleDetailsAsync(string agentId)
+  {
+    if (_details == agentId)
+    {
+      _details = null;
+      _desired = null;
+      return;
+    }
+
+    _details = agentId;
+    _desired = null;
+    AgentDesiredInfo? desired = null;
+    if (await TryAsync(async () => desired = await Api.GetAgentDesiredStateAsync(agentId)) && desired is not null)
+    {
+      _desired = desired;
+    }
+  }
+
+  private async Task PushAsync(string agentId)
+  {
+    _notice = null;
+    if (await TryAsync(() => Api.PushConfigAsync(agentId)))
+    {
+      _notice = H.Format("Rollout.PushRequested", agentId);
+      await LoadAsync();
+    }
+  }
+}

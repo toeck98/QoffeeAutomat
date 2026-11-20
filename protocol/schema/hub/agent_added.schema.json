@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/agent_added.schema.json",
+  "title": "agent_added",
+  "description": "Hub to client, fleet link (PLAN.md S20). An agent entered the scope of the token. a is the agent id; the other members are those of an entry of get_agents (agent_entry in defs.schema.json) without the id.",
+  "type": "object",
+  "required": ["t", "a", "name", "online", "power_state"],
+  "properties": {
+    "t": { "const": "agent_added" },
+    "a": { "$ref": "defs.schema.json#/$defs/agent_id" },
+    "name": { "type": "string", "minLength": 1 },
+    "online": { "type": "boolean" },
+    "power_state": { "$ref": "defs.schema.json#/$defs/power_state" },
+    "manifest_rev": { "$ref": "../defs.schema.json#/$defs/manifest_rev" },
+    "agent": { "$ref": "../defs.schema.json#/$defs/agent_info" }
+  }
+}

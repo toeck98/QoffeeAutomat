@@ -41,10 +41,28 @@ earlier leaves an unpublished draft.
 Every asset, `SHA256SUMS.txt` and the SBOM included, has a GitHub build provenance attestation. Users verify them as
 described in [verify-download.md](../user/verify-download.md).
 
+### Hub images (T918)
+
+Besides the assets, `release.yml` pushes two multi-arch images to GHCR (they are not release assets):
+
+| Image | Built from | Used by |
+|-------|------------|---------|
+| `ghcr.io/<owner>/qoffeeautomat-hub:<version>` | `packaging/hub/Dockerfile` | Docker and Compose users |
+| `ghcr.io/<owner>/qoffeeautomat-hub-app:<version>` | `packaging/hub/ha-app/Dockerfile` (a layer on the hub image) | the Home Assistant app (`image:` in `packaging/hub/ha-app/config.yaml`) |
+
+The job `hub-images` builds each architecture on a runner of that architecture, smoke-tests the hub image
+(`packaging/hub/test-image.sh`) and pushes by digest; `hub-manifests` joins `amd64` and `arm64` into the version tag and
+creates a build provenance attestation for both; `publish` waits for it. After publication (stable releases only) `hub-latest`
+moves the tag `latest`. The tag of a failed run exists on GHCR without a published release: re-running the jobs replaces it.
+The version in `packaging/hub/ha-app/config.yaml` is kept in step by release-please and must equal the tag of a stable release
+(`prepare` checks it); the Supervisor offers the app update when that file changes on `main`. After the first release, make
+both packages public (GitHub, Packages, Package settings) so that the Supervisor can pull the app without credentials.
+
 ### Version rules
 
-* The tag `vX.Y.Z` equals `<Version>` in `Directory.Build.props`, `version` in `manifest.json` and the file version of
-  the executables. For stable releases `prepare` fails when the files and the tag differ.
+* The tag `vX.Y.Z` equals `<Version>` in `Directory.Build.props`, `version` in `manifest.json`, `version` in
+  `packaging/hub/ha-app/config.yaml` and the file version of the executables. For stable releases `prepare` fails when the
+  files and the tag differ.
 * Before 1.0, breaking changes bump the minor version (`bump-minor-pre-major`). `1.0.0` is the end of milestone M6; use
   a commit with the footer `Release-As: 1.0.0` to force it.
 * `release-please-config.json` uses the strategy `simple`, so release-please also keeps a `version.txt`. Do not delete it.

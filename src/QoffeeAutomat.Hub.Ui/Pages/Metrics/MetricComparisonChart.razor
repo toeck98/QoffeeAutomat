@@ -1,0 +1,54 @@
+@using System.Globalization
+@inherits HubComponentBase
+
+@* One metric for several PCs in one chart (PLAN.md S20, T916): an inline SVG with one line per PC on a shared time axis and a shared value axis, the
+   numbers of the axes as text next to it, and a legend. No charting library and no script, like the small chart of the component library. The
+   colours repeat after eight lines; the legend and the table below the chart name every line, so a colour is never the only way to tell them apart. *@
+<div class="qh-chart" data-testid="metric-chart">
+  <div class="qh-chart-axis" data-testid="metric-chart-max">@Number(Model.Maximum)@UnitText</div>
+  <svg class="qa-linechart qh-chart-plot" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="@Label">
+    <line x1="0" y1="39" x2="100" y2="39" class="qh-chart-baseline" stroke="currentColor" stroke-opacity="0.25" vector-effect="non-scaling-stroke" />
+    @foreach (ChartSeries line in Model.Series)
+    {
+      if (line.Points.Length > 0)
+      {
+        <polyline class="@($"qh-series qh-series-{line.Slot % 8}")"
+                  points="@line.Points"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linejoin="round"
+                  vector-effect="non-scaling-stroke"
+                  data-agent="@line.AgentId" />
+      }
+    }
+  </svg>
+  <div class="qh-chart-axis" data-testid="metric-chart-min">@Number(Model.Minimum)@UnitText</div>
+  <div class="qh-chart-time">
+    <span data-testid="metric-chart-from">@DashboardTime(Model.From)</span>
+    <span data-testid="metric-chart-to">@DashboardTime(Model.To)</span>
+  </div>
+  <ul class="qh-legend" data-testid="metric-chart-legend">
+    @foreach (ChartSeries line in Model.Series)
+    {
+      <li data-agent="@line.AgentId"><span class="@($"qh-swatch qh-series-{line.Slot % 8}")"></span> @line.AgentName</li>
+    }
+  </ul>
+</div>
+
+@code {
+  /// <summary>The chart to draw.</summary>
+  [Parameter]
+  [EditorRequired]
+  public MetricChartModel Model { get; set; } = null!;
+
+  /// <summary>The accessible description of the chart.</summary>
+  [Parameter]
+  public string Label { get; set; } = string.Empty;
+
+  private string UnitText => string.IsNullOrEmpty(Model.Unit) ? string.Empty : " " + Model.Unit;
+
+  private string Number(double value) => value.ToString("0.##", L.Culture);
+
+  private string DashboardTime(DateTimeOffset time) => Time(time);
+}

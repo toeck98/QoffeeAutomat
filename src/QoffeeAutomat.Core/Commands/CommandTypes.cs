@@ -192,6 +192,12 @@ public sealed class CommandEngineOptions
     /// </summary>
     public CommandPlatformSupport? PlatformSupport { get; init; }
 
+    /// <summary>
+    /// The variables of the hub layer (PLAN.md S20, T908), read for every run: name to value. Each one is added to the environment of the processes of the run
+    /// as <c>QA_HUBVAR_&lt;NAME&gt;</c> and nowhere else (D-012: never spliced into script text or command lines). Null means there are none.
+    /// </summary>
+    public Func<IReadOnlyDictionary<string, string>>? HubVariables { get; init; }
+
     internal void Validate()
     {
         ArgumentOutOfRangeException.ThrowIfNegative(QueueLimit);

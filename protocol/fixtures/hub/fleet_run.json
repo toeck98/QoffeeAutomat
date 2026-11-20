@@ -1,0 +1,9 @@
+{
+  "t": "run",
+  "id": 6,
+  "a": "5b0c6c1e-8e0a-4f6e-9a57-3d2f3a1c9b77",
+  "command": "set_display_profile",
+  "vars": { "Profile": "TV-Mode", "UpdateAdapterIds": false },
+  "wait": true,
+  "context": { "user_id": "8f1c2d3e4a5b6c7d8e9f0a1b2c3d4e5f" }
+}

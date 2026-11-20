@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <!-- The hub UI (PLAN.md D-033, T915): a thin Blazor WebAssembly shell with MudBlazor. The pages of the fleet, the enrollment, the users and the
+       audit log live here; the pages of one agent (dashboard, commands, sensors, history, logs) are the ones of QoffeeAutomat.Ui.Components,
+       shown through an IAgentApi that tunnels to the agent (TunnelAgentApi). The hub serves the published files as static assets. -->
+
+  <PropertyGroup>
+    <!-- German needs its ICU data; the data is bundled, nothing is fetched at run time (D-015). -->
+    <BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\QoffeeAutomat.Contracts\QoffeeAutomat.Contracts.csproj" />
+    <ProjectReference Include="..\QoffeeAutomat.Ui.Components\QoffeeAutomat.Ui.Components.csproj" />
+  </ItemGroup>
+
+  <!-- TunnelAgentApi derives from the HTTP client of the agent UI and only changes the route and the sign-in. The shell of the agent UI is a
+       WebAssembly application of its own (it has an index.html and a Program of its own, which cannot be referenced), so its two files are
+       compiled into this assembly instead of being copied. -->
+  <ItemGroup>
+    <Compile Include="..\QoffeeAutomat.Ui\AgentApiClient.cs" Link="Tunnel\Shared\AgentApiClient.cs" />
+    <Compile Include="..\QoffeeAutomat.Ui\ServerSentEventReader.cs" Link="Tunnel\Shared\ServerSentEventReader.cs" />
+  </ItemGroup>
+
+</Project>

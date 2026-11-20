@@ -1,0 +1,14 @@
+{
+  "t": "config_documents",
+  "id": 13,
+  "generation": 7,
+  "documents": [
+    {
+      "kind": "variables",
+      "id": "site",
+      "hash": "f289c273bfe0e59f06730bf90e6aa1e056861d474d22c8277cb9db481db7c9b2",
+      "body": { "SITE_NAME": "Home office", "BACKUP_SHARE": "\\\\nas\\backup" }
+    }
+  ],
+  "final": false
+}

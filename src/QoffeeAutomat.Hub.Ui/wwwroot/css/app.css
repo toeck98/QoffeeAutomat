@@ -1,0 +1,151 @@
+/* Styles of the hub UI shell: the page before Blazor has started, the error bar and the few classes of the hub pages. The look of the app itself
+   comes from MudBlazor and from QoffeeAutomat.Ui.Components. System fonts only; no web font is requested. */
+
+html,
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.app-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 100vh;
+  color: #17424f;
+}
+
+@media (prefers-color-scheme: dark) {
+  html,
+  body {
+    background: #1a1a27;
+  }
+
+  .app-loading {
+    color: #f2a65a;
+  }
+}
+
+#blazor-error-ui {
+  display: none;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10000;
+  padding: 0.6rem 1.25rem 0.7rem;
+  background: #ffffe0;
+  color: #000000;
+  box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+}
+
+#blazor-error-ui .dismiss {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  cursor: pointer;
+}
+
+/* The enrollment string and the installer command line are shown to be copied: one line that wraps anywhere, selectable as a whole. */
+.qh-secret {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.15);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.qh-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.qh-agent-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+/* The roll-out and the metric pages (T916). */
+.qh-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.qh-error-line {
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.qh-agent-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.qh-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* The chart that compares one metric across PCs: the plot stretches, the numbers of the axes are text around it. */
+.qh-chart {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.25rem;
+}
+
+.qh-chart-plot {
+  width: 100%;
+  height: 12rem;
+  background: rgba(127, 127, 127, 0.08);
+  border-radius: 4px;
+}
+
+.qh-chart-axis,
+.qh-chart-time {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.qh-chart-time {
+  display: flex;
+  justify-content: space-between;
+}
+
+.qh-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qh-swatch {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 2px;
+  background: currentColor;
+  vertical-align: middle;
+}
+
+/* Eight colours that stay apart for the common kinds of colour blindness; the legend and the table name every line anyway. */
+.qh-series-0 { color: #0072b2; }
+.qh-series-1 { color: #d55e00; }
+.qh-series-2 { color: #009e73; }
+.qh-series-3 { color: #cc79a7; }
+.qh-series-4 { color: #e69f00; }
+.qh-series-5 { color: #56b4e9; }
+.qh-series-6 { color: #8c8c8c; }
+.qh-series-7 { color: #6a3d9a; }

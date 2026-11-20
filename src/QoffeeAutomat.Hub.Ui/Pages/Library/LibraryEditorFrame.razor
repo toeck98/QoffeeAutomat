@@ -1,0 +1,34 @@
+@inherits HubComponentBase
+@inject AgentSelection Selection
+
+@* The frame of the editors of the library (PLAN.md S20, D-033, T916). It switches the selection to library mode before anything below it is created,
+   so the editors of the component library, which ask for an IAgentApi, get the library of the hub (LibraryAgentApi) instead of the tunnel to a PC.
+   Changing the library needs an administrator; everybody else sees the notice of the role gate. *@
+<div class="d-flex align-center mb-2">
+  <MudButton Variant="Variant.Text" Href="library" StartIcon="@Icons.Material.Filled.ArrowBack" data-testid="library-back">@H["Library.Back"]</MudButton>
+</div>
+
+<RoleGate Role="@HubRoleNames.Admin">
+  @if (ShowTestTarget)
+  {
+    <LibraryTestTarget />
+  }
+  <div data-testid="library-editor">
+    @ChildContent
+  </div>
+</RoleGate>
+
+@code {
+  /// <summary>True when the editor has a test panel, so the user chooses the PC that drafts run on.</summary>
+  [Parameter]
+  public bool ShowTestTarget { get; set; } = true;
+
+  /// <summary>The editor.</summary>
+  [Parameter]
+  public RenderFragment? ChildContent { get; set; }
+
+  protected override void OnInitialized()
+  {
+    Selection.UseLibrary();
+  }
+}

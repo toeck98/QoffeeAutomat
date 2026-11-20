@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/fleet_subscribe.schema.json",
+  "title": "subscribe (agent-scoped)",
+  "description": "Client to hub (request), fleet link (PLAN.md S20): subscribe of S07 plus the agent id a. It replaces the subscription of this client for this agent.",
+  "allOf": [
+    { "$ref": "../subscribe.schema.json" },
+    {
+      "type": "object",
+      "required": ["a"],
+      "properties": { "a": { "$ref": "defs.schema.json#/$defs/agent_id" } }
+    }
+  ]
+}

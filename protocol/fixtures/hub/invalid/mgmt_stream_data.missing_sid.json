@@ -1,0 +1,5 @@
+{
+  "t": "mgmt_stream_data",
+  "event": "run_finished",
+  "data": "{}"
+}

@@ -1,0 +1,8 @@
+{
+  "t": "config_desired",
+  "id": 11,
+  "generation": 1,
+  "policy": { "local_config": "inherit", "direct_link": "allow" },
+  "items": [],
+  "sig": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=="
+}

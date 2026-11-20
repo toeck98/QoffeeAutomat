@@ -1,0 +1,15 @@
+@page "/library/command/new"
+@page "/library/command/{CommandId}"
+@using QoffeeAutomat.Ui.Components.Pages.CommandEditor
+
+@* The command editor of the component library, for a command of the hub library (PLAN.md S20, D-033, T916). It is the same editor as the one of an agent;
+   the frame makes it talk to the library (LibraryAgentApi). A test runs the draft on the PC that the user chose in the frame. *@
+<LibraryEditorFrame>
+  <CommandEditorPage Id="@CommandId" />
+</LibraryEditorFrame>
+
+@code {
+  /// <summary>The id of the command; <c>null</c> on the page of a new command.</summary>
+  [Parameter]
+  public string? CommandId { get; set; }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/config_documents.schema.json",
+  "title": "config_documents",
+  "description": "Hub to agent (request), feature config_sync (PLAN.md S20). The documents the agent asked for in the result of config_desired. Several frames when the set exceeds the frame limit; the last one has final true. The result data is an empty object.",
+  "type": "object",
+  "required": ["t", "id", "generation", "documents", "final"],
+  "properties": {
+    "t": { "const": "config_documents" },
+    "id": { "$ref": "defs.schema.json#/$defs/request_id" },
+    "generation": { "$ref": "defs.schema.json#/$defs/generation" },
+    "documents": {
+      "type": "array",
+      "items": { "$ref": "defs.schema.json#/$defs/hub_document" }
+    },
+    "final": { "type": "boolean" }
+  }
+}

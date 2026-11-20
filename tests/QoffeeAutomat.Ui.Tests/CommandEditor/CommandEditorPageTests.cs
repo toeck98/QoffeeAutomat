@@ -61,12 +61,14 @@ public sealed class CommandEditorPageTests : BunitContext, IAsyncLifetime
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=param-0-name] input")), Patience);
         cut.Find("[data-testid=param-0-name] input").Input("Profile");
         cut.Find("[data-testid=param-0-type]").Change(ParameterTypes.Choice);
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=param-0-options] textarea")), Patience);
         cut.Find("[data-testid=param-0-options] textarea").Input("Normal\nTV");
         cut.Find("[data-testid=param-0-required]").Change(true);
         cut.Find("[data-testid=add-parameter]").Click();
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=param-1-name] input")), Patience);
         cut.Find("[data-testid=param-1-name] input").Input("Count");
         cut.Find("[data-testid=param-1-type]").Change(ParameterTypes.WholeNumber);
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-testid=param-1-min] input")), Patience);
         cut.Find("[data-testid=param-1-min] input").Input("1");
         cut.Find("[data-testid=param-1-max] input").Input("5");
 

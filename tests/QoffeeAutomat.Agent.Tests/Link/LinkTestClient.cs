@@ -3,6 +3,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.TestHost;
+using QoffeeAutomat.Contracts.Hub;
 using QoffeeAutomat.Contracts.Link;
 using QoffeeAutomat.Contracts.Tests.Schema;
 
@@ -62,6 +63,7 @@ internal sealed class LinkTestClient : IAsyncDisposable
         MessageTypes.Event,
         MessageTypes.Bye,
         MessageTypes.ManifestChanged,
+        HubMessageTypes.ConfigStatus,
     ];
 
     private readonly object _gate = new();
@@ -380,7 +382,15 @@ internal sealed class LinkTestClient : IAsyncDisposable
         finally
         {
             await _stop.CancelAsync();
-            _socket.Dispose();
+            try
+            {
+                _socket.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+                // The server request already ended and tore down the transport stream.
+            }
+
             _stop.Dispose();
         }
 

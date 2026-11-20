@@ -1,0 +1,8 @@
+{
+  "t": "config_desired",
+  "id": 11,
+  "generation": 1,
+  "policy": { "local_config": "allow", "direct_link": "allow" },
+  "items": [ { "kind": "command", "id": "set_display_profile", "hash": "ABC123" } ],
+  "sig": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=="
+}

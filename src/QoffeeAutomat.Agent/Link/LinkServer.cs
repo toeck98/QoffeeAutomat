@@ -135,18 +135,19 @@ public sealed class LinkServer
     /// <param name="socket">The connected WebSocket; it is disposed when the connection ends.</param>
     /// <param name="peer">Describes the peer for the audit log and for the source of runs; its kind is <c>homeassistant</c> or <c>hub</c>.</param>
     /// <param name="cancellationToken">Cancels the connection.</param>
+    /// <param name="extension">The hub link's additions to the protocol (features of <c>hello</c>, extra message types); null for the reverse link.</param>
     /// <returns>The WebSocket close code that the peer sent, or null when it did not send one (it went away, or the agent closed first).</returns>
-    public Task<int?> ServeOutboundAsync(WebSocket socket, LinkClient peer, CancellationToken cancellationToken)
+    public Task<int?> ServeOutboundAsync(WebSocket socket, LinkClient peer, CancellationToken cancellationToken, ILinkExtension? extension = null)
     {
         ArgumentNullException.ThrowIfNull(socket);
         ArgumentNullException.ThrowIfNull(peer);
 
-        return ServeCoreAsync(socket, peer, isPaired: false, cancellationToken);
+        return ServeCoreAsync(socket, peer, isPaired: false, cancellationToken, extension);
     }
 
-    private async Task<int?> ServeCoreAsync(WebSocket socket, LinkClient client, bool isPaired, CancellationToken cancellationToken)
+    private async Task<int?> ServeCoreAsync(WebSocket socket, LinkClient client, bool isPaired, CancellationToken cancellationToken, ILinkExtension? extension = null)
     {
-        var connection = new LinkConnection(this, socket, client, isPaired);
+        var connection = new LinkConnection(this, socket, client, isPaired, extension);
         bool refused;
         lock (_gate)
         {
@@ -179,6 +180,25 @@ public sealed class LinkServer
 
             await connection.DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Closes the connections of paired clients that dialled in (the direct link) because the hub's policy denies direct links (T908). The connections
+    /// that the agent opened itself (the hub link) stay. Returns when the closes are requested; the connections end after their queued frames.
+    /// </summary>
+    /// <param name="reason">A short reason for the close frame, without secrets.</param>
+    /// <returns>The number of connections that were closed.</returns>
+    public int CloseDirectClients(string reason)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(reason);
+
+        LinkConnection[] direct = [.. Snapshot().Where(connection => connection.IsDirect)];
+        foreach (LinkConnection connection in direct)
+        {
+            connection.CloseForPolicy(reason);
+        }
+
+        return direct.Length;
     }
 
     /// <summary>
@@ -254,15 +274,23 @@ public sealed class LinkServer
         }
     }
 
-    internal HelloMessage CreateHello()
+    internal HelloMessage CreateHello(IReadOnlyList<string>? extraFeatures = null)
     {
         LinkManifest manifest = Manifest.Current;
+        IReadOnlyList<string> own = manifest.Features ?? [];
+        IReadOnlyList<string> features = own;
+        if (extraFeatures is { Count: > 0 })
+        {
+            // The features of the connection (the hub's, PLAN.md S20) come after those of the manifest; nothing is announced twice.
+            features = [.. own, .. extraFeatures.Where(feature => !own.Contains(feature, StringComparer.Ordinal))];
+        }
+
         return new HelloMessage(
             new ProtocolRange(ProtocolInfo.Version, ProtocolInfo.Version),
             manifest.Agent,
             manifest.Rev,
             Platform.BootId,
-            manifest.Features ?? []);
+            features);
     }
 
     private LinkConnection[] Snapshot()

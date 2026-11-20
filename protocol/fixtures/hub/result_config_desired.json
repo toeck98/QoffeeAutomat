@@ -1,0 +1,11 @@
+{
+  "t": "result",
+  "id": 11,
+  "ok": true,
+  "data": {
+    "need": [
+      { "kind": "command", "id": "set_display_profile" },
+      { "kind": "script", "id": "set_display_profile.ps1" }
+    ]
+  }
+}

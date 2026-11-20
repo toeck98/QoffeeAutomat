@@ -1,0 +1,15 @@
+{
+  "t": "config_desired",
+  "id": 11,
+  "generation": 7,
+  "policy": { "local_config": "locked", "direct_link": "deny" },
+  "items": [
+    { "kind": "command", "id": "set_display_profile", "hash": "2029d5f5f9402b6cbb5ab5fa1cb28d2132ed1e3a21728ecb85c0a43778348101" },
+    { "kind": "metric_overrides", "id": "metric_overrides", "hash": "fc5c75f25e6394ecdd6d37ee40070157cf3a24bc07117506e638c1e3b5df5994" },
+    { "kind": "mode", "id": "pc_mode", "hash": "8bf7361793019c78f138753e9c68e6842fd88bb998e1f14fd552245d854ec27d" },
+    { "kind": "script", "id": "set_display_profile.ps1", "hash": "5c4c8f76eb29b3f8f5f1723dac0cccb277dc69c4b8adb9b32717674db392ee5b" },
+    { "kind": "sensor", "id": "display_profile", "hash": "35cd682996a20295c105b6e98b628f767e0114efbbb8b146afe2b9bd1a8f8f79" },
+    { "kind": "variables", "id": "site", "hash": "f289c273bfe0e59f06730bf90e6aa1e056861d474d22c8277cb9db481db7c9b2" }
+  ],
+  "sig": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=="
+}

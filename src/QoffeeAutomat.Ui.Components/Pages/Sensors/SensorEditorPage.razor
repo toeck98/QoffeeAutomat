@@ -9,7 +9,7 @@
 <div class="qa-card-header">
   <MudText Typo="Typo.h4" GutterBottom="true" data-testid="sensor-editor-title">@TitleText</MudText>
   <span class="qa-editor-actions">
-    <MudButton Variant="Variant.Text" Href="/sensors" data-testid="sensor-editor-back">@L["Sensors.Editor.Back"]</MudButton>
+    <MudButton Variant="Variant.Text" Href="@Links.Resolve("/sensors")" data-testid="sensor-editor-back">@L["Sensors.Editor.Back"]</MudButton>
     <MudButton Variant="Variant.Outlined"
                StartIcon="@Icons.Material.Filled.Science"
                OnClick="TestAsync"
@@ -19,7 +19,7 @@
                Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Save"
                OnClick="SaveAsync"
-               Disabled="@(_saving || _loading || _notFound || _loadError is not null)"
+               Disabled="@(_saving || _loading || _notFound || _loadError is not null || ReadOnly)"
                data-testid="sensor-save">@L["Sensors.Editor.Save"]</MudButton>
   </span>
 </div>
@@ -55,8 +55,17 @@ else if (_loadError is null && !_notFound)
     </MudAlert>
   }
 
+  @if (ReadOnly)
+  {
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4" data-testid="sensor-read-only" data-reason="@(HubConfigAccess.IsHubDocument(_origin) ? "hub_document" : "local_config_locked")">
+      @(HubConfigAccess.IsHubDocument(_origin) ? L["Hub.ReadOnly"] : L["Hub.Locked.Editing"])
+    </MudAlert>
+  }
+
   <MudGrid Spacing="3">
     <MudItem xs="12" lg="7">
+      @* A disabled fieldset switches every native input inside it off; the agent refuses the write as well (409 hub_document, 403 local_config_locked). *@
+      <fieldset disabled="@ReadOnly" class="qa-fieldset" data-testid="sensor-fields">
       <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="sensor-section-general">
         <MudText Typo="Typo.h6" Class="mb-3">@L["Sensors.Editor.General"]</MudText>
         <MudGrid Spacing="2">
@@ -341,6 +350,7 @@ else if (_loadError is null && !_notFound)
           }
         </MudGrid>
       </MudPaper>
+      </fieldset>
     </MudItem>
 
     <MudItem xs="12" lg="5">

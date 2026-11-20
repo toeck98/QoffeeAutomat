@@ -1,0 +1,56 @@
+@inherits HubComponentBase
+@inject AgentSelection Selection
+
+@* The test panel of the editors runs an unsaved draft; in the library there is no PC to run it on, so the user chooses one of the PCs that are
+   online right now (PLAN.md S20, T916). The draft then runs there through the tunnel, as a test run of that PC (the hub user is in its audit log).
+   Choosing none is allowed: the editors save and validate without a PC, and the test panel says that it needs one. *@
+<MudPaper Class="pa-3 mb-3 qa-card" Elevation="1" data-testid="library-test-target">
+  <MudText Typo="Typo.subtitle2" Class="mb-1">@H["Library.Target.Title"]</MudText>
+  <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">@H["Library.Target.Hint"]</MudText>
+  <HubErrorDisplay Error="Error" OnRetry="LoadAsync" Class="mb-2" />
+  @if (!_loading && _online.Count == 0 && Error is null)
+  {
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" data-testid="library-target-none">@H["Library.Target.None"]</MudAlert>
+  }
+  else
+  {
+    <SelectBox Label="@H["Library.Target.Label"]" Value="@(Selection.TestTargetId ?? string.Empty)" ValueChanged="OnChosen" TestId="library-target-select">
+      <option value="" selected="@(Selection.TestTargetId is null)">@H["Library.Target.Not"]</option>
+      @foreach (InventoryAgent agent in _online)
+      {
+        <option value="@agent.Agent.Id" selected="@(agent.Agent.Id == Selection.TestTargetId)">@agent.Agent.Name (@agent.Agent.Os)</option>
+      }
+    </SelectBox>
+  }
+</MudPaper>
+
+@code {
+  private IReadOnlyList<InventoryAgent> _online = [];
+  private bool _loading = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    InventoryList? list = null;
+    if (await TryAsync(async () => list = await Api.GetInventoryAsync()) && list is not null)
+    {
+      _online = [.. list.Agents.Where(agent => agent.Presence.Online && agent.Agent.Status == "enrolled").OrderBy(agent => agent.Agent.Name, StringComparer.OrdinalIgnoreCase)];
+      if (Selection.TestTargetId is { } chosen && _online.All(agent => agent.Agent.Id != chosen))
+      {
+        // The PC went offline since it was chosen: a test could not reach it.
+        Selection.SelectTestTarget(null);
+      }
+    }
+
+    _loading = false;
+  }
+
+  private void OnChosen(string id)
+  {
+    Selection.SelectTestTarget(id);
+  }
+}

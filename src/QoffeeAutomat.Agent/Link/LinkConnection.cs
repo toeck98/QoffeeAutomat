@@ -21,7 +21,7 @@ namespace QoffeeAutomat.Agent.Link;
 /// The metric feed and the event feed of the connection end with it, which is what stops the sampling
 /// of metrics that nobody else wants (PLAN.md D-007).
 /// </summary>
-internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
+internal sealed class LinkConnection : ILinkConnection, ILinkExtensionContext, IAsyncDisposable
 {
     private static readonly string[] EventTypeNames = [.. EventCatalog.Types.Select(entry => entry.Type)];
 
@@ -31,6 +31,9 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
 
     // False for a connection that the agent opened itself (ADR 0003): there is no link token that the pairing service could revoke.
     private readonly bool _isPaired;
+
+    // The additions of the hub link (T905); null for every other connection.
+    private readonly ILinkExtension? _extension;
     private readonly LinkOptions _options;
     private readonly TimeProvider _time;
     private readonly ILogger _logger;
@@ -55,6 +58,7 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
     private int _peerCloseStatus = -1;
     private int _manifestHandlerAttached;
     private string _announcedRev = string.Empty;
+    private IReadOnlyList<string> _peerFeatures = [];
     private IDisposable? _registration;
     private MetricSubscription? _metricSubscription;
     private CancellationTokenSource? _metricPumpStop;
@@ -62,12 +66,13 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
     private EventSubscription? _eventSubscription;
     private Task? _eventPump;
 
-    public LinkConnection(LinkServer server, WebSocket socket, LinkClient client, bool isPaired = true)
+    public LinkConnection(LinkServer server, WebSocket socket, LinkClient client, bool isPaired = true, ILinkExtension? extension = null)
     {
         _server = server;
         _socket = socket;
         _client = client;
         _isPaired = isPaired;
+        _extension = extension;
         _options = server.Options;
         _time = server.Time;
         _logger = server.Logger;
@@ -101,6 +106,13 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
 
     /// <summary>True once the handshake is complete and the connection is open for traffic.</summary>
     public bool IsEstablished => _handshakeDone && !_closeRequested;
+
+    /// <summary>True for a connection that a paired client opened to the agent (the direct link); false for connections that the agent dialled itself (reverse link, hub link).</summary>
+    public bool IsDirect => _isPaired;
+
+    /// <summary>Closes the connection after the queued frames because the hub's policy denies direct links (T908).</summary>
+    /// <param name="reason">A short reason for the close frame.</param>
+    public void CloseForPolicy(string reason) => RequestClose(CloseCodes.Normal, reason);
 
     /// <inheritdoc />
     public async ValueTask CloseAsync(int closeCode, string reason, CancellationToken cancellationToken)
@@ -176,6 +188,12 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
                 StartEventFeed();
                 _handshakeDone = true;
                 AnnounceManifest();
+                if (_extension is not null)
+                {
+                    // The hub link sends its first config_status here (T908), after the features of the peer are known.
+                    await _extension.OnEstablishedAsync(_peerFeatures, this, _lifetime.Token).ConfigureAwait(false);
+                }
+
                 await ReceiveLoopAsync().ConfigureAwait(false);
             }
         }
@@ -193,6 +211,7 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
         }
         finally
         {
+            _extension?.OnClosed(this);
             await CleanupAsync().ConfigureAwait(false);
         }
     }
@@ -211,7 +230,7 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
 
     private void SendHello()
     {
-        HelloMessage hello = _server.CreateHello();
+        HelloMessage hello = _server.CreateHello(_extension?.HelloFeatures);
         lock (_gate)
         {
             _announcedRev = hello.ManifestRev;
@@ -284,6 +303,7 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
             return false;
         }
 
+        _peerFeatures = hello.Features ?? [];
         return true;
     }
 
@@ -401,6 +421,14 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
                 StartRun(run);
                 break;
             default:
+                // The hub link claims its own message types (credential_rotate, unenroll, ...) first (T905).
+                if (message is UnknownMessage unknown
+                    && _extension is not null
+                    && await _extension.TryHandleAsync(unknown, this, _lifetime.Token).ConfigureAwait(false))
+                {
+                    break;
+                }
+
                 // client_hello again, answers to requests that the agent never sends, frames that only the agent
                 // sends and message types of a later protocol version are ignored (PLAN.md S07).
                 string ignoredType = message.T;
@@ -683,6 +711,12 @@ internal sealed class LinkConnection : ILinkConnection, IAsyncDisposable
     // ------------------------------------------------------------------
     // Sending
     // ------------------------------------------------------------------
+
+    /// <inheritdoc />
+    bool ILinkExtensionContext.Send(LinkMessage message) => Send(message);
+
+    /// <inheritdoc />
+    void ILinkExtensionContext.Close(int closeCode, string reason) => RequestClose(closeCode, reason);
 
     private bool Send(LinkMessage message)
     {

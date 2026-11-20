@@ -1,0 +1,14 @@
+{
+  "token": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "agent": {
+    "id": "5b0c6c1e-8e0a-4f6e-9a57-3d2f3a1c9b77",
+    "name": "Gaming-PC",
+    "version": "1.0.0",
+    "os": "windows",
+    "os_version": "10.0.26200",
+    "arch": "x64",
+    "hostname": "GAMING-PC",
+    "macs": ["A4:B1:C1:00:11:22"],
+    "ui_url": "https://gaming-pc.local:8481/"
+  }
+}

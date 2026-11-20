@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using QoffeeAutomat.Agent.Api;
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Agent.Security;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
@@ -41,7 +42,7 @@ public static class PairingEndpoints
         api.MapPost("/link/pairing", StartPairing)
             .Describe(tag, "startPairing", "Starts pairing: creates a one-time code that is valid for five minutes and returns it with the certificate fingerprint.")
             .Returns<PairingInfo>()
-            .Fails(StatusCodes.Status503ServiceUnavailable);
+            .Fails(StatusCodes.Status403Forbidden, StatusCodes.Status503ServiceUnavailable);
         api.MapGet("/link/pairing", GetPairing)
             .Describe(tag, "getPairing", "Reads the active pairing code; answers 204 when there is none.")
             .Returns<PairingInfo>()
@@ -63,12 +64,18 @@ public static class PairingEndpoints
         PairingService pairing,
         IConfigStore config,
         IPlatformInfo platform,
+        IHubPolicy policy,
         ILogger<PairingService> logger,
         CancellationToken cancellationToken)
     {
         if (!context.Request.IsHttps)
         {
             return ApiResults.Problem(StatusCodes.Status403Forbidden, "https_required", "Pairing is only available over HTTPS.");
+        }
+
+        if (policy.DirectLinkDenied)
+        {
+            return DirectLinkDenied();
         }
 
         (PairRequest? request, IResult? failure) = await ApiResults.ReadBodyAsync(
@@ -102,8 +109,22 @@ public static class PairingEndpoints
         return ApiResults.Json(response, LinkJsonContext.Default.PairResponse);
     }
 
-    private static IResult StartPairing(PairingService pairing)
+    /// <summary>The answer to a pairing attempt, or a request for a pairing code, while the hub denies direct links (PLAN.md S20, D-029).</summary>
+    private static IResult DirectLinkDenied()
     {
+        return ApiResults.Problem(
+            StatusCodes.Status403Forbidden,
+            HubConfigProblemCodes.DirectLinkDenied,
+            "The hub that manages this PC does not allow direct pairing. Connect Home Assistant to the hub instead.");
+    }
+
+    private static IResult StartPairing(PairingService pairing, IHubPolicy policy)
+    {
+        if (policy.DirectLinkDenied)
+        {
+            return DirectLinkDenied();
+        }
+
         string? fingerprint = pairing.Fingerprint;
         if (fingerprint is null)
         {

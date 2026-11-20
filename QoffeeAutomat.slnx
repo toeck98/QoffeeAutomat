@@ -11,6 +11,8 @@
     <Project Path="src/QoffeeAutomat.Agent/QoffeeAutomat.Agent.csproj" />
     <Project Path="src/QoffeeAutomat.Contracts/QoffeeAutomat.Contracts.csproj" />
     <Project Path="src/QoffeeAutomat.Core/QoffeeAutomat.Core.csproj" />
+    <Project Path="src/QoffeeAutomat.Hub/QoffeeAutomat.Hub.csproj" />
+    <Project Path="src/QoffeeAutomat.Hub.Ui/QoffeeAutomat.Hub.Ui.csproj" />
     <Project Path="src/QoffeeAutomat.Platform.Linux/QoffeeAutomat.Platform.Linux.csproj" />
     <Project Path="src/QoffeeAutomat.Platform.Simulated/QoffeeAutomat.Platform.Simulated.csproj" />
     <Project Path="src/QoffeeAutomat.Platform.Windows/QoffeeAutomat.Platform.Windows.csproj" />
@@ -23,6 +25,8 @@
     <Project Path="tests/QoffeeAutomat.Agent.Tests/QoffeeAutomat.Agent.Tests.csproj" />
     <Project Path="tests/QoffeeAutomat.Contracts.Tests/QoffeeAutomat.Contracts.Tests.csproj" />
     <Project Path="tests/QoffeeAutomat.Core.Tests/QoffeeAutomat.Core.Tests.csproj" />
+    <Project Path="tests/QoffeeAutomat.Hub.Tests/QoffeeAutomat.Hub.Tests.csproj" />
+    <Project Path="tests/QoffeeAutomat.Hub.Ui.Tests/QoffeeAutomat.Hub.Ui.Tests.csproj" />
     <Project Path="tests/QoffeeAutomat.Platform.Linux.Tests/QoffeeAutomat.Platform.Linux.Tests.csproj" />
     <Project Path="tests/QoffeeAutomat.Platform.Windows.Tests/QoffeeAutomat.Platform.Windows.Tests.csproj" />
     <Project Path="tests/QoffeeAutomat.Ui.E2E/QoffeeAutomat.Ui.E2E.csproj" />

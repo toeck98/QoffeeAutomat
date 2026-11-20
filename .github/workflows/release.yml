@@ -16,6 +16,10 @@ name: release
 #      asset, attaches everything to the DRAFT release, verifies the attestations and the asset list,
 #   5. publishes the release as the very last step,
 #   6. for a stable release, starts winget.yml for the tag (T607), which submits the new version to winget-pkgs.
+# Besides the assets, the workflow builds the hub container image and the Home Assistant app image (T918, D-024):
+# jobs hub-images (per architecture, on native runners), hub-manifests (multi-arch tag <version> on GHCR and build
+# provenance attestations) and, after the release is published, hub-latest (the tag `latest`, stable releases only).
+# The images are not release assets; `publish` waits for hub-manifests so that a release never lacks its images.
 # Releases are immutable once published, so a run that fails earlier leaves a draft that can be
 # re-run or deleted. See docs/maintainers/releasing.md.
 
@@ -60,6 +64,8 @@ jobs:
       prerelease: ${{ steps.meta.outputs.prerelease }}
       sha: ${{ steps.meta.outputs.sha }}
       release_id: ${{ steps.meta.outputs.release_id }}
+      hub_image: ${{ steps.meta.outputs.hub_image }}
+      app_image: ${{ steps.meta.outputs.app_image }}
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -109,6 +115,23 @@ jobs:
           jq -e '.zip_release == true and .filename == "qoffeeautomat.zip"' hacs.json > /dev/null \
             || { echo "::error::hacs.json must set zip_release and filename qoffeeautomat.zip (D-003)."; exit 1; }
 
+          # The hub images (T918, D-024): the container image and the thin image of the Home Assistant app, both on
+          # GHCR below the owner of the repository (the registry wants lower case). The app definition names its
+          # image and carries the release version (release-please keeps it in step, release-please-config.json).
+          owner="$(printf '%s' "$GH_REPO" | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')"
+          hub_image="ghcr.io/$owner/qoffeeautomat-hub"
+          app_image="ghcr.io/$owner/qoffeeautomat-hub-app"
+          app_config="packaging/hub/ha-app/config.yaml"
+          app_version="$(sed -n 's|^version:[[:space:]]*"\([^"]*\)".*|\1|p' "$app_config" | head -n 1)"
+          echo "app=$app_version"
+          if [ "$prerelease" = "false" ] && [ "$app_version" != "$version" ]; then
+            echo "::error::$app_config ($app_version) must be $version."
+            exit 1
+          fi
+          if ! grep -qx "image: $app_image" "$app_config"; then
+            echo "::warning::$app_config does not name the image $app_image; the app of this release is not installable from the repository."
+          fi
+
           # Draft releases are not returned by "releases/tags/<tag>", so list the releases.
           existing="$(gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
             --jq ".[] | select(.tag_name == \"$TAG\") | [.id, .draft] | @tsv")"
@@ -140,6 +163,8 @@ jobs:
             echo "prerelease=$prerelease"
             echo "sha=$sha"
             echo "release_id=$release_id"
+            echo "hub_image=$hub_image"
+            echo "app_image=$app_image"
           } >> "$GITHUB_OUTPUT"
 
   windows:
@@ -445,9 +470,182 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  hub-images:
+    name: hub images (${{ matrix.arch }})
+    # T918, D-024: the hub container image (packaging/hub/Dockerfile) and the Home Assistant app image
+    # (packaging/hub/ha-app/Dockerfile, a layer on the hub image). Each architecture is built on a runner of its own
+    # architecture (no emulation), the hub image is smoke-tested (non-root, /data volume, health check) and both
+    # images are pushed by digest. The job hub-manifests joins the architectures into the tagged images.
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      ARCH: ${{ matrix.arch }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      SHA: ${{ needs.prepare.outputs.sha }}
+      HUB_IMAGE: ${{ needs.prepare.outputs.hub_image }}
+      APP_IMAGE: ${{ needs.prepare.outputs.app_image }}
+      REGISTRY_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - name: Log in to the GitHub container registry
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Create the BuildKit builder
+        run: docker buildx create --name hub --driver docker-container --use
+      - name: Build the hub image for the test
+        run: >-
+          docker buildx build --builder hub --platform "linux/$ARCH"
+          --file packaging/hub/Dockerfile
+          --build-arg "VERSION=$VERSION" --build-arg "REVISION=$SHA"
+          --tag qoffeeautomat-hub:test --load .
+      - name: Test the hub image
+        run: bash packaging/hub/test-image.sh qoffeeautomat-hub:test
+      - name: Push the hub image by digest
+        id: hub
+        run: |
+          set -euo pipefail
+          docker buildx build --builder hub --platform "linux/$ARCH" \
+            --file packaging/hub/Dockerfile \
+            --build-arg "VERSION=$VERSION" --build-arg "REVISION=$SHA" \
+            --provenance=false --sbom=false \
+            --output "type=image,name=$HUB_IMAGE,push-by-digest=true,name-canonical=true,push=true" \
+            --metadata-file hub-metadata.json .
+          digest="$(jq -r '."containerimage.digest"' hub-metadata.json)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::No image digest in the build metadata."; exit 1; }
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Build and push the app image by digest
+        id: app
+        env:
+          HUB_DIGEST: ${{ steps.hub.outputs.digest }}
+        run: |
+          set -euo pipefail
+          docker buildx build --builder hub --platform "linux/$ARCH" \
+            --file packaging/hub/ha-app/Dockerfile \
+            --build-arg "BUILD_FROM=$HUB_IMAGE@$HUB_DIGEST" \
+            --provenance=false --sbom=false \
+            --output "type=image,name=$APP_IMAGE,push-by-digest=true,name-canonical=true,push=true" \
+            --metadata-file app-metadata.json packaging/hub/ha-app
+          digest="$(jq -r '."containerimage.digest"' app-metadata.json)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::No image digest in the build metadata."; exit 1; }
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Write the digests
+        env:
+          HUB_DIGEST: ${{ steps.hub.outputs.digest }}
+          APP_DIGEST: ${{ steps.app.outputs.digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p digests
+          printf '%s\n' "$HUB_DIGEST" > "digests/hub-$ARCH"
+          printf '%s\n' "$APP_DIGEST" > "digests/app-$ARCH"
+      - name: Upload the digests
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          # Not "release-*": the job publish downloads every artifact of that name as a release asset.
+          name: hub-digests-${{ matrix.arch }}
+          path: digests/
+          if-no-files-found: error
+          retention-days: 7
+
+  hub-manifests:
+    name: hub images (manifests and attestations)
+    needs: [prepare, hub-images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      REGISTRY_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      HUB_IMAGE: ${{ needs.prepare.outputs.hub_image }}
+      APP_IMAGE: ${{ needs.prepare.outputs.app_image }}
+    outputs:
+      hub_digest: ${{ steps.manifests.outputs.hub_digest }}
+      app_digest: ${{ steps.manifests.outputs.app_digest }}
+    steps:
+      - name: Download the digests
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: hub-digests-*
+          merge-multiple: true
+          path: digests
+      - name: Log in to the GitHub container registry
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Create the multi-architecture images
+        id: manifests
+        run: |
+          set -euo pipefail
+          for kind in hub app; do
+            if [ "$kind" = "hub" ]; then image="$HUB_IMAGE"; else image="$APP_IMAGE"; fi
+            refs=()
+            for arch in amd64 arm64; do
+              digest="$(cat "digests/$kind-$arch")"
+              [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::digests/$kind-$arch is not a digest."; exit 1; }
+              refs+=("$image@$digest")
+            done
+            docker buildx imagetools create --tag "$image:$VERSION" "${refs[@]}"
+            index="$(docker buildx imagetools inspect "$image:$VERSION" --format '{{json .Manifest}}' | jq -r '.digest')"
+            [[ "$index" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::No digest for $image:$VERSION."; exit 1; }
+            echo "${kind}_digest=$index" >> "$GITHUB_OUTPUT"
+            echo "Created $image:$VERSION ($index)"
+          done
+      - name: Attest the hub image (build provenance)
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ needs.prepare.outputs.hub_image }}
+          subject-digest: ${{ steps.manifests.outputs.hub_digest }}
+          push-to-registry: true
+      - name: Attest the app image (build provenance)
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ needs.prepare.outputs.app_image }}
+          subject-digest: ${{ steps.manifests.outputs.app_digest }}
+          push-to-registry: true
+      - name: Verify the attestations
+        env:
+          HUB_DIGEST: ${{ steps.manifests.outputs.hub_digest }}
+          APP_DIGEST: ${{ steps.manifests.outputs.app_digest }}
+        run: |
+          set -euo pipefail
+          for ref in "$HUB_IMAGE@$HUB_DIGEST" "$APP_IMAGE@$APP_DIGEST"; do
+            ok=false
+            for attempt in 1 2 3 4 5; do
+              if gh attestation verify "oci://$ref" --repo "$GH_REPO"; then ok=true; break; fi
+              echo "Attestation of $ref not verifiable yet (attempt $attempt)."
+              sleep 10
+            done
+            [ "$ok" = "true" ] || { echo "::error::No valid attestation for $ref."; exit 1; }
+          done
+          {
+            echo "### Hub images $VERSION"
+            echo
+            echo "* \`$HUB_IMAGE:$VERSION\` (\`$HUB_DIGEST\`)"
+            echo "* \`$APP_IMAGE:$VERSION\` (\`$APP_DIGEST\`)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   publish:
     name: attest, attach and publish
-    needs: [prepare, windows, linux, integration]
+    # The hub images are pushed with their version tag before the release is published; `latest` follows after it.
+    needs: [prepare, windows, linux, integration, hub-manifests]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -570,6 +768,33 @@ jobs:
             echo
             echo "https://github.com/$GH_REPO/releases/tag/$TAG"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  hub-latest:
+    name: move the hub image tag latest
+    # Stable releases only, and only after the release is published: `latest` of both hub images then points at the
+    # version of this release (the same manifest, so the provenance attestation stays valid). A failure here changes
+    # nothing about the published release; run the workflow again from the tag.
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      HUB_IMAGE: ${{ needs.prepare.outputs.hub_image }}
+      APP_IMAGE: ${{ needs.prepare.outputs.app_image }}
+    steps:
+      - name: Log in to the GitHub container registry
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Tag latest
+        run: |
+          set -euo pipefail
+          for image in "$HUB_IMAGE" "$APP_IMAGE"; do
+            docker buildx imagetools create --tag "$image:latest" "$image:$VERSION"
+          done
 
   winget:
     name: start the winget submission

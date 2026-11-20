@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/toeck98/QoffeeAutomat/protocol/schema/hub/enrollment_payload.schema.json",
+  "title": "enrollment payload",
+  "description": "The JSON inside an enrollment string qahub1.<base64url(JSON)> (PLAN.md S20, D-026). url is the hub, token the enrollment token, fp the optional SHA-256 fingerprint of the hub certificate (a missing fp means normal certificate validation) and key the public key that verifies every signed desired state.",
+  "type": "object",
+  "required": ["url", "token", "key"],
+  "properties": {
+    "url": { "$ref": "defs.schema.json#/$defs/hub_url" },
+    "token": { "$ref": "defs.schema.json#/$defs/enrollment_token" },
+    "fp": { "$ref": "defs.schema.json#/$defs/fingerprint" },
+    "key": { "$ref": "defs.schema.json#/$defs/public_key" }
+  }
+}

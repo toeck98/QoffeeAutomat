@@ -218,7 +218,8 @@ Runtime data directories:
 | Logs | `%ProgramData%\QoffeeAutomat\logs\` | journald and `/var/log/qoffeeautomat/` |
 
 No file named `config.yaml`, `config.yml` or `config.json` may be added
-anywhere in the repository outside hidden folders (D-034).
+anywhere in the repository outside hidden folders (D-034), except the Home Assistant app
+definition `packaging/hub/ha-app/config.yaml` (T918, checked by `scripts/dev/check_config_files.py`).
 
 On Windows the config, scripts and secrets directories are writable only by
 `SYSTEM` and `Administrators`. This is a security requirement (S09), because
@@ -551,7 +552,8 @@ creating a document whose id exists returns 409.
 | `GET /auth/one-time?token=...` | Sign-in with the single-use token of the tray entry Open UI (T711, S09 item 12): answers 302 to `/` with a session cookie, or 401 `invalid_login_token`. The response is `no-store` with `Referrer-Policy: no-referrer`. |
 | `GET /hotkeys` | The outcome of the registration of the global hotkeys (T708, S11): `{ supported, hotkeys[{ name, keys, state, message? }] }`, `state` being `registered`, `conflict` or `invalid`; empty while no session helper has answered. The hotkeys themselves are the member `hotkeys` of `/settings`. |
 | `GET /hardware-sensors` | What became of the optional hardware sensors (T707, D-045): `{ supported, enabled, state, driver, driverInstalled?, sensorCount, message? }`, `state` being `off`, `starting`, `running`, `driver_missing`, `failed` or `unsupported`. `driverInstalled` is absent while the setting is off, because the agent does not look then. The switch itself is the member `hardwareSensors.enabled` of `/settings`. |
-| `/status` | Agent version, uptime, platform, link clients, session host state, paused flag. |
+| `/status` | Agent version, uptime, platform, link clients, session host state, paused flag, and the member `hub` (T905) with the state of the hub link. |
+| `/hub`, `/hub/join`, `/hub/leave` | The hub link (T905, S20): `GET /hub` answers `{ state, managementTunnel, hubId?, hubName?, url?, detail? }` with `state` being `not_joined`, `pending`, `connected`, `disconnected` or `revoked`; `POST /hub/join` takes `{ enrollment }` (the string `qahub1.<code>` of the hub), asks the hub at once and answers the same object, or 409 `already_joined`, 422 `validation_failed` / `enrollment_refused`, 502 `hub_unreachable`; `POST /hub/leave` takes an optional `{ documents }` (`convert` or `remove`, accepted and ignored until the hub layer exists, T908) and deletes the credential; `PATCH /hub` takes `{ managementTunnel }`, the local switch that stops the agent from announcing the management tunnel to the hub. The command-line verbs `hub join <string>`, `hub leave` and `hub status` do the same through a loopback channel with its own secret in `secrets/hub-channel.json` (administrators only). |
 | `/commands`, `/commands/{id}` | List, create, read, update, delete; `PATCH` for `enabled` and `exposeToHa`. |
 | `/commands/{id}/run` | Start a run with variables; returns `runId`. |
 | `/commands/validate`, `/commands/test` | Validate a draft document without saving; run a draft without saving (used by the editor's test panel). A test run is recorded in the history with source `test`, publishes no events and ignores `enabled` and the cooldown. |
@@ -683,12 +685,47 @@ malicious values arriving from Home Assistant, stolen link tokens.
 
 ## S10 Home Assistant integration
 
-* Domain `qoffeeautomat`, `integration_type: device`, `iot_class: local_push`,
-  `config_flow: true`, zeroconf `_qoffeeautomat._tcp.local.`, no external Python
-  requirements (aiohttp ships with Home Assistant).
+* Domain `qoffeeautomat`, `integration_type: hub` (changed from `device` by T914,
+  because the integration has entries of a single PC and entries of a hub with many
+  devices), `iot_class: local_push`, `config_flow: true`, zeroconf
+  `_qoffeeautomat._tcp.local.`, no external Python requirements (aiohttp ships with
+  Home Assistant).
 * One config entry per PC; unique id is the agent id. One device per PC with
   `identifiers={(DOMAIN, agent_id)}`, `connections` from the MAC list,
-  `sw_version`, `configuration_url` pointing at the agent UI.
+  `sw_version`, `configuration_url` pointing at the agent UI. The hub route
+  (T914, below) adds entries of a hub.
+* The hub route (T914, S20, D-031): the menu of the config flow has a third entry,
+  "Connect to a hub" (host and port, default 8490 → fingerprint → pairing code of the
+  hub, `POST /hub/v1/pair`). The entry has `hub: true`, the unique id is the hub id,
+  and it stores host, port, fleet token and pinned fingerprint like an agent entry
+  (reauthentication and reconfiguration work for it). It holds one fleet link
+  (`FleetClient`, one WebSocket `/hub/v1/fleet`) and creates a hub device
+  (`identifiers={(DOMAIN, "hub_<hub id>")}`) and for every PC of the hub a device with
+  the same identifiers as on the direct route and `via_device` the hub device.
+  `AgentLink` demultiplexes the frames per agent and gives every PC the same
+  per-agent runtime object (`QoffeeAutomatRuntimeData`) that a direct entry has, so
+  the entity platforms do not know the route; one subscription is kept per PC. PCs
+  appear and disappear while the entry is loaded (`agent_added`, `agent_removed`, the
+  list is read again after every reconnect). Manifests come from the hub's cache, so
+  the entities of a PC exist while it is off. The hub does not know the boot id of a
+  PC: `booted` fires when the PC comes online after the power state `shutdown` or
+  `restart`. `run_command`, events and the Wake-on-LAN button work on both routes (the
+  MAC addresses of hub PCs are kept per agent id in the hub entry; the broadcast
+  address is the option of the hub entry).
+* One route per PC: a PC that has an entry of its own (direct or reverse link) is
+  skipped by the hub entry, so no unique id is registered twice, and a repair issue
+  (`direct_route`) offers to switch it to the hub route; the user can ignore it and
+  stay direct (the default, O-08). A direct entry whose agent answers HTTP 403
+  `direct_link_denied` (hub policy `direct_link: deny`) shows the repair issue
+  `direct_link_denied` with the same fix. Switching works in both directions and keeps
+  entity ids, names, areas and history: hub to direct happens when the direct entry
+  is set up (the config flow asks for confirmation when a hub serves the PC), direct
+  to hub in the repair flow. Verified against Home Assistant 2026.10: a device
+  belongs to exactly one config entry, moving it removes the entities of the old
+  entry that are on it, and removing the old entry clears the entries that still
+  belong to it. The switch therefore hands the entity registry entries to the new
+  entry first (`async_update_entity(config_entry_id=…)`), then moves the device
+  (`async_update_device(new_config_entry_id=…)`), and removes the old entry last.
 * Config flow steps: discovery or manual host and port → show fingerprint →
   ask for the pairing code → create entry (stores host, port, token,
   fingerprint). Also: reauthentication, reconfiguration, and address updates
@@ -1183,6 +1220,32 @@ ingress, which accepts connections from `172.30.32.2` only.
    `revoked`. In both hub-initiated cases the agent deletes the hub layer and
    its credential, and the local layer becomes active again.
 
+Details fixed by T904. The failure answers of `POST /hub/v1/enroll` and of the
+upgrade request of `GET /hub/v1/agent` are JSON `{"error": {"code", "message"}}`.
+Enroll: 400 `bad_request`, 401 `invalid_token` (unknown, revoked, expired or used
+up), 403 `rejected` (an administrator rejected the agent), 429 `rate_limited`
+(with `Retry-After`; failures are counted per address as for the sign-in, and too
+many agents waiting for approval also answer 429). Agent link: 401 `unauthorized`
+(unknown credential), 401 `revoked`, 403 `pending_approval` (a credential of an
+agent that is not enrolled). A repeated request of a pending agent with the same
+token and agent id uses no further use of the token; after approval the first
+repetition returns the credential (the hub never stores it in the clear, so the
+hand-over happens once). Enrolling an agent id that exists again needs a token
+that is still usable; it replaces the credential and revokes the old one, and a
+token that requires approval makes the agent pending again. Revoked credentials
+are remembered (hash only) so that the answer `revoked` stays possible after the
+agent is removed. A rotated credential is promoted when the agent connects with
+it or when it acknowledges `credential_rotate`, whichever comes first.
+
+Management endpoints for enrollment (role in brackets, all audited with the
+affected agent): `GET/POST /api/v1/enrollment-tokens` and
+`DELETE /api/v1/enrollment-tokens/{id}` (admin; the creation answers with the
+enrollment string, once), `GET /api/v1/agents` and `GET /api/v1/agents/{id}`
+(viewer), `PATCH /api/v1/agents/{id}` (tags), `POST /api/v1/agents/{id}/approve`,
+`/reject`, `/rotate-credential` and `DELETE /api/v1/agents/{id}` (admin). A tag
+has 1 to 32 characters of `a-z 0-9 . _ -`, starts with a letter or digit, and an
+agent or token has at most 16.
+
 ### Hub link extensions
 
 The agent sends `hello` first on every QoffeeLink connection, no matter who
@@ -1196,7 +1259,7 @@ must not be sent.
 | `config_sync` | `config_documents` | hub → agent (request) | `generation`, `documents [{kind, id, hash, body}]`, `final` (bool). Several frames when the set exceeds the frame limit. |
 | `config_sync` | `config_status` | agent → hub | `generation`, `state` in `applied`, `failed`; `results [{kind, id, state, errors[]}]` with item states `applied`, `skipped_unsupported`, `invalid`. Also sent once after every handshake with the last applied generation. |
 | `mgmt_tunnel` | `mgmt_request` | hub → agent (request) | `method`, `path` (must start with `/api/v1/`), `query`, `body`, `principal {user, role}`. Result: `status`, `body`. |
-| `mgmt_tunnel` | `mgmt_stream_open` | hub → agent (request) | `path` of a Server-Sent-Events endpoint, `principal`. Result: `sid`. |
+| `mgmt_tunnel` | `mgmt_stream_open` | hub → agent (request) | `path` of a Server-Sent-Events endpoint, optional `query` (decoded parameters, as in `mgmt_request`; added by T912, additive), `principal`. Result: `sid`. |
 | `mgmt_tunnel` | `mgmt_stream_data`, `mgmt_stream_close` | agent → hub, either | `sid`, `event`, `data`; close with `sid`. |
 | (always) | `credential_rotate` | hub → agent (request) | `credential`. |
 | (always) | `unenroll` | hub → agent | `reason`. |
@@ -1229,6 +1292,45 @@ role `viewer` may only issue GET requests, `operator` additionally the run
 and test endpoints, `admin` everything; hub documents stay read-only through
 the tunnel as well; every tunnelled request is written to the agent's audit
 log with the hub user.
+
+Details fixed by T912. *Agent:* a `mgmt_request` runs through the agent's own
+request pipeline in process (the pipeline is captured by a start-up filter that
+runs before routing), with a principal built from the hub user and role, so
+routing, authentication, the local-configuration lock, the protection of hub
+documents and every endpoint rule apply as for the browser; the in-process
+request carries the anti-forgery header and no cookie. The checks come in this
+order: the local switch (error `forbidden`, message "switched off"; the feature
+is not announced while the switch is off); the feature must have been announced
+in `client_hello` (`bad_request`); the frame and the path (`bad_request`; the
+path must start with `/api/v1/` and has no query, fragment, backslash, percent
+escape, empty or dot segment); the role rules (an ok result with status 403, for
+a stream the error `forbidden` with a message that begins with the status);
+`auth` (`/api/v1/auth/`) is out of reach for every role and `/api/v1/hub` can
+only be read, so the hub can neither sign in nor change the password nor change
+the hub link of the agent. HTTP errors of the API are ok results with that
+status; responses that are not JSON become 415 `tunnel_unsupported_media`, larger
+than 900 KiB 502 `tunnel_response_too_large`. Runs started through the tunnel are
+recorded with the source `hub`, the client `hub-link` and the hub user. A stream
+is the GET of a Server-Sent-Events endpoint: the agent forwards each event as
+`mgmt_stream_data` (event name, data lines joined by a line feed), at most 100
+frames per second, and ends with `mgmt_stream_close`; the hub ends a stream by
+sending `mgmt_stream_close`. The pipe between endpoint and link is bounded
+(64 KiB): when the link's queue is full the endpoint's writes wait, and after
+10 s without room the stream ends. At most 16 requests and 8 streams run at the
+same time per connection (`busy`). *Hub:* `/api/v1/agents/{id}/agent-api/{rest}`
+forwards to `/api/v1/{rest}`; GET needs the role viewer, every other method the
+role operator on the hub (the agent narrows it to S20); a GET with
+`Accept: text/event-stream` opens a stream and the hub writes the events to the
+browser as they arrive, with a comment line every 15 s and a last event
+`tunnel_closed` `{"reason": completed | agent_offline | slow_consumer}`. Each
+stream has a queue of 256 events; a consumer that does not read for 2 s is cut
+off (`slow_consumer`) because the wait holds back the whole agent link. Failures
+are problem responses: 404 `unknown_agent`, 503 `agent_offline`, 403
+`tunnel_disabled` (the reason is in `detail`), 504 `timeout`, 503 `busy`, 413
+`payload_too_large`, 400 `bad_request` (also dot segments), 502 `agent_error`.
+Calls that change state are audited by the audit middleware (target
+`agent:ID:tunnel:METHOD /api/v1/...`); reads and streams leave a line in the
+hub's log.
 
 ### Fleet link (Home Assistant through the hub)
 
@@ -1281,6 +1383,63 @@ increased and the set is signed and pushed. Publishing shows a preview with
 the affected agents and per-agent differences. Roll-back republishes an
 earlier revision. Overrides between profiles are shown as warnings.
 
+Details fixed by T907. A higher `priority` number wins; when target specificity and priority are equal the
+profile id (ordinal) decides, so the result is deterministic, and the warning has the code `overridden_tie`. A profile
+that is reached by several targets counts with its most specific one. Library documents of the kind `variables`
+(name to string value) and the `variables` of a profile merge into the one `variables` document of the desired state
+(id `variables`; absent while there are none); every library `metric_overrides` document is delivered under the id
+`metric_overrides`, so a later profile replaces the whole document. Warnings: `overridden`, `overridden_tie`,
+`variable_overridden`, `policy_overridden` and `missing_script` (a command runs a script file that no profile of the
+agent provides). The library validates documents with the validators of the agent and stores them with `origin`
+`hub`, the `revision` and `updatedAt` of the library revision; a save whose content equals the current revision
+adds no revision. A profile pins library documents at revisions; a publish freezes name, priority, OS filter,
+pins, variables and policy as the next immutable revision (a database trigger refuses updates), and publishing a
+draft equal to the revision in effect creates no revision. Roll-back moves the revision in effect to an earlier one
+and creates no revision. Only `enrolled` agents get a desired state. An agent that no profile ever reached has
+generation 0 and receives nothing; after that a new generation is created exactly when the SHA-256 of the canonical
+JSON of policy and items (generation set to 0) differs from the last one, so a publish, a roll-back, an assignment or
+the removal of a profile creates a generation only for the agents whose content changed, and publishing without a
+change of content creates none. The hub keeps the signature of each generation and a copy of every announced
+document body (by hash) for the config service of T909. "Contains system scripts" means a command with `runAs`
+`system` and a `powershell`, `bash` or `process` action, or a script document that such a command of the library or of
+a published profile runs.
+
+Management endpoints for configuration (role in brackets, all audited with the profile or document and the agents that
+got a new generation): `GET /api/v1/library`, `GET /api/v1/library/{kind}/{id}` (optional `revision`) and
+`GET .../revisions` (viewer); `PUT` and `DELETE /api/v1/library/{kind}/{id}` (admin; a document that a profile draft uses
+cannot be deleted, older revisions stay readable); `GET /api/v1/profiles`, `GET /api/v1/profiles/{id}`,
+`GET .../revisions` and `GET .../revisions/{n}` (viewer); `POST /api/v1/profiles`, `PUT` and `DELETE
+/api/v1/profiles/{id}` (admin, they replace the draft or delete the profile with its revisions and assignments);
+`GET /api/v1/profiles/{id}/preview` (viewer; optional `revision` for a roll-back); `POST .../publish` and
+`POST .../rollback` (operator, and admin when the content has system scripts: answer 403 `admin_required`);
+`GET /api/v1/assignments` (viewer), `POST /api/v1/assignments` and `DELETE /api/v1/assignments/{id}` (admin; they take
+effect at once); `GET /api/v1/agents/{id}/desired-state` (viewer). Changing the tags of an agent recomputes its
+desired state through `ConfigService.RecomputeAgentAsync`, which T909 calls.
+
+Details fixed by T909. The hub announces `config_sync` in `client_hello`; the roll-out service pushes desired state to
+every online agent that negotiated it. Triggers: a publish, a roll-back, an assignment or the removal of a profile or an
+assignment (for the agents that got a new generation), a change of an agent's tags (the service recomputes through
+`RecomputeAgentAsync`), a new connection (recompute first, then push when the agent lacks the generation) and every
+`config_status` of the agent. An agent is only ever sent its current generation, so one that was offline during several
+publishes receives the newest on reconnect. The hub sends `config_desired` (stored signature, identical every time), reads
+`need` from the result and sends exactly those documents in `config_documents` frames that stay below the frame limit (a
+frame is closed before it would exceed it; a document that does not fit into a frame of its own fails the push and is
+reported); an empty `need` transfers no body. A generation is sent at most once per connection, whatever the answer, so an
+agent that refuses it is not flooded; a new connection, a newer generation or a `POST .../config-push` tries again. The
+hub keeps per agent the generation it pushed (with the error of an incomplete push) and the generation the agent applied,
+and from the last two `config_status` frames the per-document states and errors (at most 4096 documents of 16 errors of 512
+characters); an `applied` report of an older generation (the one after a handshake) does not delete the record of a newer
+generation that failed. The state of an agent is `no_desired_state`, `up_to_date` (applied is at least desired), `failed`
+(the agent reported `failed` for the desired generation) or `pending`; a document that is invalid on one agent fails the
+generation of that agent only. Table `agent_config_status` (schema version 6) holds this and is emptied for an agent that is
+removed. Endpoints (viewer unless noted, none changes configuration): `GET /api/v1/agents/{id}/config-status`,
+`GET /api/v1/rollouts` (all enrolled agents with counts per state and the number offline),
+`GET /api/v1/profiles/{id}/rollout` (optional `revision`, default the revision in effect: the agents whose desired state
+contains documents of that revision, with the state and errors of those documents) and `POST /api/v1/agents/{id}/config-push`
+(operator, answers 202: recompute and push again, also a generation that was sent before). The agent endpoints answer 404
+`unknown_agent` for an agent that is not enrolled; the profile endpoint answers 404 `unknown_profile`, `not_published` or
+`unknown_revision`.
+
 ### Metrics on the hub
 
 A collection policy (global default, overridable per profile) lists metric
@@ -1299,6 +1458,105 @@ and interval are configurable; the documentation contains a sizing formula.
 `/metrics` exports the latest numeric and boolean values as
 `qoffeeautomat_<metric id with dots replaced by underscores>{agent_id, agent}`
 plus hub health metrics, protected by a read-only token.
+
+Implementation (T910). The tables are `metric_series`, `metric_raw`, `metric_states`, `metric_rollup_5m` and
+`metric_rollup_1h` in `hub.db` (schema version 7); every table refers to `metric_series`, which refers to the agent with
+`ON DELETE CASCADE`, so removing an agent removes its series. Boolean metrics are stored as 0 or 1. The hub subscribes
+through the gateway to the metrics that the policy selects (`IMetricPolicySource`, today the global policy from
+`QOFFEE_HUB_METRICS_COLLECT` and `QOFFEE_HUB_METRICS_INTERVAL`) and keeps about one numeric sample per interval, also when
+another consumer makes the agent send more. Samples are queued in memory (at most 200 000, further samples are dropped and
+counted) and written in batches, one transaction per batch, every 5 seconds or 2 000 samples. A text is written only when it
+differs from the newest text of its series. A 5 minute bucket is rolled up from the raw samples 30 seconds after it ended, an
+hour bucket from its 5 minute buckets (weighted by count, so the average equals the average of the raw values); a watermark in
+`hub_meta` records how far each roll-up has run, and retention never deletes raw samples or 5 minute buckets that have not been
+rolled up. Retention is `QOFFEE_HUB_RETENTION_RAW_HOURS`, `..._5M_DAYS`, `..._1H_DAYS` and `..._STATES_DAYS`; the newest entry
+of a text series is always kept. Endpoints (viewer): `GET /api/v1/agents/{id}/metrics` (the newest value of every stored
+series; 404 `unknown_agent`) and `GET /api/v1/metrics/query` with `agent` (1 to 50, repeated or comma separated), `metric` (ids
+or prefixes ending in `*`, default all), `from`, `to` (ISO 8601, default the last hour), `resolution` (`auto`, `raw`, `5m`,
+`1h`) and `maxPoints` (1 to 5 000); `auto` answers a range of up to 6 hours with raw samples, up to 7 days with 5 minute
+buckets and longer with 1 hour buckets, and uses the next coarser resolution when the range starts before the retention of the
+chosen one. Rolled-up points carry `min`, `avg`, `max` and `count`, raw points `value`, text series come as the change log
+(`resolution: changes`) starting with the text that was in effect at `from`. A query that selects more than 200 series, or
+names an invalid value, answers 400 `invalid_query`. A per-profile override of the policy is not implemented yet; the seam is
+`IMetricPolicySource`. The sizing formula is in `docs/user/hub-sizing.md`.
+
+Implementation (T911). `GET /metrics` (outside `/api/v1`, not in the OpenAPI document) answers the text exposition format 0.0.4
+(`text/plain; version=0.0.4; charset=utf-8`, `Cache-Control: no-store`). It needs an API token with the role `viewer` sent as
+`Authorization: Bearer qht_...`: no token, an invalid token or a session cookie answers 401, a token of the role `operator` or
+`admin` answers 403, so that a token that can run commands never sits in a scrape configuration. Per enrolled agent the hub exports
+`qoffeeautomat_agent_up{agent_id,agent}` (1 or 0) and, only while the agent is online, the latest numeric and boolean value
+(booleans as 0 or 1) of every metric of its manifest from the live state of the gateway as
+`qoffeeautomat_<metric id>{agent_id,agent}`, with every character other than letters, digits and underscores in the id replaced by
+an underscore (the first id in ordinal order wins when two ids give one name, and a name that equals a hub metric is dropped).
+Offline agents, text metrics, values of a type other than the manifest says and unavailable (null) values export nothing. Hub health:
+`qoffeeautomat_hub_info{version}`, `qoffeeautomat_hub_agents{status}`, `qoffeeautomat_hub_agents_online`,
+`qoffeeautomat_hub_link_reconnects_total`, `qoffeeautomat_hub_metric_samples_dropped_total`, `qoffeeautomat_hub_database_size_bytes`,
+`qoffeeautomat_hub_database_free_bytes`, `qoffeeautomat_hub_metric_series` and `qoffeeautomat_hub_metric_rows{table}`; the sizes are
+at most 30 seconds old.
+
+### Hub UI: configuration and metrics
+
+Details fixed by T916. The pages are `library`, `profiles` (list and `profiles/{id}`), `assignments`, `rollouts`
+(optional `?profile=<id>` shows the roll-out of one profile revision) and `metrics` (optional `?agent=` and `?metric=`
+preselect a PC and a metric). Every role may open them; what a role may change follows the endpoints above: the library,
+the draft of a profile and the assignments need `admin`, publish, roll-back and a push need `operator` (a publish whose
+preview says `requiresAdmin` needs `admin`, and the confirm button is off for an operator), a viewer only reads.
+*Library editors (D-033):* commands and sensors are edited with the editors of `Ui.Components`; `LibraryAgentApi`
+(`IAgentApi` over `/api/v1/library`) lets them read and write library documents. While a library page is open the
+selection is in library mode (`AgentSelection.LibraryMode`) and the `IAgentApi` that a component asks for is the library
+one, otherwise the tunnel. The library removes `origin` from a document it hands to an editor (the hub stores `hub`,
+which an editor shows as read-only), creating a document that exists answers 409 `already_exists`, validation is the
+hub's (422 at save; the editor's live check reports a draft valid), and the script list is `GET /library?kind=script`. What
+looks at a real PC (the test of a draft, the stream of its output, platform and metric lists) goes through the tunnel to
+the online PC chosen in the frame of the editor (`AgentSelection.TestTargetId`), and without one fails with the code
+`no_test_target`; everything else of `IAgentApi` answers 404 `library_unsupported`. Scripts, mode groups, metric
+overrides and variables have no form and are edited as text (a script) or JSON on `library/document/{kind}/{id}`.
+*Publish:* the draft is published as it is saved at the hub (unsaved changes disable the button), the confirmation shows
+the preview of the hub (agents, per agent the documents added, changed or removed, the differing policy, the warnings,
+the system scripts) and nothing is sent before it is confirmed; a roll-back shows the same for the earlier revision.
+*Metrics:* the page offers the numeric and boolean metrics that the hub stores for the selected PCs (at most 50),
+the ranges 1 hour, 6 hours, 24 hours, 7 days and 30 days and a forced resolution (`auto` leaves it to the hub), and
+draws one line per PC on a shared time and value axis as inline SVG without a script. To let the UI use the types of the
+configuration, roll-out and metric API, the records of `ConfigDtos.cs` and the query answers of the metric API moved from
+`QoffeeAutomat.Hub` to `QoffeeAutomat.Contracts` (`HubApi/`) with their namespaces unchanged. Not in the UI: the global
+collection policy of the hub comes from its environment (`QOFFEE_HUB_METRICS_COLLECT`, `..._INTERVAL`), and a
+per-profile policy is not implemented (see "Metrics on the hub").
+
+### Fleet actions
+
+Details fixed by T917 (R-12, R-11). Two actions work on many agents at once; both start in the background, answer 202 with the
+action, and are followed by reading it. The hub keeps the newest 50 finished actions in memory (the list is lost when the hub
+restarts); the permanent record is the audit log: the audit middleware writes `startBulkRun` or `startFleetUpdate` when the
+request is made (target `fleet-action:<id>:command:<command>` or `fleet-action:<id>:update:<version>`, the targeted agents), and the
+service writes `bulkRunFinished` or `fleetUpdateFinished` when the action ends (same target, all targeted agents, result `success`
+only when no agent failed or, for a bulk run, was offline). At most 4 actions run at the same time (409 `too_many_actions`), at most
+one update (409 `update_in_progress`), and an action targets at most 200 agents. Targets are the union of `agents` (ids of enrolled
+agents, 422 `unknown_agent` otherwise) and every enrolled agent with one of `tags`; none at all is 422 `required` or `no_targets`.
+
+*Bulk run.* `POST /api/v1/fleet-actions/bulk-runs` (operator) takes `{ command, vars?, agents?, tags?, parallelism?, timeoutSeconds?, wait? }`
+and runs the command through `IAgentGateway.RunAsync` as every other run (variables are bound by the agent, never spliced, D-012; the
+hub user goes to the agent's audit log). At most `parallelism` agents are handled at the same time (default 5, at most 16); an agent that
+does not finish within `timeoutSeconds` (default 300, at most 3600) fails with `timeout`. Every agent ends as `success` (exit code 0, or
+started when `wait` is false), `failure` (an agent error code, `nonzero_exit`, `timeout`) or `offline` (not connected: nothing is sent).
+
+*Update orchestration.* `POST /api/v1/fleet-actions/updates` (administrator) takes `{ agents?, tags?, targetVersion?, timeoutSeconds? }`.
+`targetVersion` defaults to the newest version that an agent reports as the metric `agent.latest_version` (the hub makes no request to
+the internet itself; 422 `unknown_latest` when none is known and none is given). Agents are handled one at a time in the order of their
+names. An offline agent is `offline` and an agent that has the target version or a newer one is `skipped` (`already_current`); both go
+on. For any other agent the hub runs the built-in command `agent_update` without waiting for its end, then waits until the agent is
+connected again on a new connection and reports the target version or newer; it looks every 2 seconds and gives up after
+`timeoutSeconds` (default 600, at most 3600). An agent that refuses the command, or does not come back in time (`version_not_reached`),
+is `failure` and **stops the action**: its state is `stopped`, `stoppedAt` names the agent, the agents after it are `skipped`
+(`not_reached`) and are not touched, and `updated` lists the agents that reached the target version. `GET /api/v1/fleet-versions`
+(viewer) lists every enrolled agent's version against the newest reported one (`current`, `outdated`, `unknown`) and whether it can be
+updated now (online and offering `agent_update`).
+
+*Reading and cancelling.* `GET /api/v1/fleet-actions` and `GET /api/v1/fleet-actions/{id}` (viewer; 404 `unknown_action`) show the
+action with `kind` (`bulk_run`, `update`), `state` (`running`, `completed`, `stopped`, `cancelled`), per agent the state (`pending`,
+`running`, `success`, `failure`, `offline`, `skipped`, `cancelled`), an error code and message, and counts per state.
+`POST /api/v1/fleet-actions/{id}/cancel` (operator; for an update 403 `admin_required` below administrator; 409 `not_running`) stops
+the action: agents that were not handled stay untouched, a command that already runs is not taken back. The hub UI page `actions`
+(every role may open it) offers the bulk run to operators and the update, after a confirmation, to administrators.
 
 ### Hub security
 

@@ -1,0 +1,62 @@
+@inherits LocalizedComponentBase
+@inject IAgentApi Api
+@inject NavigationManager Navigation
+
+@* Says on every page that a hub manages this PC and what it locked (PLAN.md S20, T908). It is silent for an agent that no hub manages, and when the state cannot be read. *@
+@if (HubConfigAccess.IsManaged(_hub))
+{
+  <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4" data-testid="hub-banner">
+    <div><strong>@L["Hub.Banner.Title"]</strong> @L.Format("Hub.Banner.Generation", _hub!.Generation)</div>
+    @if (_hub.LocalConfigLocked)
+    {
+      <div data-testid="hub-banner-locked">@L["Hub.Banner.Locked"]</div>
+    }
+    @if (_hub.DirectLinkDenied)
+    {
+      <div data-testid="hub-banner-direct-denied">@L["Hub.Banner.DirectLinkDenied"]</div>
+    }
+    @if (!string.IsNullOrEmpty(_hub.LastError))
+    {
+      <div data-testid="hub-banner-error">@L.Format("Hub.Banner.Error", _hub.LastError)</div>
+    }
+  </MudAlert>
+}
+
+@code {
+  private HubConfigState? _hub;
+
+  protected override async Task OnInitializedAsync()
+  {
+    Navigation.LocationChanged += OnLocationChanged;
+    await LoadAsync();
+  }
+
+  protected override ValueTask OnDisposeAsync()
+  {
+    Navigation.LocationChanged -= OnLocationChanged;
+    return base.OnDisposeAsync();
+  }
+
+  private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+  {
+    // A page change is a good moment to look again: the hub may have applied a generation in the meantime.
+    _ = InvokeAsync(async () =>
+    {
+      await LoadAsync();
+      StateHasChanged();
+    });
+  }
+
+  private async Task LoadAsync()
+  {
+    try
+    {
+      _hub = await Api.GetHubConfigAsync();
+    }
+    catch (ApiException)
+    {
+      // An agent without the endpoint, or a session that ended: nothing is announced, and the pages show their own errors.
+      _hub = null;
+    }
+  }
+}

@@ -1,0 +1,15 @@
+configuration:
+  hub_name:
+    name: Hub name
+    description: Name of the hub in its interface and in Home Assistant. Only used when the hub starts for the first time.
+  ingress_role:
+    name: Role of Home Assistant users in the sidebar panel
+    description: The hub role that the sidebar panel (Ingress) gives to the Home Assistant administrators who open it. Default admin.
+  certfile:
+    name: Certificate file
+    description: File name of a PEM certificate chain in /ssl for the port 8490. Leave empty to use the self-signed certificate of the hub.
+  keyfile:
+    name: Private key file
+    description: File name of the PEM private key in /ssl that belongs to the certificate file.
+network:
+  8490/tcp: Agents, Home Assistant fleet link, hub API and Prometheus (HTTPS)

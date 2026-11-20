@@ -7,8 +7,55 @@
         "description": "Wie erreicht Home Assistant den PC?",
         "menu_options": {
           "manual": "Home Assistant verbindet sich mit dem PC (er ist im Heimnetz)",
-          "reverse": "Der PC verbindet sich mit Home Assistant (ein Laptop, der unterwegs ist)"
+          "reverse": "Der PC verbindet sich mit Home Assistant (ein Laptop, der unterwegs ist)",
+          "hub": "Home Assistant verbindet sich mit einem QoffeeAutomat-Hub (alle PCs des Hubs auf einmal)"
         }
+      },
+      "hub": {
+        "title": "Mit einem Hub verbinden",
+        "description": "Gib die Adresse des QoffeeAutomat-Hubs ein. Eine Verbindung bringt alle PCs des Hubs nach Home Assistant, jeden als eigenes Gerät.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "Hostname oder IP-Adresse des Hubs.",
+          "port": "Der Port des Hubs (Standard 8490)."
+        }
+      },
+      "hub_confirm": {
+        "title": "Den Hub bestätigen",
+        "description": "Ein Hub unter {host}:{port} wurde gefunden.\n\nZertifikat-Fingerabdruck (SHA-256):\n`{fingerprint}`\n\nVergleiche ihn mit dem Fingerabdruck, den der Hub beim Erzeugen des Kopplungscodes für Home Assistant anzeigt."
+      },
+      "hub_pair": {
+        "title": "Mit dem Hub koppeln",
+        "description": "Erzeuge im Hub einen Kopplungscode für Home Assistant (Hub-Einstellungen, Kopplung mit Home Assistant) und gib den sechsstelligen Code ein. Der Code ist fünf Minuten gültig. Die PCs, die der Geltungsbereich des Codes umfasst, erscheinen in Home Assistant.",
+        "data": {
+          "code": "Kopplungscode"
+        }
+      },
+      "reauth_hub": {
+        "title": "Erneut mit dem Hub {name} koppeln",
+        "description": "Der Hub unter {host}:{port} akzeptiert den gespeicherten Zugang nicht mehr. Erzeuge im Hub einen neuen Kopplungscode für Home Assistant und gib ihn ein.\n\nZertifikat-Fingerabdruck (SHA-256):\n`{fingerprint}`",
+        "data": {
+          "code": "Kopplungscode"
+        }
+      },
+      "reconfigure_hub": {
+        "title": "Adresse des Hubs ändern",
+        "description": "Gib die neue Adresse des Hubs ein. Es muss derselbe Hub sein.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "Hostname oder IP-Adresse des Hubs.",
+          "port": "Der Port des Hubs (Standard 8490)."
+        }
+      },
+      "switch_route": {
+        "title": "Die direkte Verbindung für {name} verwenden?",
+        "description": "Der Hub {hub} bedient {name} bereits. Home Assistant erreicht einen PC nur auf einem Weg.\n\nWenn du fortfährst, verbindet sich Home Assistant direkt mit {name}. Seine Geräte und Entitäten bleiben erhalten: Sie behalten ihre IDs, Namen und den Verlauf. Der Hub-Eintrag überspringt den PC danach, und ein Reparaturhinweis bietet den Weg zurück an."
       },
       "manual": {
         "title": "Mit einem PC verbinden",
@@ -92,9 +139,11 @@
       "code_expired": "Der Kopplungscode ist abgelaufen oder wurde nach zu vielen Versuchen gesperrt. Starte die Kopplung im Agent neu.",
       "unsupported_protocol": "Agent und Integration haben keine gemeinsame QoffeeLink-Protokollversion. Aktualisiere den Agent oder die Integration.",
       "invalid_auth": "Der Agent hat den gespeicherten Zugang abgelehnt. Authentifiziere die Integration neu.",
+      "direct_link_denied": "Der Hub, der diesen PC verwaltet, erlaubt keine direkten Verbindungen. Verbinde Home Assistant stattdessen mit dem Hub (füge die Integration erneut hinzu und wähle den Hub).",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten. Details stehen im Protokoll."
     },
     "abort": {
+      "wrong_hub": "Die Adresse gehört zu einem anderen Hub.",
       "already_configured": "Dieser Agent ist bereits eingerichtet.",
       "already_in_progress": "Die Einrichtung dieses Agents läuft bereits.",
       "cannot_connect": "Verbindung zum Agent nicht möglich.",
@@ -215,6 +264,36 @@
     }
   },
   "issues": {
+    "direct_route": {
+      "title": "{name} ist auch über den Hub {hub} erreichbar",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "{name} über den Hub {hub} erreichen?",
+            "description": "{name} hat eine eigene Verbindung zu Home Assistant, und der Hub {hub} führt den PC ebenfalls auf. Home Assistant nutzt pro PC einen Weg, deshalb überspringt der Hub ihn vorerst.\n\nWenn du fortfährst, wird {name} über den Hub erreicht, und die direkte Verbindung wird entfernt. Das Gerät und seine Entitäten bleiben erhalten: Sie behalten ihre IDs, Namen, Bereiche und den Verlauf.\n\nUm die direkte Verbindung zu behalten, ignoriere diesen Hinweis."
+          }
+        },
+        "abort": {
+          "hub_unavailable": "Der Hub ist nicht verbunden oder führt diesen PC nicht auf. Versuche es erneut, wenn der Hub erreichbar ist.",
+          "no_direct_entry": "Dieser PC hat keine direkte Verbindung mehr."
+        }
+      }
+    },
+    "direct_link_denied": {
+      "title": "Der Hub erlaubt keine direkte Verbindung zu {name}",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "{name} über den Hub erreichen?",
+            "description": "Der Hub, der {name} verwaltet, erlaubt keine direkten Verbindungen, deshalb wird die Verbindung von Home Assistant abgelehnt.\n\nWenn du fortfährst, wird {name} über den Hub erreicht, und die direkte Verbindung wird entfernt. Das Gerät und seine Entitäten bleiben erhalten: Sie behalten ihre IDs, Namen, Bereiche und den Verlauf. Home Assistant muss dafür bereits mit dem Hub verbunden sein (füge die Integration hinzu und wähle den Hub)."
+          }
+        },
+        "abort": {
+          "hub_unavailable": "Home Assistant ist mit keinem Hub verbunden, der diesen PC aufführt. Füge zuerst den Hub hinzu (Integration hinzufügen und den Hub wählen) und versuche es dann erneut.",
+          "no_direct_entry": "Dieser PC hat keine direkte Verbindung mehr."
+        }
+      }
+    },
     "protocol_mismatch": {
       "title": "{name} verwendet eine inkompatible Protokollversion",
       "fix_flow": {
@@ -357,6 +436,27 @@
     },
     "reverse_entry_invalid": {
       "message": "Dieser Eintrag eines PCs, der sich mit Home Assistant verbindet, hat keinen Token. Entferne ihn und füge den PC erneut hinzu."
+    },
+    "direct_link_denied": {
+      "message": "Der Hub, der den PC unter {host}:{port} verwaltet, erlaubt keine direkten Verbindungen. Erreiche den PC über den Hub (siehe den Reparaturhinweis)."
+    },
+    "hub_cannot_connect": {
+      "message": "Verbindung zum Hub unter {host}:{port} nicht möglich."
+    },
+    "hub_invalid_auth": {
+      "message": "Der Hub hat den gespeicherten Zugang abgelehnt."
+    },
+    "hub_unsupported_protocol": {
+      "message": "Hub und Integration haben keine gemeinsame QoffeeLink-Protokollversion."
+    },
+    "hub_agents_unavailable": {
+      "message": "Der Hub hat die Liste seiner PCs nicht geliefert."
+    },
+    "wrong_hub": {
+      "message": "Der Hub unter dieser Adresse ist nicht der dieses Eintrags. Entferne den Eintrag und füge den Hub erneut hinzu."
+    },
+    "not_a_served_pc": {
+      "message": "Das Gerät {device_id} ist kein PC, den Home Assistant über einen Hub erreicht."
     },
     "reverse_no_http": {
       "message": "Der Webserver von Home Assistant ist nicht bereit, deshalb kann sich der PC noch nicht verbinden."

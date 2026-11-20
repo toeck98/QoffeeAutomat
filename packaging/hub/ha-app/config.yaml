@@ -1,0 +1,52 @@
+# Home Assistant app definition of the QoffeeAutomat hub (PLAN.md S20, D-024, D-034, task T918).
+#
+# This is the only file named config.yaml in the repository: the Supervisor looks for that name at any depth
+# (D-034), and scripts/dev/check_config_files.py (job `no stray config files` of ci-meta.yml) allows exactly this
+# path. The prebuilt image is built by the job `hub-app-image` of .github/workflows/release.yml.
+name: QoffeeAutomat Hub
+# Kept in step with the release by release-please (release-please-config.json, extra-files).
+version: "0.1.0" # x-release-please-version
+slug: qoffeeautomat_hub
+description: Central hub for QoffeeAutomat - configuration, metric history and the fleet link for your PCs.
+url: https://github.com/toeck98/QoffeeAutomat/tree/main/packaging/hub/ha-app
+image: ghcr.io/toeck98/qoffeeautomat-hub-app
+arch:
+  - amd64
+  - aarch64
+# The image has its own entry point; there is no s6 overlay or tini to start (the hub handles SIGTERM itself).
+init: false
+startup: services
+boot: auto
+stage: experimental
+
+# Sidebar panel through Ingress. The hub listens for the Supervisor on 8099 and accepts only 172.30.32.2 there.
+# Home Assistant shows the panel to administrators only, and the hub maps them to the role `ingress_role`.
+ingress: true
+ingress_port: 8099
+ingress_stream: true
+panel_icon: mdi:coffee
+panel_title: QoffeeAutomat
+panel_admin: true
+
+# The agent port: PCs (agents), Home Assistant (fleet link), the hub API and the Prometheus endpoint. HTTPS.
+ports:
+  8490/tcp: 8490
+ports_description:
+  8490/tcp: Agents, Home Assistant fleet link, hub API and Prometheus (HTTPS)
+watchdog: https://[HOST]:[PORT:8490]/healthz
+
+# /data is always mapped: it holds the database, the keys and the certificate of the hub, and it is part of the
+# app's backup. `ssl` gives read access to /ssl for the options certfile and keyfile.
+map:
+  - ssl
+# The database is in use while the hub runs; stop the hub for a consistent backup.
+backup: cold
+
+options:
+  hub_name: QoffeeAutomat Hub
+  ingress_role: admin
+schema:
+  hub_name: str
+  ingress_role: list(admin|operator|viewer)
+  certfile: str?
+  keyfile: str?

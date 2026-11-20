@@ -1,0 +1,18 @@
+@inherits HubComponentBase
+
+@* The number of PCs per roll-out state, as a row of chips: how many are up to date, pending, failed, without a desired state, and offline. *@
+<div class="qh-counts mb-2" data-testid="rollout-counts">
+  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" data-count="total">@H.Format("Rollout.Count.Total", Value.Total)</MudChip>
+  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success" data-count="up_to_date">@H.Format("Rollout.Count.UpToDate", Value.UpToDate)</MudChip>
+  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" data-count="pending">@H.Format("Rollout.Count.Pending", Value.Pending)</MudChip>
+  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" data-count="failed">@H.Format("Rollout.Count.Failed", Value.Failed)</MudChip>
+  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" data-count="no_desired_state">@H.Format("Rollout.Count.NoDesiredState", Value.NoDesiredState)</MudChip>
+  <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" data-count="offline">@H.Format("Rollout.Count.Offline", Value.Offline)</MudChip>
+</div>
+
+@code {
+  /// <summary>The counts.</summary>
+  [Parameter]
+  [EditorRequired]
+  public RolloutCounts Value { get; set; } = null!;
+}

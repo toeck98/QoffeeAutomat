@@ -1,0 +1,6 @@
+{
+  "t": "config_status",
+  "generation": 7,
+  "state": "failed",
+  "results": [ { "kind": "command", "id": "set_display_profile", "state": "broken" } ]
+}

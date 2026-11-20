@@ -1,4 +1,5 @@
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Core.Config;
@@ -31,6 +32,7 @@ public static class SensorEndpoints
             .Describe(Tag, "listSensors", "Lists all custom sensors.")
             .Returns<SensorList>();
         api.MapPost("/sensors", CreateSensorAsync)
+            .GuardsLocalConfig(LocalConfigArea.Sensor)
             .Describe(Tag, "createSensor", "Creates a custom sensor; the id must not exist yet.")
             .Takes<SensorDocument>()
             .Returns<SensorDocument>(StatusCodes.Status201Created)
@@ -45,6 +47,7 @@ public static class SensorEndpoints
             .Returns<SensorDocument>()
             .Fails(StatusCodes.Status404NotFound);
         api.MapPut("/sensors/{id}", ReplaceSensorAsync)
+            .GuardsLocalConfig(LocalConfigArea.Sensor)
             .Describe(Tag, "replaceSensor", "Replaces a custom sensor.")
             .Takes<SensorDocument>()
             .Returns<SensorDocument>()
@@ -65,6 +68,7 @@ public static class SensorEndpoints
                 ApiResults.UnprocessableContent,
                 StatusCodes.Status500InternalServerError);
         api.MapDelete("/sensors/{id}", DeleteSensorAsync)
+            .GuardsLocalConfig(LocalConfigArea.Sensor)
             .Describe(Tag, "deleteSensor", "Deletes a custom sensor; its earlier revisions are kept.")
             .ReturnsNothing()
             .HonoursIfMatch()

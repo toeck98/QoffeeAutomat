@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests of the hub (T902 to T906): hosting, storage, users, roles, tokens, the audit log, enrollment and the agent gateway. -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Hub\QoffeeAutomat.Hub.csproj" />
+
+    <!-- The gateway tests (T906) run real agents on the simulated platform against the hub in the same process; the simulated platform comes with the agent. -->
+    <ProjectReference Include="..\..\src\QoffeeAutomat.Agent\QoffeeAutomat.Agent.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The fleet tests (T913) validate every frame of the hub against protocol/schema with the validator of the contracts tests, so there is one implementation of it. -->
+    <Compile Include="..\QoffeeAutomat.Contracts.Tests\Schema\SchemaSet.cs" Link="Fleet\Schema\SchemaSet.cs" />
+  </ItemGroup>
+
+</Project>

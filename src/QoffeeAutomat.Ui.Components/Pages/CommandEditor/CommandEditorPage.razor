@@ -14,12 +14,12 @@
     {
       <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined" data-testid="dirty-indicator">@L["Editor.Unsaved.Indicator"]</MudChip>
     }
-    <MudButton Variant="Variant.Text" Href="/commands" data-testid="editor-back">@L["Editor.Back"]</MudButton>
+    <MudButton Variant="Variant.Text" Href="@Links.Resolve("/commands")" data-testid="editor-back">@L["Editor.Back"]</MudButton>
     <MudButton Variant="Variant.Filled"
                Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Save"
                OnClick="SaveAsync"
-               Disabled="@(_saving || _loading || _notFound || _loadError is not null)"
+               Disabled="@(_saving || _loading || _notFound || _loadError is not null || ReadOnly)"
                data-testid="editor-save">@L["Editor.Save"]</MudButton>
   </span>
 </div>
@@ -55,14 +55,24 @@ else if (_loadError is null && !_notFound)
     </MudAlert>
   }
 
+  @if (ReadOnly)
+  {
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4" data-testid="editor-read-only" data-reason="@(HubConfigAccess.IsHubDocument(_draft.Origin) ? "hub_document" : "local_config_locked")">
+      @(HubConfigAccess.IsHubDocument(_draft.Origin) ? L["Hub.ReadOnly"] : L["Hub.Locked.Editing"])
+    </MudAlert>
+  }
+
   <MudGrid Spacing="3">
     <MudItem xs="12" lg="7">
-      <GeneralSection Draft="_draft" Errors="_errors" Session="_session" OnChanged="OnChangedAsync" />
-      <ActionSection Draft="_draft" Errors="_errors" Scripts="_scripts" CommandIds="CommandChoices" PlatformOs="_platformOs" OnChanged="OnChangedAsync" />
-      <SecretsSection Draft="_draft" Errors="_errors" Stored="_secretNames" OnChanged="OnChangedAsync" />
-      <ParameterSection Draft="_draft" Errors="_errors" OnChanged="OnChangedAsync" />
-      <ConditionsSection Draft="_draft" Errors="_errors" OnChanged="OnChangedAsync" />
-      <HaSection Draft="_draft" Errors="_errors" Metrics="_metrics" OnChanged="OnChangedAsync" />
+      @* A disabled fieldset switches every native input inside it off; the agent refuses the write as well (409 hub_document, 403 local_config_locked). *@
+      <fieldset disabled="@ReadOnly" class="qa-fieldset" data-testid="editor-fields">
+        <GeneralSection Draft="_draft" Errors="_errors" Session="_session" OnChanged="OnChangedAsync" />
+        <ActionSection Draft="_draft" Errors="_errors" Scripts="_scripts" CommandIds="CommandChoices" PlatformOs="_platformOs" OnChanged="OnChangedAsync" />
+        <SecretsSection Draft="_draft" Errors="_errors" Stored="_secretNames" OnChanged="OnChangedAsync" />
+        <ParameterSection Draft="_draft" Errors="_errors" OnChanged="OnChangedAsync" />
+        <ConditionsSection Draft="_draft" Errors="_errors" OnChanged="OnChangedAsync" />
+        <HaSection Draft="_draft" Errors="_errors" Metrics="_metrics" OnChanged="OnChangedAsync" />
+      </fieldset>
     </MudItem>
     <MudItem xs="12" lg="5">
       <MudPaper Class="pa-3 mb-4 qa-card" Elevation="1" data-testid="validation-status" data-state="@StateName">

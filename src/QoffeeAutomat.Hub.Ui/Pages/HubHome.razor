@@ -1,0 +1,10 @@
+@page "/"
+@inherits HubComponentBase
+
+@* The root address shows the fleet. The target is relative, so a path prefix is kept. *@
+@code {
+  protected override void OnInitialized()
+  {
+    Navigation.NavigateTo(HubReturnTarget.Home, replace: true);
+  }
+}

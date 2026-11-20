@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using QoffeeAutomat.Agent.Api;
+using QoffeeAutomat.Agent.Hub.Tunnel;
 
 namespace QoffeeAutomat.Agent.Security.Auth;
 
@@ -98,6 +99,13 @@ public sealed class SessionAuthenticationHandler : AuthenticationHandler<Authent
     /// <inheritdoc />
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // A request of the management tunnel (T912) was authorised by the hub's role rules, which the tunnel applied before it dispatched the request; it carries
+        // the hub user instead of a cookie. Items are set in process only, never by a client.
+        if (TunnelIdentity.Of(Context) is { } tunnel)
+        {
+            return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(tunnel.ToPrincipal(AuthNames.Scheme), AuthNames.Scheme)));
+        }
+
         string? id = SessionCookie.Read(Request);
         if (!_sessions.TryValidate(id))
         {

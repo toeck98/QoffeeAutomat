@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
+using QoffeeAutomat.Contracts.Hub;
 using QoffeeAutomat.Ui.Components.Api;
 using QoffeeAutomat.Ui.Components.Pages.Dashboard;
 using QoffeeAutomat.Ui.Components.Pages.Metrics;
@@ -20,6 +21,7 @@ public partial class SensorsPage
     private readonly HashSet<string> _busy = new(StringComparer.Ordinal);
     private LiveMetricValues? _live;
     private string? _platform;
+    private HubConfigState? _hub;
     private ApiException? _listError;
     private ApiException? _actionError;
     private string _actionFailure = string.Empty;
@@ -31,6 +33,9 @@ public partial class SensorsPage
 
     [Inject]
     private SessionState Session { get; set; } = null!;
+
+    [Inject]
+    private IAppLinks Links { get; set; } = null!;
 
     [Inject]
     private IDialogService Dialogs { get; set; } = null!;
@@ -58,7 +63,7 @@ public partial class SensorsPage
         }
     }
 
-    private static string EditHref(SensorDocument sensor) => "/sensors/" + Uri.EscapeDataString(sensor.Id);
+    private string EditHref(SensorDocument sensor) => Links.Resolve("/sensors/" + Uri.EscapeDataString(sensor.Id));
 
     private static string Aria(string action, SensorDocument sensor) => action + ": " + sensor.Name;
 
@@ -115,8 +120,26 @@ public partial class SensorsPage
             _platform = null;
         }
 
+        try
+        {
+            _hub = await Api.GetHubConfigAsync();
+        }
+        catch (ApiException)
+        {
+            // Without the hub state nothing is read-only (an agent of an older version, or a failed read).
+            _hub = null;
+        }
+
         await UpdateStreamAsync();
     }
+
+    /// <summary>True while the hub locks the local configuration (T908): sensors cannot be created, changed or deleted here.</summary>
+    private bool IsLocked => HubConfigAccess.IsLocked(_hub);
+
+    /// <summary>True when the sensor cannot be changed here: it comes from the hub, or the local configuration is locked.</summary>
+    private bool IsReadOnly(SensorDocument sensor) => HubConfigAccess.IsReadOnly(_hub, sensor.Origin);
+
+    private IReadOnlyList<HubShadowedItem> ShadowedSensors => HubConfigAccess.ShadowedOf(_hub, DocumentKinds.Sensor);
 
     /// <summary>The agent samples the sensors that are switched on while this page shows their values.</summary>
     private async Task UpdateStreamAsync()

@@ -8,8 +8,15 @@ together with ``client.py``. It turns decoded JSON into typed, immutable objects
   message types become :class:`UnknownMessage`; unknown fields are ignored.
 * ``parse_manifest`` and ``parse_pair_response`` parse the manifest and the pairing
   response; ``parse_run_result_data`` parses the data of a successful ``run`` result.
+* ``parse_fleet_frame`` and ``parse_fleet_message`` handle the frames that a hub sends
+  on the fleet link (PLAN.md S20): the hub ``hello``, ``agent_added``,
+  ``agent_removed``, ``agent_status`` and the agent-scoped variants of
+  ``manifest_changed``, ``state`` and ``event`` that carry the agent id in the
+  member ``a``. ``parse_get_agents_result_data`` parses the answer to ``get_agents``
+  and ``parse_hub_pair_response`` the answer of ``POST /hub/v1/pair``.
 * Data that violates the schemas in ``protocol/schema`` raises :class:`ProtocolError`.
-* The ``build_*`` functions create the frames that a client sends.
+* The ``build_*`` functions create the frames that a client sends; ``get_manifest``,
+  ``subscribe`` and ``run`` take an optional ``agent_id`` for the fleet link.
 
 The schemas and fixtures in ``protocol/`` are normative; both this module and the C#
 contracts are tested against the same fixtures.
@@ -60,6 +67,22 @@ ERROR_CODES: Final = frozenset(
     }
 )
 
+# Error codes that the hub adds (PLAN.md S20). They are kept apart from ERROR_CODES,
+# which lists the codes of protocol v1. Receivers tolerate unknown codes. ``revoked``
+# is only used in the HTTP 401 response of the agent link, never in a frame.
+ERROR_UNKNOWN_AGENT: Final = "unknown_agent"
+ERROR_AGENT_OFFLINE: Final = "agent_offline"
+ERROR_FORBIDDEN: Final = "forbidden"
+ERROR_REVOKED: Final = "revoked"
+HUB_ERROR_CODES: Final = frozenset(
+    {ERROR_UNKNOWN_AGENT, ERROR_AGENT_OFFLINE, ERROR_FORBIDDEN, ERROR_REVOKED}
+)
+
+# Paths and features of the hub (PLAN.md S20).
+HUB_PAIR_PATH: Final = "/hub/v1/pair"
+HUB_FLEET_PATH: Final = "/hub/v1/fleet"
+FEATURE_FLEET: Final = "fleet"
+
 # Close codes (PLAN.md S07, D-039).
 CLOSE_BAD_REQUEST: Final = 4400
 CLOSE_UNAUTHORIZED: Final = 4401
@@ -69,6 +92,9 @@ CLOSE_UNSUPPORTED_VERSION: Final = 4406
 BYE_REASONS: Final = frozenset(
     {"sleep", "hibernate", "shutdown", "restart", "service_stop", "update"}
 )
+UNKNOWN_POWER_STATE: Final = "unknown"
+# The last ``bye`` reason of an agent as reported by the hub, or "unknown" (S20).
+POWER_STATES: Final = BYE_REASONS | {UNKNOWN_POWER_STATE}
 CLIENT_KINDS: Final = frozenset({"homeassistant", "hub", "tool"})
 METRIC_KINDS: Final = frozenset({"sensor", "binary_sensor"})
 VALUE_TYPES: Final = frozenset({"number", "string", "bool", "timestamp", "enum"})
@@ -85,6 +111,7 @@ _VARIABLE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,31}$")
 _MAC = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 _TOKEN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 _ERROR_CODE = re.compile(r"^[a-z][a-z0-9_]*$")
+_AGENT_ID_MAX_LENGTH: Final = 64
 
 type JsonObject = Mapping[str, Any]
 type Scalar = str | int | float | bool
@@ -296,6 +323,141 @@ class RunResultData:
     stderr: str | None = None
     duration_ms: int | None = None
     timed_out: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# Fleet link models (PLAN.md S20)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class HubInfo:
+    """Identity of a hub (``hello.hub`` of the fleet link)."""
+
+    id: str
+    name: str
+    version: str
+
+
+@dataclass(frozen=True, slots=True)
+class FleetHello:
+    """First frame of the fleet link, sent by the hub in place of an agent ``hello``."""
+
+    protocol: ProtocolRange
+    hub: HubInfo
+    features: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class HubPairResponse:
+    """Response of a successful ``POST /hub/v1/pair`` (PLAN.md S07, S20).
+
+    ``scope_type`` is ``all`` or ``tags``; ``scope_tags`` lists the tags of a tag scope.
+    ``fingerprint`` is the SHA-256 fingerprint of the hub certificate; it is absent when
+    the hub is served without TLS.
+    """
+
+    token: str
+    hub_id: str
+    hub_name: str
+    scope_type: str
+    scope_tags: tuple[str, ...] = ()
+    fingerprint: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FleetAgent:
+    """An agent in the scope of the fleet token, as listed by ``get_agents``.
+
+    ``manifest_rev`` and ``agent`` are ``None`` for an agent that never connected.
+    ``power_state`` is the last ``bye`` reason or ``"unknown"``.
+    """
+
+    id: str
+    name: str
+    online: bool
+    power_state: str
+    manifest_rev: str | None = None
+    agent: AgentInfo | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AgentAdded:
+    """An agent entered the scope of the token; ``agent_id`` is the member ``a``."""
+
+    agent_id: str
+    name: str
+    online: bool
+    power_state: str
+    manifest_rev: str | None = None
+    agent: AgentInfo | None = None
+
+    def to_agent(self) -> FleetAgent:
+        """Return the same agent in the form of a ``get_agents`` entry."""
+        return FleetAgent(
+            id=self.agent_id,
+            name=self.name,
+            online=self.online,
+            power_state=self.power_state,
+            manifest_rev=self.manifest_rev,
+            agent=self.agent,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AgentRemoved:
+    """An agent left the scope of the token or was removed from the hub."""
+
+    agent_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class AgentStatus:
+    """An agent went online or offline."""
+
+    agent_id: str
+    online: bool
+    power_state: str
+
+
+@dataclass(frozen=True, slots=True)
+class AgentManifestChanged:
+    """Agent-scoped ``manifest_changed``."""
+
+    agent_id: str
+    rev: str
+
+
+@dataclass(frozen=True, slots=True)
+class AgentState:
+    """Agent-scoped ``state``; ``None`` means unavailable."""
+
+    agent_id: str
+    ts: int
+    values: Mapping[str, MetricValue]
+
+
+@dataclass(frozen=True, slots=True)
+class AgentEvent:
+    """Agent-scoped ``event``."""
+
+    agent_id: str
+    type: str
+    ts: int
+    data: Mapping[str, Any] = field(default_factory=dict)
+
+
+type FleetMessage = (
+    FleetHello
+    | AgentAdded
+    | AgentRemoved
+    | AgentStatus
+    | AgentManifestChanged
+    | AgentState
+    | AgentEvent
+    | Result
+    | UnknownMessage
+)
 
 
 # ---------------------------------------------------------------------------
@@ -701,6 +863,168 @@ def parse_run_result_data(data: Mapping[str, Any]) -> RunResultData:
 
 
 # ---------------------------------------------------------------------------
+# Fleet link parsers (PLAN.md S20)
+# ---------------------------------------------------------------------------
+
+
+def _req_agent_id(obj: JsonObject, key: str, where: str) -> str:
+    value = _req_str(obj, key, where)
+    if len(value) > _AGENT_ID_MAX_LENGTH:
+        _fail(
+            f"{where}/{key}",
+            f"must not be longer than {_AGENT_ID_MAX_LENGTH} characters",
+        )
+    return value
+
+
+def _parse_fleet_agent(data: JsonObject, where: str, *, id_key: str) -> FleetAgent:
+    """Parse a ``get_agents`` entry (``id_key="id"``) or ``agent_added`` (``"a"``)."""
+    details: AgentInfo | None = None
+    if _present(data, "agent"):
+        agent_data = _req_object(data, "agent", where)
+        details = _parse_agent_info(agent_data, f"{where}/agent")
+    return FleetAgent(
+        id=_req_agent_id(data, id_key, where),
+        name=_req_str(data, "name", where),
+        online=_req_bool(data, "online", where),
+        power_state=_req_str(data, "power_state", where, allowed=POWER_STATES),
+        manifest_rev=_opt_str(data, "manifest_rev", where, pattern=_REV),
+        agent=details,
+    )
+
+
+def _parse_fleet_hello(data: JsonObject) -> FleetHello:
+    where = "hello"
+    protocol = _req_object(data, "protocol", where)
+    hub = _req_object(data, "hub", where)
+    return FleetHello(
+        protocol=ProtocolRange(
+            min=_req_int(protocol, "min", f"{where}/protocol", minimum=1),
+            max=_req_int(protocol, "max", f"{where}/protocol", minimum=1),
+        ),
+        hub=HubInfo(
+            id=_req_agent_id(hub, "id", f"{where}/hub"),
+            name=_req_str(hub, "name", f"{where}/hub"),
+            version=_req_str(hub, "version", f"{where}/hub"),
+        ),
+        features=_str_tuple(_req_list(data, "features", where), f"{where}/features"),
+    )
+
+
+def _parse_agent_added(data: JsonObject) -> AgentAdded:
+    agent = _parse_fleet_agent(data, "agent_added", id_key="a")
+    return AgentAdded(
+        agent_id=agent.id,
+        name=agent.name,
+        online=agent.online,
+        power_state=agent.power_state,
+        manifest_rev=agent.manifest_rev,
+        agent=agent.agent,
+    )
+
+
+def parse_fleet_message(data: Any) -> FleetMessage:
+    """Parse a decoded frame that a hub sends on the fleet link.
+
+    The frames of S07 (``manifest_changed``, ``state``, ``event``) carry the agent id in
+    the member ``a`` and become the ``Agent*`` types. Frames with an unknown ``t``
+    become :class:`UnknownMessage`. Raises :class:`ProtocolError` if the frame is not
+    an object, has no ``t`` or violates the schema of its type.
+    """
+    frame = _object(data, "frame")
+    message_type = _req_str(frame, "t", "frame")
+    match message_type:
+        case "hello":
+            return _parse_fleet_hello(frame)
+        case "agent_added":
+            return _parse_agent_added(frame)
+        case "agent_removed":
+            return AgentRemoved(
+                agent_id=_req_agent_id(frame, "a", "agent_removed"),
+            )
+        case "agent_status":
+            return AgentStatus(
+                agent_id=_req_agent_id(frame, "a", "agent_status"),
+                online=_req_bool(frame, "online", "agent_status"),
+                power_state=_req_str(
+                    frame, "power_state", "agent_status", allowed=POWER_STATES
+                ),
+            )
+        case "manifest_changed":
+            return AgentManifestChanged(
+                agent_id=_req_agent_id(frame, "a", "manifest_changed"),
+                rev=_req_str(frame, "rev", "manifest_changed", pattern=_REV),
+            )
+        case "state":
+            state = _parse_state(frame)
+            return AgentState(
+                agent_id=_req_agent_id(frame, "a", "state"),
+                ts=state.ts,
+                values=state.values,
+            )
+        case "event":
+            event = _parse_event(frame)
+            return AgentEvent(
+                agent_id=_req_agent_id(frame, "a", "event"),
+                type=event.type,
+                ts=event.ts,
+                data=event.data,
+            )
+        case "result":
+            return _parse_result(frame)
+        case _:
+            return UnknownMessage(type=message_type, raw=frame)
+
+
+def parse_fleet_frame(text: str | bytes) -> FleetMessage:
+    """Decode the JSON text of one fleet link frame and parse it."""
+    try:
+        data = json.loads(text)
+    except ValueError as error:
+        raise ProtocolError(f"frame: not valid JSON ({error})") from error
+    return parse_fleet_message(data)
+
+
+def parse_get_agents_result_data(data: Any) -> tuple[FleetAgent, ...]:
+    """Parse the ``data`` of a successful ``get_agents`` result."""
+    where = "get_agents_result"
+    result = _object(data, where)
+    return tuple(
+        _parse_fleet_agent(
+            _object(entry, f"{where}/agents/{index}"),
+            f"{where}/agents/{index}",
+            id_key="id",
+        )
+        for index, entry in enumerate(_req_list(result, "agents", where))
+    )
+
+
+_SCOPE_TYPES: Final = frozenset({"all", "tags"})
+_FINGERPRINT = re.compile(r"^([0-9A-F]{2}:){31}[0-9A-F]{2}$")
+
+
+def parse_hub_pair_response(data: Any) -> HubPairResponse:
+    """Parse the response of ``POST /hub/v1/pair`` (``pair_response.schema.json``)."""
+    where = "hub_pair_response"
+    scope_where = f"{where}/scope"
+    response = _object(data, where)
+    hub = _req_object(response, "hub", where)
+    scope = _req_object(response, "scope", where)
+    scope_type = _req_str(scope, "type", scope_where, allowed=_SCOPE_TYPES)
+    tags = _str_tuple(_opt_list(scope, "tags", scope_where), f"{scope_where}/tags")
+    if scope_type == "tags" and not tags:
+        _fail(f"{scope_where}/tags", "a tag scope needs at least one tag")
+    return HubPairResponse(
+        token=_req_str(response, "token", where, pattern=_TOKEN),
+        hub_id=_req_agent_id(hub, "id", f"{where}/hub"),
+        hub_name=_req_str(hub, "name", f"{where}/hub"),
+        scope_type=scope_type,
+        scope_tags=tags,
+        fingerprint=_opt_str(response, "fingerprint", where, pattern=_FINGERPRINT),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Frames sent by a client
 # ---------------------------------------------------------------------------
 
@@ -724,17 +1048,32 @@ def build_client_hello(
     return frame
 
 
-def build_get_manifest(request_id: int) -> dict[str, Any]:
-    """Build a ``get_manifest`` request."""
-    return {"t": "get_manifest", "id": request_id}
+def build_get_agents(request_id: int) -> dict[str, Any]:
+    """Build a ``get_agents`` request (fleet link)."""
+    return {"t": "get_agents", "id": request_id}
+
+
+def build_get_manifest(
+    request_id: int, *, agent_id: str | None = None
+) -> dict[str, Any]:
+    """Build a ``get_manifest`` request; ``agent_id`` is ``a`` on the fleet link."""
+    frame: dict[str, Any] = {"t": "get_manifest", "id": request_id}
+    if agent_id is not None:
+        frame["a"] = agent_id
+    return frame
 
 
 def build_subscribe(
     request_id: int,
     metrics: Sequence[str] | str,
     intervals: Mapping[str, float] | None = None,
+    *,
+    agent_id: str | None = None,
 ) -> dict[str, Any]:
-    """Build a ``subscribe`` request; ``metrics`` is a list of ids or ``"*"``."""
+    """Build a ``subscribe`` request; ``metrics`` is a list of ids or ``"*"``.
+
+    ``agent_id`` is the member ``a`` (fleet link).
+    """
     if isinstance(metrics, str) and metrics != "*":
         msg = 'metrics must be a list of metric ids or "*"'
         raise ProtocolError(msg)
@@ -743,6 +1082,8 @@ def build_subscribe(
         "id": request_id,
         "metrics": metrics if isinstance(metrics, str) else list(metrics),
     }
+    if agent_id is not None:
+        frame["a"] = agent_id
     if intervals:
         frame["intervals"] = dict(intervals)
     return frame
@@ -755,9 +1096,15 @@ def build_run(
     *,
     wait: bool | None = None,
     user_id: str | None = None,
+    agent_id: str | None = None,
 ) -> dict[str, Any]:
-    """Build a ``run`` request. Members that are not given are omitted."""
+    """Build a ``run`` request. Members that are not given are omitted.
+
+    ``agent_id`` is the member ``a`` (fleet link).
+    """
     frame: dict[str, Any] = {"t": "run", "id": request_id, "command": command}
+    if agent_id is not None:
+        frame["a"] = agent_id
     if variables is not None:
         frame["vars"] = dict(variables)
     if wait is not None:

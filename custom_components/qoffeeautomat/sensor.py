@@ -17,11 +17,17 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.util import dt as dt_util
 
-from .entity import QoffeeAutomatEntity, QoffeeAutomatMetricEntity, parse_known
+from .entity import (
+    QoffeeAutomatEntity,
+    QoffeeAutomatMetricEntity,
+    async_setup_agents,
+    parse_known,
+)
 from .manifest_manager import ManifestDiff
 from .protocol import MetricDescriptor, MetricValue
 from .runtime import (
     POWER_STATE_OPTIONS,
+    OnUnload,
     QoffeeAutomatConfigEntry,
     QoffeeAutomatRuntimeData,
 )
@@ -158,26 +164,31 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the power state sensor and the sensors of the manifest."""
-    runtime = entry.runtime_data
-    async_add_entities([QoffeeAutomatPowerStateSensor(runtime)])
-    entities: dict[str, QoffeeAutomatSensor] = {}
 
-    async def apply(diff: ManifestDiff) -> None:
-        for removed in diff.removed_metrics:
-            if removed.kind != "sensor":
-                continue
-            if entity := entities.pop(removed.id, None):
-                await entity.async_discard()
-        created: list[QoffeeAutomatSensor] = []
-        for added in diff.added_metrics:
-            if added.kind != "sensor" or added.id in entities:
-                continue
-            entities[added.id] = sensor = QoffeeAutomatSensor(runtime, added)
-            created.append(sensor)
-        if created:
-            async_add_entities(created)
+    async def setup_agent(
+        runtime: QoffeeAutomatRuntimeData, on_unload: OnUnload
+    ) -> None:
+        async_add_entities([QoffeeAutomatPowerStateSensor(runtime)])
+        entities: dict[str, QoffeeAutomatSensor] = {}
 
-    entry.async_on_unload(await runtime.manifest_manager.async_add_listener(apply))
+        async def apply(diff: ManifestDiff) -> None:
+            for removed in diff.removed_metrics:
+                if removed.kind != "sensor":
+                    continue
+                if entity := entities.pop(removed.id, None):
+                    await entity.async_discard()
+            created: list[QoffeeAutomatSensor] = []
+            for added in diff.added_metrics:
+                if added.kind != "sensor" or added.id in entities:
+                    continue
+                entities[added.id] = sensor = QoffeeAutomatSensor(runtime, added)
+                created.append(sensor)
+            if created:
+                async_add_entities(created)
+
+        on_unload(await runtime.manifest_manager.async_add_listener(apply))
+
+    await async_setup_agents(entry, setup_agent)
 
 
 class QoffeeAutomatSensor(QoffeeAutomatMetricEntity, SensorEntity):

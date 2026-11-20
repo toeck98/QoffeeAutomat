@@ -1,0 +1,7 @@
+{
+  "t": "mgmt_request",
+  "id": 21,
+  "method": "GET",
+  "path": "/link/v1/pair",
+  "principal": { "user": "alice", "role": "viewer" }
+}

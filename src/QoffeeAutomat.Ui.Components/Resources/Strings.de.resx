@@ -59,6 +59,7 @@
   <data name="Error.setup_unavailable" xml:space="preserve"><value>Die Ersteinrichtung ist nicht verfügbar: Es ist bereits ein Passwort gesetzt.</value></data>
   <data name="Error.validation_failed" xml:space="preserve"><value>Die Anfrage enthält Validierungsfehler.</value></data>
   <data name="Error.http" xml:space="preserve"><value>Der Agent hat mit Status {0} geantwortet.</value></data>
+  <data name="Error.no_test_target" xml:space="preserve"><value>Wählen Sie einen PC, der online ist, um den Entwurf darauf auszuführen (Hub-Bibliothek).</value></data>
 
   <data name="Dashboard.Title" xml:space="preserve"><value>Übersicht</value></data>
   <data name="Dashboard.Agent" xml:space="preserve"><value>Agent</value></data>
@@ -918,4 +919,21 @@
   <data name="Templates.ModeDefault" xml:space="preserve"><value>Standardmodus</value></data>
   <data name="Templates.ModeList" xml:space="preserve"><value>Modi</value></data>
   <data name="Templates.Type.mode" xml:space="preserve"><value>Modusgruppe</value></data>
+  <data name="Hub.Origin.Hub" xml:space="preserve"><value>Hub</value></data>
+  <data name="Hub.Origin.Hub.Help" xml:space="preserve"><value>Dieses Dokument stammt vom Hub, der diesen PC verwaltet. Es ist hier schreibgeschützt; ändern Sie es im Hub.</value></data>
+  <data name="Hub.Origin.Local" xml:space="preserve"><value>Lokal</value></data>
+  <data name="Hub.Origin.Local.Help" xml:space="preserve"><value>Dieses Dokument wurde auf diesem PC angelegt.</value></data>
+  <data name="Hub.Origin.Shadowed" xml:space="preserve"><value>Lokal, nicht in Verwendung</value></data>
+  <data name="Hub.Banner.Title" xml:space="preserve"><value>Dieser PC wird von einem Hub verwaltet</value></data>
+  <data name="Hub.Banner.Generation" xml:space="preserve"><value>Konfigurationsgeneration des Hubs: {0}.</value></data>
+  <data name="Hub.Banner.Locked" xml:space="preserve"><value>Der Hub hat die lokale Konfiguration gesperrt: Befehle, Sensoren, Skripte und Metrik-Überschreibungen lassen sich nur im Hub ändern. Sie können sie weiter ansehen, das Passwort ändern und den Hub verlassen.</value></data>
+  <data name="Hub.Banner.DirectLinkDenied" xml:space="preserve"><value>Der Hub erlaubt keine direkten Verbindungen von Home Assistant: Dieser PC wird im Netzwerk nicht angekündigt, das Koppeln ist abgeschaltet und direkte Clients werden getrennt.</value></data>
+  <data name="Hub.Banner.Error" xml:space="preserve"><value>Die letzte Konfiguration des Hubs wurde abgelehnt, die vorherige bleibt aktiv: {0}</value></data>
+  <data name="Hub.ReadOnly" xml:space="preserve"><value>Schreibgeschützt: Dieses Dokument stammt vom Hub.</value></data>
+  <data name="Hub.Locked.Editing" xml:space="preserve"><value>Das Bearbeiten ist abgeschaltet: Der Hub hat die lokale Konfiguration gesperrt.</value></data>
+  <data name="Hub.Shadowed.Title" xml:space="preserve"><value>Lokale Dokumente, die nicht in Verwendung sind</value></data>
+  <data name="Hub.Shadowed.Help" xml:space="preserve"><value>Diese Dokumente bleiben erhalten. Sie werden wieder aktiv, wenn der Hub sein Dokument oder die Sperre zurücknimmt oder wenn Sie den Hub verlassen.</value></data>
+  <data name="Hub.Shadow.Reason.hub_document" xml:space="preserve"><value>Stattdessen wird ein Hub-Dokument mit derselben Id verwendet</value></data>
+  <data name="Hub.Shadow.Reason.local_config_locked" xml:space="preserve"><value>Der Hub hat die lokale Konfiguration gesperrt</value></data>
+  <data name="Hub.Link.DirectDenied" xml:space="preserve"><value>Der Hub erlaubt für diesen PC kein direktes Koppeln. Verbinden Sie Home Assistant stattdessen mit dem Hub.</value></data>
 </root>

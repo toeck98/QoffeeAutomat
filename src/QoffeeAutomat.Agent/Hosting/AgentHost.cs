@@ -10,6 +10,7 @@ using QoffeeAutomat.Agent.Api;
 using QoffeeAutomat.Agent.Api.OpenApi;
 using QoffeeAutomat.Agent.Api.Prometheus;
 using QoffeeAutomat.Agent.Discovery;
+using QoffeeAutomat.Agent.Hub;
 using QoffeeAutomat.Agent.Link;
 using QoffeeAutomat.Agent.Link.Pairing;
 using QoffeeAutomat.Agent.Security;
@@ -101,6 +102,9 @@ public static class AgentHost
             $"{{\"status\":\"ok\",\"version\":\"{AgentVersion.Current}\"}}",
             "application/json"));
         LocalChannelEndpoints.Map(app);
+
+        // The verbs hub join, hub leave and hub status (T905) have a channel of their own, with a secret that no process of a command gets.
+        HubLocalEndpoints.Map(app);
 
         // Security (T211, T212): the management API stays on this PC unless remote UI is on, every route
         // below /api/v1 needs a session except the documented ones, and the pairing endpoint of QoffeeLink
@@ -306,6 +310,9 @@ public static class AgentHost
                     LocalChannel = provider.GetRequiredService<LocalChannel>(),
                     RunOutput = provider.GetRequiredService<RunOutputHub>(),
                     PlatformSupport = provider.GetRequiredService<CommandPlatformSupport>(),
+
+                    // The variables of the hub reach every run as QA_HUBVAR_<NAME> environment variables (T908), read at the start of each run.
+                    HubVariables = () => config.Hub.Variables,
                 },
                 provider.GetRequiredService<IAgentPause>(),
                 provider.GetRequiredService<ISessionBridge>(),
@@ -397,6 +404,9 @@ public static class AgentHost
                     ConfigDirectory = paths.ConfigDirectory,
                     ScriptsDirectory = paths.ScriptsDirectory,
                     ProblemReporter = problem => AgentLog.ConfigProblem(logger, problem.Path, problem.Code, problem.Message),
+
+                    // A hub document that this platform cannot run is skipped and reported, not rejected (PLAN.md S20, T908).
+                    PlatformSupport = provider.GetRequiredService<CommandPlatformSupport>(),
                 },
                 provider.GetRequiredService<TimeProvider>());
         });

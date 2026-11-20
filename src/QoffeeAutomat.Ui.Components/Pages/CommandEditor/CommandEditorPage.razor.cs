@@ -27,6 +27,7 @@ public partial class CommandEditorPage
     private IReadOnlyList<string> _secretNames = [];
     private SessionStatus? _session;
     private string? _platformOs;
+    private HubConfigState? _hub;
     private string _baseline = string.Empty;
     private string? _loadedId;
     private string? _notice;
@@ -63,6 +64,9 @@ public partial class CommandEditorPage
 
     [Inject]
     private NavigationManager Navigation { get; set; } = null!;
+
+    [Inject]
+    private IAppLinks Links { get; set; } = null!;
 
     [Inject]
     private IDialogService Dialogs { get; set; } = null!;
@@ -171,6 +175,7 @@ public partial class CommandEditorPage
             }
         }
 
+        await LoadHubAsync();
         Rebuild();
         _baseline = Snapshot();
         _dirty = false;
@@ -178,6 +183,22 @@ public partial class CommandEditorPage
         if (!_lookupsLoaded)
         {
             await LoadLookupsAsync();
+        }
+    }
+
+    /// <summary>True when the command cannot be saved: it comes from the hub (T908), or the hub locked the local configuration.</summary>
+    private bool ReadOnly => HubConfigAccess.IsReadOnly(_hub, _draft.Origin);
+
+    /// <summary>Reads what the hub configured; an agent without it, or a failed read, leaves the editor as it always was.</summary>
+    private async Task LoadHubAsync()
+    {
+        try
+        {
+            _hub = await Api.GetHubConfigAsync();
+        }
+        catch (ApiException)
+        {
+            _hub = null;
         }
     }
 
@@ -376,7 +397,7 @@ public partial class CommandEditorPage
             if (wasNew)
             {
                 // The editor stays; only the address becomes the one of the command, so that a reload finds it.
-                Navigation.NavigateTo("/commands/" + Uri.EscapeDataString(saved.Id), replace: true);
+                Navigation.NavigateTo(Links.Resolve("/commands/" + Uri.EscapeDataString(saved.Id)), replace: true);
             }
         }
         catch (ApiException exception) when (exception.IsUnauthorized)

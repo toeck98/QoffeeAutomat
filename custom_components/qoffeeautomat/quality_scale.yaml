@@ -60,9 +60,7 @@ rules:
   docs-supported-functions: done # docs/user/overview.md, docs/user/reference/
   docs-troubleshooting: done # docs/user/troubleshooting.md
   docs-use-cases: done # docs/user/quick-start.md, docs/user/example-mode-start.md
-  dynamic-devices:
-    status: exempt
-    comment: One config entry is one PC with exactly one device; there are no sub-devices. Entities are added dynamically from the manifest.
+  dynamic-devices: done # fleet.py: the entry of a hub adds and removes the devices of its PCs while it is loaded (agent_added, agent_removed, list read after every reconnect); an entry of a single PC has one device and adds its entities dynamically from the manifest
   entity-category: done
   entity-device-class: done
   entity-disabled-by-default: done
@@ -71,6 +69,4 @@ rules:
   icon-translations: done
   reconfiguration-flow: done
   repair-issues: done
-  stale-devices:
-    status: exempt
-    comment: There is one device per config entry; it is removed with the entry. Stale entities of vanished metrics and commands are removed from the entity registry.
+  stale-devices: done # fleet.py: the device of a PC that left the hub is removed with its entities; the device of a single PC goes with its entry; stale entities of vanished metrics and commands are removed from the entity registry

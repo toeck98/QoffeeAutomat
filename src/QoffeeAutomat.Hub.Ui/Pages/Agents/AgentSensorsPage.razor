@@ -1,0 +1,13 @@
+@page "/agents/{AgentId}/sensors"
+@using QoffeeAutomat.Ui.Components.Pages.Sensors
+
+@* The custom sensors of the agent (the component library, through the tunnel). *@
+<AgentPageFrame AgentId="@AgentId" Tab="sensors" MinRole="@HubRoleNames.Admin">
+  <SensorsPage />
+</AgentPageFrame>
+
+@code {
+  /// <summary>The id of the agent.</summary>
+  [Parameter]
+  public string AgentId { get; set; } = string.Empty;
+}

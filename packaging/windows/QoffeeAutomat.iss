@@ -22,9 +22,14 @@
 ;
 ; Silent installation (needs an elevated process):
 ;   QoffeeAutomat-Setup-<version>-<arch>.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART [/LOG=<file>]
-;       [/LINKPORT=<port>] [/UIPORT=<port>]
+;       [/LINKPORT=<port>] [/UIPORT=<port>] [/HUBENROLL=<enrollment string>]
 ; The ports are optional. An explicit port re-registers the service with it; without one an existing service and its
-; firewall rule are kept as they are. Silent uninstallation:
+; firewall rule are kept as they are. /HUBENROLL joins the central hub (PLAN.md S20, T905) once the service runs, with
+; "qoffeeautomat hub join <string>": the string is the one that the hub shows (qahub1.<code>). It contains an enrollment
+; token and joining gives the hub full control over the PC. The installer does not write the string to its own log, but
+; Inno Setup records its command line in the log of /LOG, so give the file only to administrators or use a token with a
+; short expiry and one use. A failed join does not fail the installation; run "qoffeeautomat hub join" afterwards.
+; Silent uninstallation:
 ;   "<app dir>\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART [/PURGEDATA]
 ; /PURGEDATA also deletes %ProgramData%\QoffeeAutomat; without it the data stays.
 
@@ -197,6 +202,12 @@ begin
   end;
 end;
 
+{ Looks like an enrollment string of the hub (PLAN.md S20): qahub1.<base64url>. The agent checks the rest. }
+function IsEnrollmentString(const Value: String): Boolean;
+begin
+  Result := (Pos('qahub1.', Value) = 1) and (Length(Value) > 7);
+end;
+
 function IsValidPort(const Value: String): Boolean;
 var
   Number: Integer;
@@ -300,6 +311,13 @@ begin
   begin
     SuppressibleMsgBox('/LINKPORT must be a port number between 1 and 65535.', mbError, MB_OK, IDOK);
     Result := False;
+    Exit;
+  end;
+  { The value is not shown: it contains a token. }
+  if FindSwitch('HUBENROLL', Value) and not IsEnrollmentString(Value) then
+  begin
+    SuppressibleMsgBox('/HUBENROLL must be the enrollment string that the hub shows (it starts with qahub1.).', mbError, MB_OK, IDOK);
+    Result := False;
   end;
 end;
 
@@ -352,6 +370,35 @@ begin
   end;
 end;
 
+{ Joins the hub of /HUBENROLL (PLAN.md S20, T905): runs "hub join" of the running agent. The string contains a token, so
+  neither the string nor the command line is logged. The service needs a moment to open the channel of the verb (exit
+  code 69: no agent found yet), so that code is tried again; any other code ends the attempt. A failed join does not fail
+  the installation: the person can run "qoffeeautomat hub join" later. }
+procedure JoinHub(const Agent: String);
+var
+  Enrollment: String;
+  ResultCode, Attempt: Integer;
+begin
+  if (not FindSwitch('HUBENROLL', Enrollment)) or (Enrollment = '') then
+    Exit;
+
+  ResultCode := -1;
+  for Attempt := 1 to 30 do
+  begin
+    if not Exec(Agent, 'hub join "' + Enrollment + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      ResultCode := -1;
+    if ResultCode = 0 then
+    begin
+      Log('Joined the hub of /HUBENROLL.');
+      Exit;
+    end;
+    if ResultCode <> 69 then
+      Break;
+    Sleep(1000);
+  end;
+  Log(Format('The agent could not join the hub of /HUBENROLL (exit code %d). Run "qoffeeautomat hub join" later.', [ResultCode]));
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Agent, Params, LinkPort: String;
@@ -400,6 +447,8 @@ begin
 
   if not WasInstalled then
     WaitForSetupToken;
+
+  JoinHub(Agent);
 
   { A fresh installation always shows where to find the token; an upgrade only while the password is not set yet
     (setting it deletes the file). }

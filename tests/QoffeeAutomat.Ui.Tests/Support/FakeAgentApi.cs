@@ -364,6 +364,26 @@ internal sealed class FakeAgentApi : IAgentApi
         return StatusFailure is null ? Task.FromResult(Status) : Task.FromException<AgentStatus>(StatusFailure);
     }
 
+    /// <summary>What <see cref="GetHubConfigAsync"/> returns: an agent that no hub manages.</summary>
+    public HubConfigState HubConfig { get; set; } = new(
+        false,
+        0,
+        null,
+        new HubConfigPolicy("allow", "allow"),
+        false,
+        false,
+        [],
+        [],
+        []);
+
+    /// <summary>When set, <see cref="GetHubConfigAsync"/> fails with it, as an agent of an older version without the endpoint does.</summary>
+    public ApiException? HubConfigFailure { get; set; }
+
+    public Task<HubConfigState> GetHubConfigAsync(CancellationToken cancellationToken = default)
+    {
+        return HubConfigFailure is null ? Task.FromResult(HubConfig) : Task.FromException<HubConfigState>(HubConfigFailure);
+    }
+
     /// <summary>What <see cref="GetHotkeyStatusAsync"/> returns.</summary>
     public HotkeyStatusResponse HotkeyStatus { get; set; } = new(true, []);
 

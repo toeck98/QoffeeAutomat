@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QoffeeAutomat.Agent.Discovery;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Agent.Link.Pairing;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Core.Config;
@@ -36,6 +37,7 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
     private readonly INetworkChangeSource? _network;
     private readonly TimeProvider _time;
     private readonly ILogger<ReverseLinkService> _logger;
+    private readonly IHubPolicy? _hubPolicy;
     private readonly CancellationTokenSource _stop = new();
     private readonly object _settingsGate = new();
 
@@ -57,6 +59,7 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
     /// <param name="time">The clock.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="network">Tells when the network changed, so that a laptop that joined another network dials at once; null disables that.</param>
+    /// <param name="hubPolicy">The policy of the hub; the reverse link is a direct link to Home Assistant, so it is not dialled while the hub denies direct links (PLAN.md S20, T908). Null means no hub policy.</param>
     public ReverseLinkService(
         ReverseLinkManager manager,
         LinkServer server,
@@ -66,7 +69,8 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
         IPowerEvents power,
         TimeProvider time,
         ILogger<ReverseLinkService> logger,
-        INetworkChangeSource? network = null)
+        INetworkChangeSource? network = null,
+        IHubPolicy? hubPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(manager);
         ArgumentNullException.ThrowIfNull(server);
@@ -86,6 +90,7 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
         _network = network;
         _time = time;
         _logger = logger;
+        _hubPolicy = hubPolicy;
     }
 
     /// <summary>The connector, or null while the service is not started; tests and the status API read its state.</summary>
@@ -101,6 +106,11 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
         _manager.SettingsSaving += OnManagerSettingsSaving;
         _manager.Changed += OnManagerChanged;
         _power.PowerChanged += OnPowerChanged;
+        if (_hubPolicy is not null)
+        {
+            _hubPolicy.Changed += OnHubPolicyChanged;
+        }
+
         _networkWatch = _network?.Watch(OnNetworkChanged);
         _settings = _config.Subscribe();
         ConfigSubscription settings = _settings;
@@ -121,6 +131,11 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
         _manager.SettingsSaving -= OnManagerSettingsSaving;
         _manager.Changed -= OnManagerChanged;
         _power.PowerChanged -= OnPowerChanged;
+        if (_hubPolicy is not null)
+        {
+            _hubPolicy.Changed -= OnHubPolicyChanged;
+        }
+
         _networkWatch?.Dispose();
         _networkWatch = null;
 
@@ -137,7 +152,18 @@ public sealed class ReverseLinkService : IHostedService, IDisposable
     private async ValueTask<OutboundEndpoint?> ResolveAsync(CancellationToken cancellationToken)
     {
         // The agent is stopping: the lifecycle service has said bye already and the next dial would only be refused.
-        return _server.IsStopping ? null : await _manager.ResolveAsync(cancellationToken).ConfigureAwait(false);
+        if (_server.IsStopping || _hubPolicy is { DirectLinkDenied: true })
+        {
+            return null;
+        }
+
+        return await _manager.ResolveAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private void OnHubPolicyChanged(object? sender, EventArgs e)
+    {
+        // A denial ends the connection (the connector drops it when there is nothing to dial); the end of a denial dials again.
+        _connector?.Reconfigure();
     }
 
     private Task<int?> ServeAsync(WebSocket socket, CancellationToken cancellationToken)

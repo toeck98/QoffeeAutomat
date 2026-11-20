@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
+using QoffeeAutomat.Contracts.Hub;
 using QoffeeAutomat.Ui.Components.Api;
 using QoffeeAutomat.Ui.Components.Services;
 
@@ -34,6 +35,7 @@ public partial class CommandsPage
     private bool _loading = true;
     private string? _search;
     private string? _platformOs;
+    private HubConfigState? _hub;
     private SwitchFilter _enabledFilter;
     private SwitchFilter _exposeFilter;
     private string _actionFilter = CommandFilter.All;
@@ -47,6 +49,9 @@ public partial class CommandsPage
 
     [Inject]
     private IDialogService Dialogs { get; set; } = null!;
+
+    [Inject]
+    private IAppLinks Links { get; set; } = null!;
 
     private CommandFilter Filter => new()
     {
@@ -66,7 +71,7 @@ public partial class CommandsPage
         _loading = false;
     }
 
-    private static string EditHref(CommandDocument command) => "/commands/" + Uri.EscapeDataString(command.Id);
+    private string EditHref(CommandDocument command) => Links.Resolve("/commands/" + Uri.EscapeDataString(command.Id));
 
     private static string Aria(string action, CommandDocument command) => action + ": " + command.Name;
 
@@ -193,8 +198,30 @@ public partial class CommandsPage
         }
 
         await LoadPlatformAsync();
+        await LoadHubAsync();
         await LoadRunsAsync();
     }
+
+    /// <summary>Reads what the hub configured (T908), to show the origin of the commands and to switch editing off. Without it nothing is read-only.</summary>
+    private async Task LoadHubAsync()
+    {
+        try
+        {
+            _hub = await Api.GetHubConfigAsync();
+        }
+        catch (ApiException)
+        {
+            _hub = null;
+        }
+    }
+
+    /// <summary>True while the hub locks the local configuration: commands cannot be created, changed or deleted here.</summary>
+    private bool IsLocked => HubConfigAccess.IsLocked(_hub);
+
+    /// <summary>True when the command cannot be changed here: it comes from the hub, or the local configuration is locked.</summary>
+    private bool IsReadOnly(CommandDocument command) => HubConfigAccess.IsReadOnly(_hub, command.Origin);
+
+    private IReadOnlyList<HubShadowedItem> ShadowedCommands => HubConfigAccess.ShadowedOf(_hub, DocumentKinds.Command);
 
     /// <summary>Reads the operating system of the agent, to flag the commands that it cannot run (T803). Without it nothing is flagged.</summary>
     private async Task LoadPlatformAsync()

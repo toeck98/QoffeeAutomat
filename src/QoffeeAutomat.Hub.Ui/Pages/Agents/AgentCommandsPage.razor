@@ -1,0 +1,14 @@
+@page "/agents/{AgentId}/commands"
+@using QoffeeAutomat.Ui.Components.Pages.Commands
+
+@* The commands of the agent with the run button and its live output (the component library, through the tunnel). Operators and administrators
+   may run; the hub refuses a viewer's request whatever this page shows. *@
+<AgentPageFrame AgentId="@AgentId" Tab="commands" MinRole="@HubRoleNames.Operator">
+  <CommandsPage />
+</AgentPageFrame>
+
+@code {
+  /// <summary>The id of the agent.</summary>
+  [Parameter]
+  public string AgentId { get; set; } = string.Empty;
+}

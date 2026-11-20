@@ -1,0 +1,177 @@
+@page "/access"
+@using QoffeeAutomat.Hub.Ui.Pages.Fleet
+@inherits HubComponentBase
+
+@* Home Assistant and tools (PLAN.md S20 "Fleet link", D-031, T915): the pairing code that connects Home Assistant to the fleet link, and the fleet
+   tokens that exist, with the agents each of them may see. Administrators only. *@
+<MudText Typo="Typo.h4" GutterBottom="true">@H["Access.Title"]</MudText>
+
+<RoleGate Role="@HubRoleNames.Admin">
+  <HubErrorDisplay Error="Error" Class="mb-4" />
+  @if (_notice is not null)
+  {
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4" data-testid="access-notice">@_notice</MudAlert>
+  }
+
+  <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="pairing-form">
+    <MudText Typo="Typo.h6" Class="mb-2">@H["Access.Pairing"]</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@H["Access.PairingIntro"]</MudText>
+    <MudGrid Spacing="2">
+      <MudItem xs="12" md="4">
+        <MudTextField T="string" @bind-Value="_name" Immediate="true" Label="@H["Access.Name"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+      </MudItem>
+      <MudItem xs="12" md="4">
+        <SelectBox Label="@H["Access.Scope"]" Value="@_scope" ValueChanged="@(value => _scope = value)" TestId="pairing-scope">
+          <option value="all" selected="@(_scope == "all")">@H["Access.Scope.All"]</option>
+          <option value="tags" selected="@(_scope == "tags")">@H.Format("Access.Scope.Tags", "…")</option>
+        </SelectBox>
+      </MudItem>
+      @if (_scope == "tags")
+      {
+        <MudItem xs="12" md="4">
+          <MudTextField T="string" @bind-Value="_tags" Immediate="true" Label="@H["Enrollment.Tags"]" HelperText="@H["Agent.TagsHelp"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </MudItem>
+      }
+    </MudGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled="Busy" OnClick="StartPairingAsync" data-testid="pairing-start">@H["Access.PairingStart"]</MudButton>
+  </MudPaper>
+
+  @if (_pairing is { } pairing)
+  {
+    <MudPaper Class="pa-4 mb-4 qa-card" Elevation="1" data-testid="pairing-active">
+      <MudText Typo="Typo.h6" Class="mb-2">@H["Access.PairingCode"]</MudText>
+      <code class="qh-secret mb-2" data-testid="pairing-code">@pairing.Code</code>
+      <MudText Typo="Typo.body2" data-testid="pairing-expires">@H.Format("Access.PairingExpires", Time(pairing.ExpiresAt))</MudText>
+      <MudText Typo="Typo.body2" data-testid="pairing-scope-text">@ScopeText(pairing.Scope)</MudText>
+      @if (pairing.Fingerprint is not null)
+      {
+        <MudText Typo="Typo.body2" Class="mt-2">@H["Access.Fingerprint"]</MudText>
+        <code class="qh-secret" data-testid="pairing-fingerprint">@pairing.Fingerprint</code>
+      }
+      <MudButton Variant="Variant.Text" Color="Color.Error" Class="mt-2" Disabled="Busy" OnClick="CancelPairingAsync" data-testid="pairing-cancel">@H["Access.PairingCancel"]</MudButton>
+    </MudPaper>
+  }
+
+  <MudPaper Class="qa-card mb-2" Elevation="1" data-testid="fleet-tokens">
+    <MudText Typo="Typo.h6" Class="pa-4 pb-0">@H["Access.Tokens"]</MudText>
+    @if (_tokens.Count == 0)
+    {
+      <MudText Color="Color.Secondary" Class="pa-4" data-testid="fleet-tokens-none">@H["Access.TokensNone"]</MudText>
+    }
+    else
+    {
+      <MudSimpleTable Dense="true" Hover="true">
+        <thead>
+          <tr>
+            <th>@H["Access.Name"]</th>
+            <th>@H["Access.Client"]</th>
+            <th>@H["Access.Scope"]</th>
+            <th>@H["Access.CreatedBy"]</th>
+            <th>@H["Access.LastUsed"]</th>
+            <th>@H["Access.Connections"]</th>
+            <th>@H["Fleet.Column.State"]</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (FleetTokenSummary token in _tokens)
+          {
+            <tr @key="token.Id" data-testid="@($"fleet-token-{token.Id}")" data-active="@(token.Active ? "true" : "false")">
+              <td>@token.Name<MudText Typo="Typo.caption" Color="Color.Secondary">@token.Prefix…</MudText></td>
+              <td>@(H.Find("Access.Kind." + token.ClientKind) ?? token.ClientKind) @token.ClientName</td>
+              <td>@ScopeText(token.Scope)</td>
+              <td>@token.CreatedBy<MudText Typo="Typo.caption" Color="Color.Secondary">@Time(token.CreatedAt)</MudText></td>
+              <td>@Time(token.LastUsedAt)</td>
+              <td>@token.Connections</td>
+              <td>@(token.Active ? H["Access.Active"] : H["Access.Revoked"])</td>
+              <td class="qa-row-actions">
+                @if (token.Active)
+                {
+                  if (_revoking == token.Id)
+                  {
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" Disabled="Busy" OnClick="@(() => RevokeAsync(token.Id))" data-testid="@($"fleet-revoke-confirm-{token.Id}")">@H["Common.Confirm"]</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _revoking = null)">@H["Common.Cancel"]</MudButton>
+                  }
+                  else
+                  {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => _revoking = token.Id)" data-testid="@($"fleet-revoke-{token.Id}")">@H["Enrollment.Revoke"]</MudButton>
+                  }
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </MudSimpleTable>
+    }
+  </MudPaper>
+</RoleGate>
+
+@code {
+  private IReadOnlyList<FleetTokenSummary> _tokens = [];
+  private FleetPairingInfo? _pairing;
+  private string? _notice;
+  private string? _revoking;
+  private string? _name;
+  private string? _tags;
+  private string _scope = "all";
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (Can(HubRoleNames.Admin))
+    {
+      await LoadAsync();
+    }
+  }
+
+  private string ScopeText(FleetScopeSummary scope)
+  {
+    return scope.Type == "tags"
+        ? H.Format("Access.Scope.Tags", string.Join(", ", scope.Tags))
+        : H["Access.Scope.All"];
+  }
+
+  private async Task LoadAsync()
+  {
+    FleetTokenList? list = null;
+    if (await TryAsync(async () => list = await Api.GetFleetTokensAsync()) && list is not null)
+    {
+      _tokens = list.Tokens;
+    }
+  }
+
+  private async Task StartPairingAsync()
+  {
+    _notice = null;
+    bool byTags = _scope == "tags";
+    var request = new CreateFleetPairingRequest(
+        string.IsNullOrWhiteSpace(_name) ? null : _name.Trim(),
+        _scope,
+        byTags ? FleetFilter.ParseTags(_tags) : null);
+    FleetPairingInfo? started = null;
+    if (await TryAsync(async () => started = await Api.StartFleetPairingAsync(request)))
+    {
+      _pairing = started;
+    }
+  }
+
+  private async Task CancelPairingAsync()
+  {
+    _notice = null;
+    if (await TryAsync(() => Api.CancelFleetPairingAsync()))
+    {
+      _pairing = null;
+      _notice = H["Access.PairingCancelled"];
+    }
+  }
+
+  private async Task RevokeAsync(string id)
+  {
+    _notice = null;
+    _revoking = null;
+    if (await TryAsync(() => Api.RevokeFleetTokenAsync(id)))
+    {
+      _notice = H["Access.TokenRevoked"];
+      await LoadAsync();
+    }
+  }
+}

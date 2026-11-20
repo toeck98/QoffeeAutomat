@@ -1,5 +1,5 @@
 using System.Globalization;
-using QoffeeAutomat.Agent.Security.Auth;
+using QoffeeAutomat.Core.Security;
 
 namespace QoffeeAutomat.Agent.Tests.Auth;
 

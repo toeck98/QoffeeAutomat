@@ -9,7 +9,9 @@
   <MudButton Variant="Variant.Filled"
              Color="Color.Primary"
              StartIcon="@Icons.Material.Filled.Add"
-             Href="/sensors/new"
+             Href="@Links.Resolve("/sensors/new")"
+             Disabled="IsLocked"
+             title="@(IsLocked ? L["Hub.Locked.Editing"] : null)"
              data-testid="sensor-new">@L["Sensors.New"]</MudButton>
 </div>
 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">@L["Sensors.Intro"]</MudText>
@@ -57,7 +59,7 @@ else
         {
           <tr @key="sensor.Id" data-testid="@($"sensor-{sensor.Id}")" data-enabled="@(sensor.Enabled ? "true" : "false")">
             <td>
-              <div class="qa-command-name">@sensor.Name</div>
+              <div class="qa-command-name">@sensor.Name <OriginChip Managed="HubConfigAccess.IsManaged(_hub)" Origin="@sensor.Origin" TestId="@($"origin-{sensor.Id}")" /></div>
               <div class="qa-muted"><code>@sensor.Id</code></div>
               @if (!string.IsNullOrWhiteSpace(sensor.Description))
               {
@@ -94,7 +96,7 @@ else
               <MudIconButton Icon="@Icons.Material.Filled.Delete"
                              Size="Size.Small"
                              Color="Color.Error"
-                             Disabled="IsBusy(sensor)"
+                             Disabled="@(IsBusy(sensor) || IsReadOnly(sensor))"
                              OnClick="@(() => DeleteAsync(sensor))"
                              aria-label="@Aria(L["Sensors.Delete"], sensor)"
                              title="@L["Sensors.Delete"]"
@@ -104,5 +106,19 @@ else
         }
       </tbody>
     </MudSimpleTable>
+  </MudPaper>
+}
+
+@if (!_loading && ShadowedSensors.Count > 0)
+{
+  <MudPaper Class="pa-3 mt-4 qa-card" Elevation="1" data-testid="sensors-shadowed">
+    <MudText Typo="Typo.subtitle1">@L["Hub.Shadowed.Title"]</MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary">@L["Hub.Shadowed.Help"]</MudText>
+    <ul class="qa-error-list">
+      @foreach (HubShadowedItem item in ShadowedSensors)
+      {
+        <li data-testid="@($"shadowed-{item.Id}")" data-reason="@item.Reason"><code>@item.Id</code> @(L["Hub.Shadow.Reason." + item.Reason])</li>
+      }
+    </ul>
   </MudPaper>
 }

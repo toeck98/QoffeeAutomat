@@ -11,16 +11,29 @@ Checks, using only the Python standard library:
 * the rev of the manifest fixture equals the SHA-256 based value defined in S07 and the
   manifest_rev of the hello fixtures matches it;
 * the same for the configuration documents under schema/config/ and fixtures/config/;
+* the same for the hub extensions of PLAN.md S20 (task T901) under schema/hub/ and
+  fixtures/hub/: enrollment, config_sync, mgmt_tunnel and the fleet link;
+* in the hub fixtures: the hash of every document equals the SHA-256 of its canonical
+  JSON body (of the UTF-8 text for scripts), the items of config_desired.json are
+  exactly the documents of config_documents.json, and every enrollment_string fixture
+  decodes to the enrollment_payload fixture of the same variant;
 * no file is named config.yaml, config.yml or config.json (D-034).
 
 Usage:
     python scripts/dev/validate_protocol.py [--protocol-dir DIR] [--update-rev]
+                                            [--update-derived]
 
 --update-rev recomputes rev in fixtures/manifest.json and manifest_rev in the hello
-fixtures, then validates. Exit status: 0 when everything is valid, 1 otherwise.
+fixtures, then validates. --update-derived recomputes the values of the hub fixtures
+that are derived from other content (document hashes in config_documents*.json and
+config_desired.json, the enrollment_string fixtures), then validates; run it after
+editing a hub document body or an enrollment payload. Exit status: 0 when everything
+is valid, 1 otherwise.
 """
 
 import argparse
+import base64
+import binascii
 import hashlib
 import json
 import re
@@ -47,6 +60,52 @@ MESSAGE_TYPES = (
 )
 OTHER_SCHEMAS = ("manifest", "pair_request", "pair_response")
 CONFIG_SCHEMAS = ("command", "sensor", "mode", "metrics", "settings")
+# Hub extensions (PLAN.md S20, T901). Fixture prefix selects the schema in schema/hub/.
+# hub/message.schema.json dispatches these on t alone ...
+HUB_MESSAGES = (
+    "config_desired",
+    "config_documents",
+    "config_status",
+    "mgmt_request",
+    "mgmt_stream_open",
+    "mgmt_stream_data",
+    "mgmt_stream_close",
+    "credential_rotate",
+    "unenroll",
+    "get_agents",
+    "agent_added",
+    "agent_removed",
+    "agent_status",
+)
+# ... and these by the member a (agent-scoped S07 messages) or hub (the fleet hello);
+# a frame without that member is not recognised by the dispatch schema, so invalid
+# fixtures are only checked against their own schema.
+HUB_SCOPED_MESSAGES = (
+    "fleet_hello",
+    "fleet_get_manifest",
+    "fleet_subscribe",
+    "fleet_run",
+    "fleet_manifest_changed",
+    "fleet_state",
+    "fleet_event",
+)
+# Result frames whose data has the shape of the answer to a hub request.
+HUB_RESULTS = (
+    "result_get_agents",
+    "result_config_desired",
+    "result_mgmt_request",
+    "result_mgmt_stream_open",
+    "result_hub_error",
+)
+HUB_OTHER_SCHEMAS = (
+    "enrollment_payload",
+    "enrollment_string",
+    "enroll_request",
+    "enroll_response",
+    "pair_response",
+)
+HUB_SCHEMAS = (*HUB_MESSAGES, *HUB_SCOPED_MESSAGES, *HUB_RESULTS, *HUB_OTHER_SCHEMAS)
+ENROLLMENT_STRING_PREFIX = "qahub1."
 FORBIDDEN_FILE_NAMES = {"config.yaml", "config.yml", "config.json"}
 
 # Keywords that are only annotations for this validator.
@@ -95,6 +154,7 @@ APPLICATORS = {
 CANONICAL_NUMBER = re.compile(r"^-?(0|[1-9][0-9]*)(\.[0-9]*[1-9])?$")
 REV_IN_MANIFEST = re.compile(r'("rev"\s*:\s*")[0-9a-f]{12}(")')
 REV_IN_HELLO = re.compile(r'("manifest_rev"\s*:\s*")[0-9a-f]{12}(")')
+HASH_MEMBER = re.compile(r'("hash"\s*:\s*")[0-9a-f]{64}(")')
 
 
 class RawNumber(float):
@@ -178,6 +238,39 @@ def compute_rev(manifest: dict[str, Any]) -> str:
     body = {key: item for key, item in manifest.items() if key != "rev"}
     digest = hashlib.sha256(canonical_json(body).encode("utf-8")).hexdigest()
     return digest[:12]
+
+
+def document_hash(kind: str, body: Any) -> str:
+    """SHA-256 (hex) of a hub document: canonical JSON or UTF-8 text for scripts."""
+    if kind == "script":
+        if not isinstance(body, str):
+            msg = "the body of a script must be text"
+            raise TypeError(msg)
+        raw = body.encode("utf-8")
+    else:
+        raw = canonical_json(body).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def decode_enrollment_string(text: str) -> Any:
+    """Decode qahub1.<base64url(JSON)> (PLAN.md S20); raises ValueError if malformed."""
+    if not text.startswith(ENROLLMENT_STRING_PREFIX):
+        msg = f"does not start with {ENROLLMENT_STRING_PREFIX!r}"
+        raise ValueError(msg)
+    body = text[len(ENROLLMENT_STRING_PREFIX) :]
+    try:
+        raw = base64.urlsafe_b64decode(body + "=" * (-len(body) % 4))
+        return json.loads(raw.decode("utf-8"))
+    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as error:
+        msg = f"payload is not base64url JSON ({error})"
+        raise ValueError(msg) from error
+
+
+def encode_enrollment_string(payload: Any) -> str:
+    """Encode an enrollment payload as an enrollment string."""
+    compact = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+    encoded = base64.urlsafe_b64encode(compact.encode("utf-8")).decode("ascii")
+    return ENROLLMENT_STRING_PREFIX + encoded.rstrip("=")
 
 
 # ---------------------------------------------------------------------------
@@ -442,10 +535,21 @@ class Checker:
     def _uri(self, relative: str) -> str:
         return f"https://github.com/toeck98/QoffeeAutomat/protocol/schema/{relative}"
 
-    def _schema_for(self, prefix: str, *, config: bool) -> list[str]:
+    def _schema_for(
+        self, prefix: str, *, family: str, must_be_valid: bool = True
+    ) -> list[str]:
         """Schema URIs a fixture with this prefix must be checked against."""
-        if config:
+        if family == "config":
             return [self._uri(f"config/{prefix}.schema.json")]
+        if family == "hub":
+            if prefix == "message":
+                return [self._uri("hub/message.schema.json")]
+            uris = [self._uri(f"hub/{prefix}.schema.json")]
+            if prefix in HUB_MESSAGES or (
+                must_be_valid and prefix in HUB_SCOPED_MESSAGES
+            ):
+                uris.append(self._uri("hub/message.schema.json"))
+            return uris
         uris = [self._uri(f"{prefix}.schema.json")]
         if prefix in MESSAGE_TYPES:
             uris.append(self._uri("message.schema.json"))
@@ -453,9 +557,13 @@ class Checker:
             uris = [self._uri("message.schema.json")]
         return uris
 
-    def _check_files(self, folder: Path, *, config: bool, must_be_valid: bool) -> None:
-        known: tuple[str, ...] = CONFIG_SCHEMAS
-        if not config:
+    def _check_files(self, folder: Path, *, family: str, must_be_valid: bool) -> None:
+        known: tuple[str, ...]
+        if family == "config":
+            known = CONFIG_SCHEMAS
+        elif family == "hub":
+            known = (*HUB_SCHEMAS, "message")
+        else:
             known = (*MESSAGE_TYPES, *OTHER_SCHEMAS, "message")
         for path in _json_files(folder):
             rel = path.relative_to(self.dir)
@@ -467,7 +575,9 @@ class Checker:
             except json.JSONDecodeError as error:
                 self.problems.append(f"{rel}: not valid JSON ({error})")
                 continue
-            for uri in self._schema_for(_prefix(path), config=config):
+            for uri in self._schema_for(
+                _prefix(path), family=family, must_be_valid=must_be_valid
+            ):
                 if uri not in self.schemas.documents:
                     self.problems.append(f"{rel}: schema {uri} does not exist")
                     continue
@@ -491,6 +601,75 @@ class Checker:
         for name in CONFIG_SCHEMAS:
             if not (self.schema_dir / "config" / f"{name}.schema.json").exists():
                 self.problems.append(f"no config schema for {name!r}")
+        for name in (*HUB_SCHEMAS, "message", "defs"):
+            if not (self.schema_dir / "hub" / f"{name}.schema.json").exists():
+                self.problems.append(f"no hub schema for {name!r}")
+
+    def check_hub_fixtures(self) -> None:
+        """Cross-checks of the hub fixtures that a schema cannot express."""
+        hub = self.fixture_dir / "hub"
+        expected: dict[tuple[str, str], str] = {}
+        for path in _json_files(hub):
+            rel = path.relative_to(self.dir)
+            prefix = _prefix(path)
+            if prefix == "config_documents":
+                for document in load_json(path)["documents"]:
+                    key = (document["kind"], document["id"])
+                    actual = document_hash(document["kind"], document["body"])
+                    if document["hash"] != actual:
+                        self.problems.append(
+                            f"{rel}: hash of {key[0]}/{key[1]} is {document['hash']}, "
+                            f"expected {actual} (run with --update-derived)"
+                        )
+                    expected[key] = actual
+            elif prefix == "enrollment_string":
+                self._check_enrollment_string(path)
+        desired_path = hub / "config_desired.json"
+        documents_path = hub / "config_documents.json"
+        if not desired_path.exists() or not documents_path.exists():
+            return
+        full = {
+            (document["kind"], document["id"])
+            for document in load_json(documents_path)["documents"]
+        }
+        listed = set()
+        for item in load_json(desired_path)["items"]:
+            key = (item["kind"], item["id"])
+            listed.add(key)
+            if key in expected and item["hash"] != expected[key]:
+                self.problems.append(
+                    f"fixtures/hub/config_desired.json: hash of {key[0]}/{key[1]} is "
+                    f"{item['hash']}, expected {expected[key]} "
+                    "(run with --update-derived)"
+                )
+        if listed != full:
+            self.problems.append(
+                "fixtures/hub/config_desired.json: items must be exactly the documents "
+                "of config_documents.json"
+            )
+
+    def _check_enrollment_string(self, path: Path) -> None:
+        rel = path.relative_to(self.dir)
+        payload_path = path.with_name(
+            path.name.replace("enrollment_string", "enrollment_payload", 1)
+        )
+        if not payload_path.exists():
+            self.problems.append(f"{rel}: no matching {payload_path.name}")
+            return
+        text = load_json(path)
+        if not isinstance(text, str):
+            self.problems.append(f"{rel}: must be a JSON string")
+            return
+        try:
+            decoded = decode_enrollment_string(text)
+        except ValueError as error:
+            self.problems.append(f"{rel}: {error} (run with --update-derived)")
+            return
+        if not _json_equal(decoded, load_json(payload_path)):
+            self.problems.append(
+                f"{rel}: does not decode to {payload_path.name} "
+                "(run with --update-derived)"
+            )
 
     def check_revisions(self) -> None:
         manifest_path = self.fixture_dir / "manifest.json"
@@ -524,17 +703,26 @@ class Checker:
 
     def run(self) -> list[str]:
         fixtures = self.fixture_dir
-        self._check_files(fixtures, config=False, must_be_valid=True)
-        self._check_files(fixtures / "forward_compat", config=False, must_be_valid=True)
-        self._check_files(fixtures / "invalid", config=False, must_be_valid=False)
-        self._check_files(fixtures / "config", config=True, must_be_valid=True)
+        hub = fixtures / "hub"
+        self._check_files(fixtures, family="core", must_be_valid=True)
         self._check_files(
-            fixtures / "config" / "invalid", config=True, must_be_valid=False
+            fixtures / "forward_compat", family="core", must_be_valid=True
         )
+        self._check_files(fixtures / "invalid", family="core", must_be_valid=False)
+        self._check_files(fixtures / "config", family="config", must_be_valid=True)
+        self._check_files(
+            fixtures / "config" / "invalid", family="config", must_be_valid=False
+        )
+        self._check_files(hub, family="hub", must_be_valid=True)
+        self._check_files(hub / "forward_compat", family="hub", must_be_valid=True)
+        self._check_files(hub / "invalid", family="hub", must_be_valid=False)
         self._check_schema_files()
         self._check_coverage(fixtures, (*MESSAGE_TYPES, *OTHER_SCHEMAS), "valid")
         self._check_coverage(fixtures / "config", CONFIG_SCHEMAS, "valid config")
         self._check_coverage(fixtures / "invalid", ("message",), "invalid")
+        self._check_coverage(hub, HUB_SCHEMAS, "valid hub")
+        self._check_coverage(hub / "invalid", ("message",), "invalid hub")
+        self.check_hub_fixtures()
         self.check_revisions()
         self.check_forbidden_names()
         return self.problems
@@ -560,14 +748,63 @@ def update_revisions(protocol_dir: Path) -> None:
     print(f"rev updated to {rev}")
 
 
+def _replace_hashes(path: Path, digests: list[str]) -> None:
+    """Replace the hash members of a fixture, in order, by the given digests."""
+    text = path.read_text(encoding="utf-8")
+    if len(HASH_MEMBER.findall(text)) != len(digests):
+        msg = f"{path}: expected {len(digests)} hash members"
+        raise SystemExit(msg)
+    remaining = iter(digests)
+    path.write_text(
+        HASH_MEMBER.sub(lambda m: f"{m.group(1)}{next(remaining)}{m.group(2)}", text),
+        encoding="utf-8",
+    )
+
+
+def update_derived(protocol_dir: Path) -> None:
+    """Recompute the hub fixture values that are derived from other content."""
+    hub = protocol_dir / "fixtures" / "hub"
+    digests: dict[tuple[str, str], str] = {}
+    for path in _json_files(hub):
+        if _prefix(path) != "config_documents":
+            continue
+        documents = load_json(path)["documents"]
+        computed = [document_hash(d["kind"], d["body"]) for d in documents]
+        digests.update(
+            {
+                (d["kind"], d["id"]): digest
+                for d, digest in zip(documents, computed, strict=True)
+            }
+        )
+        _replace_hashes(path, computed)
+    desired = hub / "config_desired.json"
+    if desired.exists():
+        items = load_json(desired)["items"]
+        _replace_hashes(desired, [digests[(i["kind"], i["id"])] for i in items])
+    for path in _json_files(hub):
+        if _prefix(path) != "enrollment_string":
+            continue
+        payload_path = path.with_name(
+            path.name.replace("enrollment_string", "enrollment_payload", 1)
+        )
+        payload = json.loads(payload_path.read_text(encoding="utf-8"))
+        path.write_text(
+            json.dumps(encode_enrollment_string(payload)) + "\n", encoding="utf-8"
+        )
+    print(f"hub fixtures updated ({len(digests)} document hashes)")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", maxsplit=1)[0])
     parser.add_argument("--protocol-dir", type=Path, default=DEFAULT_PROTOCOL_DIR)
     parser.add_argument("--update-rev", action="store_true")
+    parser.add_argument("--update-derived", action="store_true")
     args = parser.parse_args(argv)
 
     if args.update_rev:
         update_revisions(args.protocol_dir)
+    if args.update_derived:
+        update_derived(args.protocol_dir)
     checker = Checker(args.protocol_dir)
     problems = checker.run()
     if problems:

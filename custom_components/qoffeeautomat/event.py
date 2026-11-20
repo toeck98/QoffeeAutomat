@@ -24,10 +24,10 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN, EVENT_QOFFEEAUTOMAT, EVENT_TYPE_BOOTED
-from .entity import QoffeeAutomatEntity
+from .entity import QoffeeAutomatEntity, async_setup_agents
 from .manifest_manager import ManifestDiff
 from .protocol import Event
-from .runtime import QoffeeAutomatConfigEntry, QoffeeAutomatRuntimeData
+from .runtime import OnUnload, QoffeeAutomatConfigEntry, QoffeeAutomatRuntimeData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,33 +51,37 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the event entity and fire the bus event for agent events."""
-    runtime = entry.runtime_data
 
-    @callback
-    def fire(event_type: str, data: Mapping[str, Any]) -> None:
-        device = dr.async_get(hass).async_get_device_by_identifier(
-            (DOMAIN, runtime.agent_id), entry.entry_id
-        )
-        hass.bus.async_fire(
-            EVENT_QOFFEEAUTOMAT,
-            {
-                "device_id": device.id if device is not None else None,
-                "type": event_type,
-                "data": dict(data),
-            },
-        )
+    async def setup_agent(
+        runtime: QoffeeAutomatRuntimeData, on_unload: OnUnload
+    ) -> None:
+        @callback
+        def fire(event_type: str, data: Mapping[str, Any]) -> None:
+            device = dr.async_get(hass).async_get_device_by_identifier(
+                (DOMAIN, runtime.agent_id), entry.entry_id
+            )
+            hass.bus.async_fire(
+                EVENT_QOFFEEAUTOMAT,
+                {
+                    "device_id": device.id if device is not None else None,
+                    "type": event_type,
+                    "data": dict(data),
+                },
+            )
 
-    @callback
-    def on_event(frame: Event) -> None:
-        fire(frame.type, frame.data)
+        @callback
+        def on_event(frame: Event) -> None:
+            fire(frame.type, frame.data)
 
-    @callback
-    def on_booted() -> None:
-        fire(EVENT_TYPE_BOOTED, {})
+        @callback
+        def on_booted() -> None:
+            fire(EVENT_TYPE_BOOTED, {})
 
-    async_add_entities([QoffeeAutomatEventEntity(runtime)])
-    entry.async_on_unload(runtime.client.add_event_listener(on_event))
-    entry.async_on_unload(runtime.connection.add_booted_listener(on_booted))
+        async_add_entities([QoffeeAutomatEventEntity(runtime)])
+        on_unload(runtime.client.add_event_listener(on_event))
+        on_unload(runtime.connection.add_booted_listener(on_booted))
+
+    await async_setup_agents(entry, setup_agent)
 
 
 class QoffeeAutomatEventEntity(QoffeeAutomatEntity, EventEntity):

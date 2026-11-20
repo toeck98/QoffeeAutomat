@@ -1,0 +1,24 @@
+@inherits HubComponentBase
+
+@* The navigation. Every address is relative to the base address of the app, so the menu works below a path prefix (Home Assistant ingress).
+   What the role may not use is not shown; the hub refuses it as well. *@
+<MudNavMenu>
+  <MudNavLink Href="agents" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Devices">@H["Nav.Fleet"]</MudNavLink>
+  @* Configuration and metrics (T916): every role may look at them; the pages show what the role may change. *@
+  <MudNavLink Href="library" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.LibraryBooks">@H["Nav.Library"]</MudNavLink>
+  <MudNavLink Href="profiles" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Layers">@H["Nav.Profiles"]</MudNavLink>
+  <MudNavLink Href="assignments" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Assignment">@H["Nav.Assignments"]</MudNavLink>
+  <MudNavLink Href="rollouts" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Sync">@H["Nav.Rollouts"]</MudNavLink>
+  <MudNavLink Href="metrics" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ShowChart">@H["Nav.Metrics"]</MudNavLink>
+  @* Fleet actions (T917): every role may open the page; it offers bulk runs to operators and updates to administrators. *@
+  <MudNavLink Href="actions" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PlaylistPlay" data-testid="nav-actions">@H["Nav.Actions"]</MudNavLink>
+  @if (Can(HubRoleNames.Admin))
+  {
+    <MudNavLink Href="enrollment" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PersonAdd">@H["Nav.Enrollment"]</MudNavLink>
+    <MudNavLink Href="access" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Link">@H["Nav.Access"]</MudNavLink>
+    <MudNavLink Href="users" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">@H["Nav.Users"]</MudNavLink>
+    <MudNavLink Href="tokens" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.VpnKey">@H["Nav.Tokens"]</MudNavLink>
+    <MudNavLink Href="audit" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.History">@H["Nav.Audit"]</MudNavLink>
+  }
+  <MudNavLink Href="settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">@H["Nav.Settings"]</MudNavLink>
+</MudNavMenu>

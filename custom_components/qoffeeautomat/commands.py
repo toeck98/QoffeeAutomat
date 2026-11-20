@@ -19,6 +19,7 @@ from .client import (
 )
 from .const import DOMAIN
 from .protocol import (
+    ERROR_AGENT_OFFLINE,
     ERROR_BAD_REQUEST,
     ERROR_COMMAND_DISABLED,
     ERROR_INVALID_VARS,
@@ -50,7 +51,8 @@ def translate_error(command: str, error: QoffeeLinkError) -> HomeAssistantError:
                 translation_key="command_rejected",
                 translation_placeholders=placeholders,
             )
-        key = "command_failed"
+        # The hub answers for an agent that is off (route through the hub, S20).
+        key = "agent_offline" if error.code == ERROR_AGENT_OFFLINE else "command_failed"
     elif isinstance(error, NotConnectedError):
         key = "agent_offline"
     elif isinstance(error, RequestTimeoutError):

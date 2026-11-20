@@ -59,6 +59,7 @@
   <data name="Error.setup_unavailable" xml:space="preserve"><value>First-run setup is not available: a password is already set.</value></data>
   <data name="Error.validation_failed" xml:space="preserve"><value>The request has validation errors.</value></data>
   <data name="Error.http" xml:space="preserve"><value>The agent answered with status {0}.</value></data>
+  <data name="Error.no_test_target" xml:space="preserve"><value>Choose an online PC to run the draft on (hub library).</value></data>
 
   <data name="Dashboard.Title" xml:space="preserve"><value>Dashboard</value></data>
   <data name="Dashboard.Agent" xml:space="preserve"><value>Agent</value></data>
@@ -918,4 +919,21 @@
   <data name="Templates.ModeDefault" xml:space="preserve"><value>Default mode</value></data>
   <data name="Templates.ModeList" xml:space="preserve"><value>Modes</value></data>
   <data name="Templates.Type.mode" xml:space="preserve"><value>Mode group</value></data>
+  <data name="Hub.Origin.Hub" xml:space="preserve"><value>Hub</value></data>
+  <data name="Hub.Origin.Hub.Help" xml:space="preserve"><value>This document comes from the hub that manages this PC. It is read-only here; change it on the hub.</value></data>
+  <data name="Hub.Origin.Local" xml:space="preserve"><value>Local</value></data>
+  <data name="Hub.Origin.Local.Help" xml:space="preserve"><value>This document was written on this PC.</value></data>
+  <data name="Hub.Origin.Shadowed" xml:space="preserve"><value>Local, not in use</value></data>
+  <data name="Hub.Banner.Title" xml:space="preserve"><value>This PC is managed by a hub</value></data>
+  <data name="Hub.Banner.Generation" xml:space="preserve"><value>Configuration generation of the hub: {0}.</value></data>
+  <data name="Hub.Banner.Locked" xml:space="preserve"><value>The hub locked the local configuration: commands, sensors, scripts and metric overrides can only be changed on the hub. You can still view them, change the password and leave the hub.</value></data>
+  <data name="Hub.Banner.DirectLinkDenied" xml:space="preserve"><value>The hub does not allow direct connections of Home Assistant: this PC is not announced on the network, pairing is switched off and direct clients are disconnected.</value></data>
+  <data name="Hub.Banner.Error" xml:space="preserve"><value>The last configuration of the hub was rejected and the previous one stays active: {0}</value></data>
+  <data name="Hub.ReadOnly" xml:space="preserve"><value>Read-only: this document comes from the hub.</value></data>
+  <data name="Hub.Locked.Editing" xml:space="preserve"><value>Editing is switched off: the hub locked the local configuration.</value></data>
+  <data name="Hub.Shadowed.Title" xml:space="preserve"><value>Local documents that are not in use</value></data>
+  <data name="Hub.Shadowed.Help" xml:space="preserve"><value>These documents are kept. They become active again when the hub withdraws its document or the lock, or when you leave the hub.</value></data>
+  <data name="Hub.Shadow.Reason.hub_document" xml:space="preserve"><value>A hub document with the same id is used instead</value></data>
+  <data name="Hub.Shadow.Reason.local_config_locked" xml:space="preserve"><value>The hub locked the local configuration</value></data>
+  <data name="Hub.Link.DirectDenied" xml:space="preserve"><value>The hub does not allow direct pairing for this PC. Connect Home Assistant to the hub instead.</value></data>
 </root>

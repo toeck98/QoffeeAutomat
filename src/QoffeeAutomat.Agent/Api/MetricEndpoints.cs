@@ -1,4 +1,5 @@
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Hub.ConfigSync;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Core.Config;
@@ -32,12 +33,14 @@ public static class MetricEndpoints
             .Returns<MetricInfo>()
             .Fails(StatusCodes.Status404NotFound);
         api.MapPut("/metrics/{id}", PutOverrideAsync)
+            .GuardsLocalConfig(LocalConfigArea.MetricOverrides)
             .Describe(Tag, "putMetricOverride", "Sets the override of a metric; an override without members removes it. The ETag is the revision of all overrides.")
             .Takes<MetricOverride>()
             .Returns<MetricOverridesDocument>()
             .HonoursIfMatch()
             .Fails(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict, ApiResults.UnprocessableContent);
         api.MapDelete("/metrics/{id}", DeleteOverrideAsync)
+            .GuardsLocalConfig(LocalConfigArea.MetricOverrides)
             .Describe(Tag, "deleteMetricOverride", "Removes the override of a metric.")
             .Returns<MetricOverridesDocument>()
             .HonoursIfMatch()

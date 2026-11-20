@@ -1,5 +1,7 @@
 using System.Text.Json;
 using QoffeeAutomat.Agent.Api.OpenApi;
+using QoffeeAutomat.Agent.Hub;
+using QoffeeAutomat.Agent.Hub.Tunnel;
 using QoffeeAutomat.Contracts.Api;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Contracts.Link;
@@ -87,8 +89,13 @@ public static class RunEndpoints
             return failure;
         }
 
-        RunHandle handle = await engine.StartAsync(new RunRequest(id, body?.Vars, RunSources.Ui, UiClientId), cancellationToken).ConfigureAwait(false);
-        return await OutcomeAsync(handle, id, RunSources.Ui, engine.Registry.TryGet(id), body?.Vars, context).ConfigureAwait(false);
+        // A run that the hub started through the management tunnel (T912) is a run of the hub, for the history and the audit: the hub link is the client, the hub user the user.
+        TunnelIdentity? hub = TunnelIdentity.Of(context);
+        string source = hub is null ? RunSources.Ui : RunSources.Hub;
+        RunHandle handle = await engine.StartAsync(
+            new RunRequest(id, body?.Vars, source, hub is null ? UiClientId : HubLinkService.PeerId, hub?.User),
+            cancellationToken).ConfigureAwait(false);
+        return await OutcomeAsync(handle, id, source, engine.Registry.TryGet(id), body?.Vars, context).ConfigureAwait(false);
     }
 
     private static async Task<IResult> TestCommandAsync(

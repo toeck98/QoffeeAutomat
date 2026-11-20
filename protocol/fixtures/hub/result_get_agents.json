@@ -1,0 +1,43 @@
+{
+  "t": "result",
+  "id": 2,
+  "ok": true,
+  "data": {
+    "agents": [
+      {
+        "id": "5b0c6c1e-8e0a-4f6e-9a57-3d2f3a1c9b77",
+        "name": "Gaming-PC",
+        "online": true,
+        "power_state": "unknown",
+        "manifest_rev": "143ffa0cd221",
+        "agent": {
+          "id": "5b0c6c1e-8e0a-4f6e-9a57-3d2f3a1c9b77",
+          "name": "Gaming-PC",
+          "version": "1.0.0",
+          "os": "windows",
+          "arch": "x64",
+          "hostname": "GAMING-PC",
+          "macs": ["A4:B1:C1:00:11:22"],
+          "ui_url": "https://gaming-pc.local:8481/"
+        }
+      },
+      {
+        "id": "7d3f9a10-2b6c-4e8d-9c11-5a0e4b7f8d21",
+        "name": "Media-PC",
+        "online": false,
+        "power_state": "sleep",
+        "manifest_rev": "143ffa0cd221",
+        "agent": {
+          "id": "7d3f9a10-2b6c-4e8d-9c11-5a0e4b7f8d21",
+          "name": "Media-PC",
+          "version": "1.2.0",
+          "os": "linux",
+          "os_version": "6.12.0",
+          "arch": "arm64",
+          "hostname": "media-pc",
+          "macs": []
+        }
+      }
+    ]
+  }
+}

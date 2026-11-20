@@ -1,0 +1,22 @@
+@inherits HubComponentBase
+
+@* Shows its content to a user whose role is at least the given one, and a notice to everybody else. The page of a role the user lacks is
+   not linked anywhere; this is for the address that is typed or bookmarked. The hub refuses the calls of such a page as well. *@
+@if (Can(Role))
+{
+  @ChildContent
+}
+else
+{
+  <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" data-testid="role-required">@H.Format("Role.Required", H["Role." + Role])</MudAlert>
+}
+
+@code {
+  /// <summary>The role that the content needs at least: one of <see cref="HubRoleNames"/>.</summary>
+  [Parameter]
+  public string Role { get; set; } = HubRoleNames.Admin;
+
+  /// <summary>The content.</summary>
+  [Parameter]
+  public RenderFragment? ChildContent { get; set; }
+}

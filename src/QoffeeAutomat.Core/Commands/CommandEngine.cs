@@ -5,6 +5,7 @@ using System.Text.Json;
 using QoffeeAutomat.Contracts.Config;
 using QoffeeAutomat.Contracts.Link;
 using QoffeeAutomat.Core.Commands.Conditions;
+using QoffeeAutomat.Core.Config.HubLayer;
 using QoffeeAutomat.Core.Events;
 using QoffeeAutomat.Core.History;
 using QoffeeAutomat.Core.Platform;
@@ -692,6 +693,15 @@ public sealed class CommandEngine : IAsyncDisposable
         if (_options.LocalChannel is { } channel)
         {
             foreach ((string name, string value) in channel.ToEnvironment())
+            {
+                environment[name] = value;
+            }
+        }
+
+        // The variables of the hub (T908) come first, so that nothing a hub document names can replace the variables of the run below.
+        if (_options.HubVariables?.Invoke() is { Count: > 0 } hubVariables)
+        {
+            foreach ((string name, string value) in HubVariables.ToEnvironment(hubVariables))
             {
                 environment[name] = value;
             }
