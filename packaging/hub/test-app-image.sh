@@ -30,24 +30,20 @@ image="$1"
 timeout="${2:-120}"
 [[ "$timeout" =~ ^[0-9]+$ ]] || die "TIMEOUT_SECONDS must be a number"
 name="qoffeeautomat-hub-app-test-$$"
-data_dir="$(mktemp -d)"
+vol="qoffeeautomat-hub-app-data-$$"
 
 cleanup() {
   docker rm --force "$name" > /dev/null 2>&1 || true
-  if [[ -d "$data_dir" ]]; then
-    # run.sh changes /data ownership to uid 1654, so remove its contents inside a container before rmdir.
-    docker run --rm --entrypoint sh --volume "$data_dir:/cleanup" "$image" \
-      -c 'rm -rf /cleanup/* /cleanup/.[!.]*' > /dev/null 2>&1 || true
-    rm -rf "$data_dir"
-  fi
+  docker volume rm --force "$vol" > /dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-printf '{"hub_name": "App test hub", "ingress_role": "admin"}\n' > "$data_dir/options.json"
-chmod 0644 "$data_dir/options.json"
+docker volume create "$vol" > /dev/null
+docker run --rm --entrypoint sh --volume "$vol:/data" "$image" -c \
+  'printf "{\"hub_name\": \"App test hub\", \"ingress_role\": \"admin\"}\n" > /data/options.json && chmod 0644 /data/options.json'
 
 echo "Starting $image as $name"
-docker run --detach --name "$name" --volume "$data_dir:/data" "$image" > /dev/null
+docker run --detach --name "$name" --volume "$vol:/data" "$image" > /dev/null
 
 fail() {
   echo "test-app-image.sh: $*" >&2
