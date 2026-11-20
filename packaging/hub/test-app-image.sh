@@ -34,7 +34,12 @@ data_dir="$(mktemp -d)"
 
 cleanup() {
   docker rm --force "$name" > /dev/null 2>&1 || true
-  rm -rf "$data_dir"
+  if [[ -d "$data_dir" ]]; then
+    # run.sh changes /data ownership to uid 1654, so remove its contents inside a container before rmdir.
+    docker run --rm --entrypoint sh --volume "$data_dir:/cleanup" "$image" \
+      -c 'rm -rf /cleanup/* /cleanup/.[!.]*' > /dev/null 2>&1 || true
+    rm -rf "$data_dir"
+  fi
 }
 trap cleanup EXIT
 
