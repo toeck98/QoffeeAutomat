@@ -121,7 +121,14 @@ public sealed class MetricCollector : IAgentGatewayObserver, IHostedService, IDi
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _registration?.Dispose();
-        await _stop.CancelAsync().ConfigureAwait(false);
+        try
+        {
+            await _stop.CancelAsync().ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Dispose may race with StopAsync during host teardown.
+        }
         Task[] running = [.. new[] { _flushLoop, _maintenanceLoop }.OfType<Task>(), .. _background.Keys];
         try
         {
