@@ -45,7 +45,7 @@
   <ItemGroup Label="Blazor">
     <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.15" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.15" />
-    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="11.0.0" />
     <!-- Serves the published WebAssembly files (_framework, with the right media types) from the agent (T401). -->
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.15" />
     <!-- Component library of the UI (D-015). All its CSS, JavaScript and fonts ship inside the package and are served
