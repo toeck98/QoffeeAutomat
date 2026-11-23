@@ -20,7 +20,7 @@
     <!-- SQLite for the run history and the recent events (PLAN.md D-013, T207, T217). Microsoft.Data.Sqlite
          follows the .NET 10 servicing train like the ASP.NET Core packages; it brings the native SQLite
          library for Windows and Linux (SQLitePCLRaw bundle). Dependabot keeps it current. -->
-    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="11.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Windows">
